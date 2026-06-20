@@ -1,0 +1,50 @@
+[
+  {
+    "id": "sim-svt",
+    "lessonId": "motion-1",
+    "title": "Mo phong s = v * t",
+    "formula": "s = v \\times t",
+    "expression": "v * t",
+    "variables": [
+      { "symbol": "v", "label": "Van toc", "unit": "m/s", "min": 1, "max": 30, "defaultValue": 5 },
+      { "symbol": "t", "label": "Thoi gian", "unit": "s", "min": 1, "max": 120, "defaultValue": 10 }
+    ],
+    "result": { "symbol": "s", "label": "Quang duong", "unit": "m" }
+  },
+  {
+    "id": "sim-pfs",
+    "lessonId": "force-1",
+    "title": "Mo phong p = F / S",
+    "formula": "p = \\frac{F}{S}",
+    "expression": "F / S",
+    "variables": [
+      { "symbol": "F", "label": "Ap luc", "unit": "N", "min": 1, "max": 1000, "defaultValue": 100 },
+      { "symbol": "S", "label": "Dien tich", "unit": "m2", "min": 0.1, "max": 20, "defaultValue": 2 }
+    ],
+    "result": { "symbol": "p", "label": "Ap suat", "unit": "Pa" }
+  },
+  {
+    "id": "sim-iur",
+    "lessonId": "electric-1",
+    "title": "Mo phong I = U / R",
+    "formula": "I = \\frac{U}{R}",
+    "expression": "U / R",
+    "variables": [
+      { "symbol": "U", "label": "Hieu dien the", "unit": "V", "min": 0, "max": 220, "defaultValue": 12 },
+      { "symbol": "R", "label": "Dien tro", "unit": "ohm", "min": 1, "max": 100, "defaultValue": 4 }
+    ],
+    "result": { "symbol": "I", "label": "Cuong do dong dien", "unit": "A" }
+  },
+  {
+    "id": "sim-pui",
+    "lessonId": "electric-2",
+    "title": "Mo phong P = U * I",
+    "formula": "P = U \\times I",
+    "expression": "U * I",
+    "variables": [
+      { "symbol": "U", "label": "Hieu dien the", "unit": "V", "min": 1, "max": 220, "defaultValue": 12 },
+      { "symbol": "I", "label": "Cuong do dong dien", "unit": "A", "min": 0.1, "max": 20, "defaultValue": 2 }
+    ],
+    "result": { "symbol": "P", "label": "Cong suat", "unit": "W" }
+  }
+]

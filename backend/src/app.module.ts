@@ -1,0 +1,34 @@
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+
+import { AdminModule } from './modules/admin/admin.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { BadgesModule } from './modules/badges/badges.module';
+import { ChaptersModule } from './modules/chapters/chapters.module';
+import { LessonsModule } from './modules/lessons/lessons.module';
+import { OfflineSyncModule } from './modules/offline-sync/offline-sync.module';
+import { ProgressModule } from './modules/progress/progress.module';
+import { QuestionsModule } from './modules/questions/questions.module';
+import { QuizModule } from './modules/quiz/quiz.module';
+import { SimulationsModule } from './modules/simulations/simulations.module';
+import { StatisticsModule } from './modules/statistics/statistics.module';
+import { UsersModule } from './modules/users/users.module';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    AuthModule,
+    UsersModule,
+    ChaptersModule,
+    LessonsModule,
+    SimulationsModule,
+    QuestionsModule,
+    QuizModule,
+    ProgressModule,
+    BadgesModule,
+    OfflineSyncModule,
+    AdminModule,
+    StatisticsModule,
+  ],
+})
+export class AppModule {}

@@ -1,0 +1,37 @@
+[
+  {
+    "id": "starter",
+    "name": "Khoi dau Vat Li",
+    "description": "Hoan thanh bai hoc dau tien.",
+    "icon": "school",
+    "ruleKey": "complete_first_lesson"
+  },
+  {
+    "id": "perfect-score",
+    "name": "Diem tuyet doi",
+    "description": "Dat 10 diem trong mot bai quiz.",
+    "icon": "stars",
+    "ruleKey": "quiz_score_10"
+  },
+  {
+    "id": "motion-master",
+    "name": "Bac thay chuyen dong",
+    "description": "Hoan thanh tat ca bai trong chuong Chuyen dong.",
+    "icon": "rocket_launch",
+    "ruleKey": "complete_motion_chapter"
+  },
+  {
+    "id": "electric-master",
+    "name": "Dien than",
+    "description": "Hoan thanh tat ca bai trong chuong Dien hoc.",
+    "icon": "bolt",
+    "ruleKey": "complete_electric_chapter"
+  },
+  {
+    "id": "scientist",
+    "name": "Nha bac hoc",
+    "description": "Hoan thanh toan bo MVP.",
+    "icon": "science",
+    "ruleKey": "complete_all_lessons"
+  }
+]

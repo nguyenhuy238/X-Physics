@@ -1,5 +1,9 @@
 import 'package:go_router/go_router.dart';
 
+import '../../features/admin/screens/admin_chapters_screen.dart';
+import '../../features/admin/screens/admin_dashboard_screen.dart';
+import '../../features/admin/screens/admin_lessons_screen.dart';
+import '../../features/admin/screens/admin_questions_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
@@ -9,6 +13,7 @@ import '../../features/lessons/screens/lesson_screen.dart';
 import '../../features/offline/screens/offline_downloads_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/progress/application/app_state.dart';
+import '../../features/progress/screens/progress_screen.dart';
 import '../../features/quiz/screens/quiz_result_screen.dart';
 import '../../features/quiz/screens/quiz_screen.dart';
 
@@ -42,9 +47,23 @@ GoRouter buildRouter(AppState appState) {
             QuizResultScreen(lessonId: state.pathParameters['id']!),
       ),
       GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
+      GoRoute(path: '/progress', builder: (_, _) => const ProgressScreen()),
       GoRoute(
         path: '/offline',
         builder: (_, _) => const OfflineDownloadsScreen(),
+      ),
+      GoRoute(path: '/admin', builder: (_, _) => const AdminDashboardScreen()),
+      GoRoute(
+        path: '/admin/chapters',
+        builder: (_, _) => const AdminChaptersScreen(),
+      ),
+      GoRoute(
+        path: '/admin/lessons',
+        builder: (_, _) => const AdminLessonsScreen(),
+      ),
+      GoRoute(
+        path: '/admin/questions',
+        builder: (_, _) => const AdminQuestionsScreen(),
       ),
     ],
   );
