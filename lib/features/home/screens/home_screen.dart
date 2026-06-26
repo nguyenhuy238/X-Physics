@@ -138,7 +138,13 @@ class HomeScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     const Text(
-                      'Quản lý nội dung nâng cao sẽ dùng admin endpoints ở bước tiếp theo.',
+                      'Quản lý chương, bài học, câu hỏi và thống kê bằng admin endpoints.',
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: () => context.go('/admin'),
+                      icon: const Icon(Icons.admin_panel_settings_rounded),
+                      label: const Text('Vào Admin Dashboard'),
                     ),
                   ],
                 ),
