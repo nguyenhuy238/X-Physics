@@ -30,6 +30,7 @@ class Chapter {
     this.color = 0xFF2563EB,
     this.lessonCount = 0,
     this.orderIndex = 0,
+    this.isPublished = true,
   });
   final String id;
   final String title;
@@ -38,6 +39,7 @@ class Chapter {
   final int color;
   final int lessonCount;
   final int orderIndex;
+  final bool isPublished;
 
   factory Chapter.fromJson(Map<dynamic, dynamic> json) => Chapter(
     id: json['id'] as String,
@@ -51,6 +53,7 @@ class Chapter {
     },
     lessonCount: (json['lessonCount'] as num?)?.toInt() ?? 0,
     orderIndex: (json['orderIndex'] as num?)?.toInt() ?? 0,
+    isPublished: json['isPublished'] as bool? ?? true,
   );
 }
 
@@ -64,6 +67,8 @@ class Lesson {
     required this.estimatedMinutes,
     required this.simulation,
     required this.questions,
+    this.orderIndex = 0,
+    this.isPublished = true,
   });
   final String id;
   final String chapterId;
@@ -73,6 +78,8 @@ class Lesson {
   final int estimatedMinutes;
   final FormulaSimulationConfig simulation;
   final List<Question> questions;
+  final int orderIndex;
+  final bool isPublished;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -83,6 +90,8 @@ class Lesson {
     'estimatedMinutes': estimatedMinutes,
     'simulation': simulation.toJson(),
     'questions': questions.map((q) => q.toJson()).toList(),
+    'orderIndex': orderIndex,
+    'isPublished': isPublished,
   };
 
   factory Lesson.fromJson(Map<dynamic, dynamic> json) => Lesson(
@@ -98,6 +107,8 @@ class Lesson {
     questions: (json['questions'] as List? ?? const [])
         .map((q) => Question.fromJson(q as Map))
         .toList(),
+    orderIndex: (json['orderIndex'] as num?)?.toInt() ?? 0,
+    isPublished: json['isPublished'] as bool? ?? true,
   );
 }
 
@@ -209,31 +220,39 @@ class FormulaSimulationConfig {
 class Question {
   const Question({
     required this.id,
+    this.lessonId = '',
     required this.question,
     required this.options,
     this.correctOption,
     required this.explanation,
+    this.orderIndex = 0,
   });
   final String id;
+  final String lessonId;
   final String question;
   final List<String> options;
   final int? correctOption;
   final String explanation;
+  final int orderIndex;
 
   Map<String, dynamic> toJson() => {
     'id': id,
+    if (lessonId.isNotEmpty) 'lessonId': lessonId,
     'question': question,
     'options': options,
     if (correctOption != null) 'correctOption': correctOption,
     'explanation': explanation,
+    'orderIndex': orderIndex,
   };
 
   factory Question.fromJson(Map<dynamic, dynamic> json) => Question(
     id: json['id'] as String,
-    question: json['question'] as String,
+    lessonId: json['lessonId'] as String? ?? '',
+    question: (json['question'] ?? json['questionText']) as String,
     options: List<String>.from(json['options'] as List),
     correctOption: (json['correctOption'] as num?)?.toInt(),
     explanation: json['explanation'] as String? ?? '',
+    orderIndex: (json['orderIndex'] as num?)?.toInt() ?? 0,
   );
 }
 

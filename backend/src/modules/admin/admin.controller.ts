@@ -13,7 +13,11 @@ import { ApiResponseDto } from '../../common/api-response.dto';
 import { AuthGuard } from '../../common/auth.guard';
 import { Roles } from '../../common/roles.decorator';
 import { RolesGuard } from '../../common/roles.guard';
-import { AdminContentDto } from './dto/admin-content.dto';
+import {
+  AdminChapterDto,
+  AdminLessonDto,
+  AdminQuestionDto,
+} from './dto/admin-content.dto';
 import { AdminService } from './admin.service';
 
 @Controller('admin')
@@ -32,22 +36,78 @@ export class AdminController {
     return ApiResponseDto.ok(await this.adminService.statistics());
   }
 
-  @Post(':resource')
-  create(@Param('resource') resource: string, @Body() dto: AdminContentDto) {
-    return ApiResponseDto.ok(this.adminService.create(resource, dto), 'Created');
+  @Get('chapters')
+  async chapters() {
+    return ApiResponseDto.ok(await this.adminService.chapters());
   }
 
-  @Put(':resource/:id')
-  update(
-    @Param('resource') resource: string,
+  @Get('lessons')
+  async lessons() {
+    return ApiResponseDto.ok(await this.adminService.lessons());
+  }
+
+  @Get('questions')
+  async questions() {
+    return ApiResponseDto.ok(await this.adminService.questions());
+  }
+
+  @Post('chapters')
+  async createChapter(@Body() dto: AdminChapterDto) {
+    return ApiResponseDto.ok(
+      await this.adminService.createChapter(dto),
+      'Created',
+    );
+  }
+
+  @Put('chapters/:id')
+  async updateChapter(
     @Param('id') id: string,
-    @Body() dto: AdminContentDto,
+    @Body() dto: AdminChapterDto,
   ) {
-    return ApiResponseDto.ok(this.adminService.update(resource, id, dto));
+    return ApiResponseDto.ok(await this.adminService.updateChapter(id, dto));
   }
 
-  @Delete(':resource/:id')
-  remove(@Param('resource') resource: string, @Param('id') id: string) {
-    return ApiResponseDto.ok(this.adminService.remove(resource, id));
+  @Delete('chapters/:id')
+  async removeChapter(@Param('id') id: string) {
+    return ApiResponseDto.ok(await this.adminService.removeChapter(id));
+  }
+
+  @Post('lessons')
+  async createLesson(@Body() dto: AdminLessonDto) {
+    return ApiResponseDto.ok(
+      await this.adminService.createLesson(dto),
+      'Created',
+    );
+  }
+
+  @Put('lessons/:id')
+  async updateLesson(@Param('id') id: string, @Body() dto: AdminLessonDto) {
+    return ApiResponseDto.ok(await this.adminService.updateLesson(id, dto));
+  }
+
+  @Delete('lessons/:id')
+  async removeLesson(@Param('id') id: string) {
+    return ApiResponseDto.ok(await this.adminService.removeLesson(id));
+  }
+
+  @Post('questions')
+  async createQuestion(@Body() dto: AdminQuestionDto) {
+    return ApiResponseDto.ok(
+      await this.adminService.createQuestion(dto),
+      'Created',
+    );
+  }
+
+  @Put('questions/:id')
+  async updateQuestion(
+    @Param('id') id: string,
+    @Body() dto: AdminQuestionDto,
+  ) {
+    return ApiResponseDto.ok(await this.adminService.updateQuestion(id, dto));
+  }
+
+  @Delete('questions/:id')
+  async removeQuestion(@Param('id') id: string) {
+    return ApiResponseDto.ok(await this.adminService.removeQuestion(id));
   }
 }

@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 
 import { DatabaseRepository } from '../../database/database.repository';
-import { AdminContentDto } from './dto/admin-content.dto';
+import {
+  AdminChapterDto,
+  AdminLessonDto,
+  AdminQuestionDto,
+} from './dto/admin-content.dto';
 
 @Injectable()
 export class AdminService {
@@ -15,15 +19,51 @@ export class AdminService {
     return this.database.statistics();
   }
 
-  create(resource: string, dto: AdminContentDto) {
-    return { resource, ...dto };
+  chapters() {
+    return this.database.listChapters();
   }
 
-  update(resource: string, id: string, dto: AdminContentDto) {
-    return { id, resource, ...dto };
+  lessons() {
+    return this.database.adminListLessons();
   }
 
-  remove(resource: string, id: string) {
-    return { resource, id, deleted: true };
+  questions() {
+    return this.database.adminListQuestions();
+  }
+
+  createChapter(dto: AdminChapterDto) {
+    return this.database.upsertChapter(dto);
+  }
+
+  updateChapter(id: string, dto: AdminChapterDto) {
+    return this.database.updateChapter(id, dto);
+  }
+
+  removeChapter(id: string) {
+    return this.database.softDeleteChapter(id);
+  }
+
+  createLesson(dto: AdminLessonDto) {
+    return this.database.upsertLesson(dto);
+  }
+
+  updateLesson(id: string, dto: AdminLessonDto) {
+    return this.database.updateLesson(id, dto);
+  }
+
+  removeLesson(id: string) {
+    return this.database.softDeleteLesson(id);
+  }
+
+  createQuestion(dto: AdminQuestionDto) {
+    return this.database.upsertQuestion(dto);
+  }
+
+  updateQuestion(id: string, dto: AdminQuestionDto) {
+    return this.database.updateQuestion(id, dto);
+  }
+
+  removeQuestion(id: string) {
+    return this.database.deleteQuestion(id);
   }
 }

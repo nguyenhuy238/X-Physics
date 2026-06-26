@@ -36,6 +36,10 @@ class AppState extends ChangeNotifier {
   final completedLessons = <String>{};
   final downloadedLessons = <String>{};
   final badges = <String>{};
+  final adminUsers = <XUser>[];
+  final adminLessons = <Lesson>[];
+  final adminQuestions = <Question>[];
+  Map<String, dynamic>? adminStatistics;
   QuizAttempt? lastAttempt;
 
   Future<void> bootstrap() async {
@@ -326,6 +330,215 @@ class AppState extends ChangeNotifier {
     return chapters.where((chapter) => chapter.id == id).firstOrNull;
   }
 
+  bool get canAccessAdmin {
+    final role = user?.role;
+    return role == 'ADMIN' || role == 'TEACHER';
+  }
+
+  Future<void> loadAdminDashboard() async {
+    if (!canAccessAdmin) {
+      errorMessage = 'Bạn không có quyền truy cập Admin.';
+      notifyListeners();
+      return;
+    }
+    isBusy = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final stats = await _getData<Map<String, dynamic>>(
+        ApiEndpoints.adminStatistics,
+      );
+      final users = await _getData<List<dynamic>>(ApiEndpoints.adminUsers);
+      adminStatistics = stats;
+      adminUsers
+        ..clear()
+        ..addAll(users.map((item) => XUser.fromJson(item as Map)));
+    } catch (error) {
+      errorMessage = _readableError(error);
+    } finally {
+      isBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadAdminChapters() async {
+    if (!canAccessAdmin) {
+      errorMessage = 'Bạn không có quyền truy cập Admin.';
+      notifyListeners();
+      return;
+    }
+    isBusy = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final data = await _getData<List<dynamic>>(ApiEndpoints.adminChapters);
+      chapters
+        ..clear()
+        ..addAll(data.map((item) => Chapter.fromJson(item as Map)));
+    } catch (error) {
+      errorMessage = _readableError(error);
+    } finally {
+      isBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadAdminLessons() async {
+    if (!canAccessAdmin) {
+      errorMessage = 'Bạn không có quyền truy cập Admin.';
+      notifyListeners();
+      return;
+    }
+    isBusy = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      await loadAdminChapters();
+      final data = await _getData<List<dynamic>>(ApiEndpoints.adminLessons);
+      adminLessons
+        ..clear()
+        ..addAll(data.map((item) => Lesson.fromJson(item as Map)));
+    } catch (error) {
+      errorMessage = _readableError(error);
+    } finally {
+      isBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadAdminQuestions() async {
+    if (!canAccessAdmin) {
+      errorMessage = 'Bạn không có quyền truy cập Admin.';
+      notifyListeners();
+      return;
+    }
+    isBusy = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      await loadAdminLessons();
+      final data = await _getData<List<dynamic>>(ApiEndpoints.adminQuestions);
+      adminQuestions
+        ..clear()
+        ..addAll(data.map((item) => Question.fromJson(item as Map)));
+    } catch (error) {
+      errorMessage = _readableError(error);
+    } finally {
+      isBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> saveAdminChapter(Chapter chapter) async {
+    final payload = {
+      'id': chapter.id,
+      'title': chapter.title,
+      'description': chapter.description,
+      'orderIndex': chapter.orderIndex,
+      'isPublished': chapter.isPublished,
+    };
+    return _adminWrite(
+      () => _apiClient.dio.post<Map<String, dynamic>>(
+        ApiEndpoints.adminChapters,
+        data: payload,
+      ),
+      refresh: loadAdminChapters,
+    );
+  }
+
+  Future<bool> updateAdminChapter(Chapter chapter) async {
+    final payload = {
+      'id': chapter.id,
+      'title': chapter.title,
+      'description': chapter.description,
+      'orderIndex': chapter.orderIndex,
+      'isPublished': chapter.isPublished,
+    };
+    return _adminWrite(
+      () => _apiClient.dio.put<Map<String, dynamic>>(
+        ApiEndpoints.adminChapter(chapter.id),
+        data: payload,
+      ),
+      refresh: loadAdminChapters,
+    );
+  }
+
+  Future<bool> deleteAdminChapter(String id) {
+    return _adminWrite(
+      () => _apiClient.dio.delete<Map<String, dynamic>>(
+        ApiEndpoints.adminChapter(id),
+      ),
+      refresh: loadAdminChapters,
+    );
+  }
+
+  Future<bool> saveAdminLesson(Lesson lesson, {required bool isUpdate}) {
+    final payload = {
+      'id': lesson.id,
+      'chapterId': lesson.chapterId,
+      'title': lesson.title,
+      'contentMarkdown': lesson.content,
+      'formulaLatex': lesson.formulaLatex,
+      'estimatedMinutes': lesson.estimatedMinutes,
+      'orderIndex': lesson.orderIndex,
+      'isPublished': lesson.isPublished,
+    };
+    return _adminWrite(
+      () => isUpdate
+          ? _apiClient.dio.put<Map<String, dynamic>>(
+              ApiEndpoints.adminLesson(lesson.id),
+              data: payload,
+            )
+          : _apiClient.dio.post<Map<String, dynamic>>(
+              ApiEndpoints.adminLessons,
+              data: payload,
+            ),
+      refresh: loadAdminLessons,
+    );
+  }
+
+  Future<bool> deleteAdminLesson(String id) {
+    return _adminWrite(
+      () => _apiClient.dio.delete<Map<String, dynamic>>(
+        ApiEndpoints.adminLesson(id),
+      ),
+      refresh: loadAdminLessons,
+    );
+  }
+
+  Future<bool> saveAdminQuestion(Question question, {required bool isUpdate}) {
+    final payload = {
+      'id': question.id,
+      'lessonId': question.lessonId,
+      'questionText': question.question,
+      'options': question.options,
+      'correctOption': question.correctOption ?? 0,
+      'explanation': question.explanation,
+      'orderIndex': question.orderIndex,
+    };
+    return _adminWrite(
+      () => isUpdate
+          ? _apiClient.dio.put<Map<String, dynamic>>(
+              ApiEndpoints.adminQuestion(question.id),
+              data: payload,
+            )
+          : _apiClient.dio.post<Map<String, dynamic>>(
+              ApiEndpoints.adminQuestions,
+              data: payload,
+            ),
+      refresh: loadAdminQuestions,
+    );
+  }
+
+  Future<bool> deleteAdminQuestion(String id) {
+    return _adminWrite(
+      () => _apiClient.dio.delete<Map<String, dynamic>>(
+        ApiEndpoints.adminQuestion(id),
+      ),
+      refresh: loadAdminQuestions,
+    );
+  }
+
   Future<bool> _authenticate(
     Future<Map<String, dynamic>> Function() request,
   ) async {
@@ -360,6 +573,29 @@ class AppState extends ChangeNotifier {
       throw StateError(body?['message'] as String? ?? 'API error');
     }
     return body['data'] as T;
+  }
+
+  Future<bool> _adminWrite(
+    Future<Response<Map<String, dynamic>>> Function() request, {
+    required Future<void> Function() refresh,
+  }) async {
+    isBusy = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final response = await request();
+      if (response.data?['success'] != true) {
+        throw StateError(response.data?['message'] as String? ?? 'API error');
+      }
+      await refresh();
+      return true;
+    } catch (error) {
+      errorMessage = _readableError(error);
+      return false;
+    } finally {
+      isBusy = false;
+      notifyListeners();
+    }
   }
 
   void _handleUnauthorized() {
