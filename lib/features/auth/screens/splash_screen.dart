@@ -24,7 +24,11 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!state.loading) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          context.go(state.user == null ? '/login' : '/');
+          if (state.user == null) {
+            context.go('/login');
+          } else {
+            context.go(state.canAccessAdmin ? '/admin' : '/');
+          }
         }
       });
     }

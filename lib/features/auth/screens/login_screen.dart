@@ -63,12 +63,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       ? null
                       : () async {
                           final ok = await context.read<AppState>().login(
-                      email.text.trim(),
-                      password.text,
-                    );
+                            email.text.trim(),
+                            password.text,
+                          );
                           if (ok && context.mounted) {
-                      context.go('/');
-                    }
+                            final appState = context.read<AppState>();
+                            context.go(appState.canAccessAdmin ? '/admin' : '/');
+                          }
                         },
                   child: state.isBusy
                       ? const SizedBox.square(
