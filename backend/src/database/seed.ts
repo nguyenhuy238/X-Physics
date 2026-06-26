@@ -2,7 +2,10 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import * as bcrypt from 'bcrypt';
+import { config } from 'dotenv';
 import { Pool } from 'pg';
+
+config();
 
 type SeedUser = {
   id: string;

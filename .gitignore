@@ -4,9 +4,17 @@
 *.pyc
 *.swp
 .DS_Store
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
 .atom/
 .build/
 .buildlog/
+dist/
+**/dist/
 .history
 .svn/
 .swiftpm/
