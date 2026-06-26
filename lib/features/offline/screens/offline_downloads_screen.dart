@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/widgets/app_scaffold.dart';
+import '../../../shared/widgets/empty_view.dart';
 import '../../progress/application/app_state.dart';
 
 class OfflineDownloadsScreen extends StatelessWidget {
@@ -12,12 +13,13 @@ class OfflineDownloadsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final lessons = state.downloadedLessons
-        .map(state.repository.lessonById)
+        .map(state.loadOfflineLesson)
+        .whereType()
         .toList();
     return XScaffold(
       title: 'Bài học offline',
       child: lessons.isEmpty
-          ? const Center(child: Text('Chưa có bài học nào được tải offline.'))
+          ? const EmptyView(message: 'Chưa có bài học nào được tải offline.')
           : ListView.separated(
               padding: const EdgeInsets.all(20),
               itemCount: lessons.length,

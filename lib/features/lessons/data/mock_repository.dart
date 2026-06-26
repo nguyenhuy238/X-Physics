@@ -2,8 +2,18 @@ import '../../../shared/models/x_models.dart';
 
 class MockRepository {
   final users = const [
-    XUser(name: 'Nguyễn Văn Nam', email: 'nam@example.com', role: 'STUDENT'),
-    XUser(name: 'Admin User', email: 'admin@example.com', role: 'ADMIN'),
+    XUser(
+      id: 'usr_student_nam',
+      name: 'Nguyễn Văn Nam',
+      email: 'nam@example.com',
+      role: 'STUDENT',
+    ),
+    XUser(
+      id: 'usr_admin',
+      name: 'Admin User',
+      email: 'admin@example.com',
+      role: 'ADMIN',
+    ),
   ];
 
   List<Chapter> get chapters => const [

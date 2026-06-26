@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../shared/models/x_models.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../progress/application/app_state.dart';
 
@@ -12,7 +13,7 @@ class QuizResultScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final lesson = state.repository.lessonById(lessonId);
+    final questions = state.questionsByLesson[lessonId] ?? const [];
     final attempt = state.lastAttempt;
     if (attempt == null) {
       return const XScaffold(
@@ -20,9 +21,7 @@ class QuizResultScreen extends StatelessWidget {
         child: Center(child: Text('Chưa có kết quả quiz.')),
       );
     }
-    final correct = lesson.questions
-        .where((q) => attempt.answers[q.id] == q.correctOption)
-        .length;
+    final questionsById = {for (final question in questions) question.id: question};
     return XScaffold(
       title: 'Kết quả',
       child: ListView(
@@ -42,7 +41,7 @@ class QuizResultScreen extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '$correct/${lesson.questions.length} câu đúng • +${attempt.coins} xu',
+                    '${attempt.correctCount}/${attempt.totalQuestions} câu đúng • +${attempt.coins} xu',
                   ),
                   if (attempt.newBadges.isNotEmpty)
                     Padding(
@@ -56,7 +55,7 @@ class QuizResultScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          for (final question in lesson.questions)
+          for (final review in attempt.review)
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -64,17 +63,18 @@ class QuizResultScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      question.question,
+                      questionsById[review.questionId]?.question ??
+                          'Câu hỏi ${review.questionId}',
                       style: const TextStyle(fontWeight: FontWeight.w900),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Bạn chọn: ${question.options[attempt.answers[question.id] ?? 0]}',
+                      'Bạn chọn: ${_optionText(questionsById[review.questionId], review.selectedOption)}',
                     ),
                     Text(
-                      'Đáp án đúng: ${question.options[question.correctOption]}',
+                      'Đáp án đúng: ${_optionText(questionsById[review.questionId], review.correctOption)}',
                     ),
-                    Text('Giải thích: ${question.explanation}'),
+                    Text('Giải thích: ${review.explanation}'),
                   ],
                 ),
               ),
@@ -87,5 +87,15 @@ class QuizResultScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _optionText(Question? question, int? index) {
+    if (question == null || index == null) {
+      return 'Chưa chọn';
+    }
+    if (index < 0 || index >= question.options.length) {
+      return 'Không hợp lệ';
+    }
+    return question.options[index];
   }
 }

@@ -5,6 +5,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/widgets/app_scaffold.dart';
+import '../../../shared/widgets/empty_view.dart';
+import '../../../shared/widgets/error_view.dart';
+import '../../../shared/widgets/loading_view.dart';
 import '../../progress/application/app_state.dart';
 
 class QuizScreen extends StatefulWidget {
@@ -23,6 +26,11 @@ class _QuizScreenState extends State<QuizScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<AppState>().loadQuestions(widget.lessonId);
+      }
+    });
     timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (secondsLeft <= 1) {
         _submit();
@@ -38,20 +46,48 @@ class _QuizScreenState extends State<QuizScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     timer?.cancel();
-    context.read<AppState>().submitQuiz(widget.lessonId, answers);
-    context.go('/quiz/${widget.lessonId}/result');
+    final attempt = await context.read<AppState>().submitQuiz(
+      widget.lessonId,
+      answers,
+    );
+    if (attempt != null && mounted) {
+      context.go('/quiz/${widget.lessonId}/result');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final lesson = context.read<AppState>().repository.lessonById(
-      widget.lessonId,
-    );
-    final question = lesson.questions[index];
+    final state = context.watch<AppState>();
+    final questions = state.questionsByLesson[widget.lessonId] ?? const [];
+    if (state.isBusy && questions.isEmpty) {
+      return const XScaffold(
+        title: 'Quiz',
+        child: LoadingView(message: 'Đang tải câu hỏi...'),
+      );
+    }
+    if (state.errorMessage != null && questions.isEmpty) {
+      return XScaffold(
+        title: 'Quiz',
+        child: ErrorView(
+          message: state.errorMessage!,
+          onRetry: () => context.read<AppState>().loadQuestions(widget.lessonId),
+        ),
+      );
+    }
+    if (questions.isEmpty) {
+      return const XScaffold(
+        title: 'Quiz',
+        child: EmptyView(message: 'Bài học này chưa có câu hỏi.'),
+      );
+    }
+    if (index >= questions.length) {
+      index = questions.length - 1;
+    }
+    final question = questions[index];
     final selected = answers[question.id];
-    final isLast = index == lesson.questions.length - 1;
+    final isLast = index == questions.length - 1;
     return XScaffold(
       title: 'Quiz',
       child: Padding(
@@ -62,7 +98,7 @@ class _QuizScreenState extends State<QuizScreen> {
             Row(
               children: [
                 Text(
-                  'Câu ${index + 1}/${lesson.questions.length}',
+                  'Câu ${index + 1}/${questions.length}',
                   style: const TextStyle(fontWeight: FontWeight.w900),
                 ),
                 const Spacer(),
@@ -136,7 +172,7 @@ class _QuizScreenState extends State<QuizScreen> {
                             ) ??
                             false;
                         if (ok) {
-                          _submit();
+                          await _submit();
                         }
                       } else {
                         setState(() => index++);

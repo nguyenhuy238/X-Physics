@@ -21,6 +21,13 @@ GoRouter buildRouter(AppState appState) {
   return GoRouter(
     initialLocation: '/splash',
     refreshListenable: appState,
+    redirect: (_, state) {
+      final location = state.uri.path;
+      if (location.startsWith('/admin') && !appState.canAccessAdmin) {
+        return appState.user == null ? '/login' : '/';
+      }
+      return null;
+    },
     routes: [
       GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),

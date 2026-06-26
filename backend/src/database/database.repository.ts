@@ -19,6 +19,7 @@ interface ChapterRow {
   title: string;
   description: string;
   order_index: number;
+  is_published: boolean;
   lesson_count?: string;
 }
 
@@ -30,6 +31,7 @@ interface LessonRow {
   formula_latex: string | null;
   estimated_minutes: number;
   order_index: number;
+  is_published: boolean;
 }
 
 interface SimulationRow {
@@ -251,6 +253,249 @@ export class DatabaseRepository {
     });
   }
 
+  async adminListLessons() {
+    const result = await this.pool.query<LessonRow>(
+      'select * from lessons order by chapter_id asc, order_index asc',
+    );
+    return result.rows.map((row) => this.mapLesson(row));
+  }
+
+  async adminListQuestions() {
+    const result = await this.pool.query<QuestionRow>(
+      'select * from questions order by lesson_id asc, order_index asc',
+    );
+    return result.rows.map((row) => this.mapQuestion(row));
+  }
+
+  async upsertChapter(input: {
+    id: string;
+    title: string;
+    description: string;
+    orderIndex: number;
+    isPublished?: boolean;
+  }) {
+    const result = await this.pool.query<ChapterRow>(
+      `insert into chapters (id, title, description, order_index, is_published)
+       values ($1, $2, $3, $4, $5)
+       on conflict (id) do update set
+         title = excluded.title,
+         description = excluded.description,
+         order_index = excluded.order_index,
+         is_published = excluded.is_published,
+         updated_at = now()
+       returning *`,
+      [
+        input.id,
+        input.title,
+        input.description,
+        input.orderIndex,
+        input.isPublished ?? true,
+      ],
+    );
+    return this.mapChapter(result.rows[0]);
+  }
+
+  async updateChapter(
+    id: string,
+    input: Omit<Parameters<DatabaseRepository['upsertChapter']>[0], 'id'>,
+  ) {
+    const result = await this.pool.query<ChapterRow>(
+      `update chapters
+       set title = $2,
+           description = $3,
+           order_index = $4,
+           is_published = $5,
+           updated_at = now()
+       where id = $1
+       returning *`,
+      [
+        id,
+        input.title,
+        input.description,
+        input.orderIndex,
+        input.isPublished ?? true,
+      ],
+    );
+    if (!result.rows[0]) {
+      throw new NotFoundException('Chapter not found');
+    }
+    return this.mapChapter(result.rows[0]);
+  }
+
+  async softDeleteChapter(id: string) {
+    const result = await this.pool.query<ChapterRow>(
+      `update chapters
+       set is_published = false, updated_at = now()
+       where id = $1
+       returning *`,
+      [id],
+    );
+    if (!result.rows[0]) {
+      throw new NotFoundException('Chapter not found');
+    }
+    return { id, deleted: true, mode: 'soft' };
+  }
+
+  async upsertLesson(input: {
+    id: string;
+    chapterId: string;
+    title: string;
+    contentMarkdown: string;
+    formulaLatex?: string | null;
+    estimatedMinutes: number;
+    orderIndex: number;
+    isPublished?: boolean;
+  }) {
+    const result = await this.pool.query<LessonRow>(
+      `insert into lessons
+        (id, chapter_id, title, content_markdown, formula_latex, estimated_minutes, order_index, is_published)
+       values ($1, $2, $3, $4, $5, $6, $7, $8)
+       on conflict (id) do update set
+         chapter_id = excluded.chapter_id,
+         title = excluded.title,
+         content_markdown = excluded.content_markdown,
+         formula_latex = excluded.formula_latex,
+         estimated_minutes = excluded.estimated_minutes,
+         order_index = excluded.order_index,
+         is_published = excluded.is_published,
+         updated_at = now()
+       returning *`,
+      [
+        input.id,
+        input.chapterId,
+        input.title,
+        input.contentMarkdown,
+        input.formulaLatex ?? null,
+        input.estimatedMinutes,
+        input.orderIndex,
+        input.isPublished ?? true,
+      ],
+    );
+    return this.mapLesson(result.rows[0]);
+  }
+
+  async updateLesson(
+    id: string,
+    input: Omit<Parameters<DatabaseRepository['upsertLesson']>[0], 'id'>,
+  ) {
+    const result = await this.pool.query<LessonRow>(
+      `update lessons
+       set chapter_id = $2,
+           title = $3,
+           content_markdown = $4,
+           formula_latex = $5,
+           estimated_minutes = $6,
+           order_index = $7,
+           is_published = $8,
+           updated_at = now()
+       where id = $1
+       returning *`,
+      [
+        id,
+        input.chapterId,
+        input.title,
+        input.contentMarkdown,
+        input.formulaLatex ?? null,
+        input.estimatedMinutes,
+        input.orderIndex,
+        input.isPublished ?? true,
+      ],
+    );
+    if (!result.rows[0]) {
+      throw new NotFoundException('Lesson not found');
+    }
+    return this.mapLesson(result.rows[0]);
+  }
+
+  async softDeleteLesson(id: string) {
+    const result = await this.pool.query<LessonRow>(
+      `update lessons
+       set is_published = false, updated_at = now()
+       where id = $1
+       returning *`,
+      [id],
+    );
+    if (!result.rows[0]) {
+      throw new NotFoundException('Lesson not found');
+    }
+    return { id, deleted: true, mode: 'soft' };
+  }
+
+  async upsertQuestion(input: {
+    id: string;
+    lessonId: string;
+    questionText: string;
+    options: string[];
+    correctOption: number;
+    explanation: string;
+    orderIndex: number;
+  }) {
+    const result = await this.pool.query<QuestionRow>(
+      `insert into questions
+        (id, lesson_id, question_text, options_json, correct_option, explanation, order_index)
+       values ($1, $2, $3, $4::jsonb, $5, $6, $7)
+       on conflict (id) do update set
+         lesson_id = excluded.lesson_id,
+         question_text = excluded.question_text,
+         options_json = excluded.options_json,
+         correct_option = excluded.correct_option,
+         explanation = excluded.explanation,
+         order_index = excluded.order_index
+       returning *`,
+      [
+        input.id,
+        input.lessonId,
+        input.questionText,
+        JSON.stringify(input.options),
+        input.correctOption,
+        input.explanation,
+        input.orderIndex,
+      ],
+    );
+    return this.mapQuestion(result.rows[0]);
+  }
+
+  async updateQuestion(
+    id: string,
+    input: Omit<Parameters<DatabaseRepository['upsertQuestion']>[0], 'id'>,
+  ) {
+    const result = await this.pool.query<QuestionRow>(
+      `update questions
+       set lesson_id = $2,
+           question_text = $3,
+           options_json = $4::jsonb,
+           correct_option = $5,
+           explanation = $6,
+           order_index = $7
+       where id = $1
+       returning *`,
+      [
+        id,
+        input.lessonId,
+        input.questionText,
+        JSON.stringify(input.options),
+        input.correctOption,
+        input.explanation,
+        input.orderIndex,
+      ],
+    );
+    if (!result.rows[0]) {
+      throw new NotFoundException('Question not found');
+    }
+    return this.mapQuestion(result.rows[0]);
+  }
+
+  async deleteQuestion(id: string) {
+    const result = await this.pool.query<QuestionRow>(
+      'delete from questions where id = $1 returning *',
+      [id],
+    );
+    if (!result.rows[0]) {
+      throw new NotFoundException('Question not found');
+    }
+    return { id, deleted: true, mode: 'hard' };
+  }
+
   async createQuizAttempt(
     input: {
       userId: string;
@@ -454,6 +699,7 @@ export class DatabaseRepository {
       title: row.title,
       description: row.description,
       orderIndex: row.order_index,
+      isPublished: row.is_published,
     };
   }
 
@@ -466,6 +712,7 @@ export class DatabaseRepository {
       formulaLatex: row.formula_latex,
       estimatedMinutes: row.estimated_minutes,
       orderIndex: row.order_index,
+      isPublished: row.is_published,
     };
   }
 
