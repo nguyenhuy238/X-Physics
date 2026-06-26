@@ -1,8 +1,12 @@
 import { Injectable } from '@nestjs/common';
 
+import { DatabaseRepository } from '../../database/database.repository';
+
 @Injectable()
 export class QuestionsService {
+  constructor(private readonly database: DatabaseRepository) {}
+
   findAll() {
-    return [{ id: 'motion-1-q1', question: 'TODO question' }];
+    return this.database.listQuestionsWithoutCorrectOptions();
   }
 }

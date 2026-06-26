@@ -8,7 +8,7 @@ export class QuestionsController {
   constructor(private readonly questionsService: QuestionsService) {}
 
   @Get()
-  findAll() {
-    return ApiResponseDto.ok(this.questionsService.findAll());
+  async findAll() {
+    return ApiResponseDto.ok(await this.questionsService.findAll());
   }
 }

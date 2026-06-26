@@ -1,14 +1,19 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
 
 import { ApiResponseDto } from '../../common/api-response.dto';
+import { AuthGuard } from '../../common/auth.guard';
+import { Roles } from '../../common/roles.decorator';
+import { RolesGuard } from '../../common/roles.guard';
 import { StatisticsService } from './statistics.service';
 
 @Controller('statistics')
+@UseGuards(AuthGuard, RolesGuard)
+@Roles('ADMIN', 'TEACHER')
 export class StatisticsController {
   constructor(private readonly statisticsService: StatisticsService) {}
 
   @Get()
-  overview() {
-    return ApiResponseDto.ok(this.statisticsService.overview());
+  async overview() {
+    return ApiResponseDto.ok(await this.statisticsService.overview());
   }
 }

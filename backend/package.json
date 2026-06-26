@@ -6,6 +6,7 @@
     "start:dev": "nest start --watch",
     "build": "nest build",
     "lint": "eslint \"src/**/*.ts\"",
+    "db:seed": "ts-node --files src/database/seed.ts",
     "test": "jest"
   },
   "dependencies": {

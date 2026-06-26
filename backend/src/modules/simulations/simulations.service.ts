@@ -1,8 +1,12 @@
 import { Injectable } from '@nestjs/common';
 
+import { DatabaseRepository } from '../../database/database.repository';
+
 @Injectable()
 export class SimulationsService {
+  constructor(private readonly database: DatabaseRepository) {}
+
   findAll() {
-    return [{ id: 'sim-svt', expression: 'v * t' }];
+    return this.database.listSimulations();
   }
 }

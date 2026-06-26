@@ -1,21 +1,35 @@
-import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+  UseGuards,
+} from '@nestjs/common';
 
 import { ApiResponseDto } from '../../common/api-response.dto';
+import { AuthGuard } from '../../common/auth.guard';
+import { Roles } from '../../common/roles.decorator';
+import { RolesGuard } from '../../common/roles.guard';
 import { AdminContentDto } from './dto/admin-content.dto';
 import { AdminService } from './admin.service';
 
 @Controller('admin')
+@UseGuards(AuthGuard, RolesGuard)
+@Roles('ADMIN', 'TEACHER')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
   @Get('users')
-  users() {
-    return ApiResponseDto.ok(this.adminService.users());
+  async users() {
+    return ApiResponseDto.ok(await this.adminService.users());
   }
 
   @Get('statistics')
-  statistics() {
-    return ApiResponseDto.ok(this.adminService.statistics());
+  async statistics() {
+    return ApiResponseDto.ok(await this.adminService.statistics());
   }
 
   @Post(':resource')

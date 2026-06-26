@@ -1,15 +1,18 @@
 import { Injectable } from '@nestjs/common';
 
+import { DatabaseRepository } from '../../database/database.repository';
 import { AdminContentDto } from './dto/admin-content.dto';
 
 @Injectable()
 export class AdminService {
+  constructor(private readonly database: DatabaseRepository) {}
+
   users() {
-    return [];
+    return this.database.adminUsers();
   }
 
   statistics() {
-    return { totalUsers: 0, totalAttempts: 0, completionRate: 0 };
+    return this.database.statistics();
   }
 
   create(resource: string, dto: AdminContentDto) {

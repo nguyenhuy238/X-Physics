@@ -8,7 +8,7 @@ export class SimulationsController {
   constructor(private readonly simulationsService: SimulationsService) {}
 
   @Get()
-  findAll() {
-    return ApiResponseDto.ok(this.simulationsService.findAll());
+  async findAll() {
+    return ApiResponseDto.ok(await this.simulationsService.findAll());
   }
 }

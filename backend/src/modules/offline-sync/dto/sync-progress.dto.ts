@@ -1,15 +1,30 @@
-import { IsArray, IsObject, IsString, ValidateNested } from 'class-validator';
+import {
+  IsArray,
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 class SyncProgressItemDto {
   @IsString()
   lessonId!: string;
 
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  progressPercent!: number;
+
+  @IsOptional()
+  @IsObject()
+  quizAttempt?: Record<string, unknown>;
+
   @IsString()
   clientUpdatedAt!: string;
-
-  @IsObject()
-  payload!: Record<string, unknown>;
 }
 
 export class SyncProgressDto {

@@ -8,17 +8,17 @@ export class LessonsController {
   constructor(private readonly lessonsService: LessonsService) {}
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return ApiResponseDto.ok(this.lessonsService.findOne(id));
+  async findOne(@Param('id') id: string) {
+    return ApiResponseDto.ok(await this.lessonsService.findOne(id));
   }
 
   @Get(':id/simulations')
-  simulations(@Param('id') id: string) {
-    return ApiResponseDto.ok(this.lessonsService.simulations(id));
+  async simulations(@Param('id') id: string) {
+    return ApiResponseDto.ok(await this.lessonsService.simulations(id));
   }
 
   @Get(':id/questions')
-  questions(@Param('id') id: string) {
-    return ApiResponseDto.ok(this.lessonsService.questions(id));
+  async questions(@Param('id') id: string) {
+    return ApiResponseDto.ok(await this.lessonsService.questions(id));
   }
 }

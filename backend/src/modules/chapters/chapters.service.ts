@@ -1,16 +1,20 @@
 import { Injectable } from '@nestjs/common';
 
+import { DatabaseRepository } from '../../database/database.repository';
+
 @Injectable()
 export class ChaptersService {
+  constructor(private readonly database: DatabaseRepository) {}
+
   findAll() {
-    return [{ id: 'motion', title: 'Chuyen dong co hoc', lessonCount: 2 }];
+    return this.database.listChapters();
   }
 
   findOne(id: string) {
-    return { id, title: 'TODO chapter detail' };
+    return this.database.findChapter(id);
   }
 
   lessons(chapterId: string) {
-    return [{ id: `${chapterId}-1`, chapterId, title: 'TODO lesson' }];
+    return this.database.listLessonsByChapter(chapterId);
   }
 }
