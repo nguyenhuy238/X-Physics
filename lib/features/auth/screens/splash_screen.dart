@@ -15,12 +15,19 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future<void>.delayed(const Duration(milliseconds: 500), () {
-      if (!mounted) {
-        return;
-      }
-      context.go(context.read<AppState>().user == null ? '/login' : '/');
-    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final state = context.watch<AppState>();
+    if (!state.loading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          context.go(state.user == null ? '/login' : '/');
+        }
+      });
+    }
   }
 
   @override

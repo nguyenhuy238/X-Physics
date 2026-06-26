@@ -1,18 +1,38 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hive/hive.dart';
 
+import '../../../core/constants/api_endpoints.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/router/app_router.dart';
+import '../../../core/storage/token_storage.dart';
 import '../../../shared/models/x_models.dart';
-import '../../lessons/data/mock_repository.dart';
 
 class AppState extends ChangeNotifier {
-  final MockRepository repository = MockRepository();
+  AppState() : _tokenStorage = TokenStorage() {
+    _apiClient = ApiClient(
+      ApiEndpoints.baseUrl,
+      tokenStorage: _tokenStorage,
+      onUnauthorized: _handleUnauthorized,
+    );
+  }
+
+  late final ApiClient _apiClient;
+  final TokenStorage _tokenStorage;
+
   GoRouter? router;
   XUser? user;
   bool loading = true;
+  bool isBusy = false;
+  String? errorMessage;
   int coins = 0;
   bool simulateOffline = false;
+
+  final chapters = <Chapter>[];
+  final lessonsByChapter = <String, List<Lesson>>{};
+  final lessonsById = <String, Lesson>{};
+  final questionsByLesson = <String, List<Question>>{};
   final completedLessons = <String>{};
   final downloadedLessons = <String>{};
   final badges = <String>{};
@@ -20,34 +40,58 @@ class AppState extends ChangeNotifier {
 
   Future<void> bootstrap() async {
     router = buildRouter(this);
-    downloadedLessons.addAll(
-      Hive.box<Map>('offline_lessons').keys.cast<String>(),
-    );
-    loading = false;
-    notifyListeners();
-  }
+    downloadedLessons
+      ..clear()
+      ..addAll(Hive.box<Map>('offline_lessons').keys.cast<String>());
 
-  bool login(String email, String password) {
-    final found = repository.users
-        .where((u) => u.email == email)
-        .cast<XUser?>()
-        .firstOrNull;
-    if (found == null || password != '123456') {
-      return false;
+    final accessToken = await _tokenStorage.readAccessToken();
+    if (accessToken == null || accessToken.isEmpty) {
+      loading = false;
+      notifyListeners();
+      return;
     }
-    user = found;
-    notifyListeners();
-    return true;
+
+    try {
+      await refreshCurrentUser();
+      await loadHomeData();
+    } catch (error) {
+      await _tokenStorage.clear();
+      user = null;
+      errorMessage = _readableError(error);
+    } finally {
+      loading = false;
+      notifyListeners();
+    }
   }
 
-  void register(String name, String email) {
-    user = XUser(name: name, email: email, role: 'STUDENT');
-    notifyListeners();
+  Future<bool> login(String email, String password) async {
+    return _authenticate(() async {
+      final response = await _apiClient.dio.post<Map<String, dynamic>>(
+        ApiEndpoints.login,
+        data: {'email': email, 'password': password},
+      );
+      return response.data?['data'] as Map<String, dynamic>;
+    });
   }
 
-  void logout() {
-    user = null;
-    notifyListeners();
+  Future<bool> register(String name, String email, String password) async {
+    return _authenticate(() async {
+      final response = await _apiClient.dio.post<Map<String, dynamic>>(
+        ApiEndpoints.register,
+        data: {'name': name, 'email': email, 'password': password},
+      );
+      return response.data?['data'] as Map<String, dynamic>;
+    });
+  }
+
+  Future<void> logout() async {
+    try {
+      await _apiClient.dio.post<Map<String, dynamic>>(ApiEndpoints.logout);
+    } catch (_) {
+      // Local logout must still clear credentials if the backend is unreachable.
+    }
+    await _tokenStorage.clear();
+    _handleUnauthorized();
   }
 
   void setOfflineMode(bool value) {
@@ -55,95 +99,290 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Lesson? loadLesson(String id) {
-    if (!simulateOffline) {
-      return repository.lessonById(id);
+  Future<void> refreshCurrentUser() async {
+    final data = await _getData<Map<String, dynamic>>(ApiEndpoints.me);
+    user = XUser.fromJson(data);
+    coins = user?.coins ?? 0;
+    notifyListeners();
+  }
+
+  Future<void> loadHomeData() async {
+    await Future.wait([
+      loadChapters(),
+      loadProgress(),
+      loadBadges(),
+    ]);
+  }
+
+  Future<void> loadChapters() async {
+    isBusy = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final data = await _getData<List<dynamic>>(ApiEndpoints.chapters);
+      chapters
+        ..clear()
+        ..addAll(data.map((item) => Chapter.fromJson(item as Map)));
+    } catch (error) {
+      errorMessage = _readableError(error);
+    } finally {
+      isBusy = false;
+      notifyListeners();
     }
+  }
+
+  Future<void> loadChapterDetail(String chapterId) async {
+    isBusy = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final chapterData = await _getData<Map<String, dynamic>>(
+        ApiEndpoints.chapter(chapterId),
+      );
+      final lessonData = await _getData<List<dynamic>>(
+        ApiEndpoints.chapterLessons(chapterId),
+      );
+      final chapter = Chapter.fromJson(chapterData);
+      final index = chapters.indexWhere((item) => item.id == chapter.id);
+      if (index == -1) {
+        chapters.add(chapter);
+      } else {
+        chapters[index] = chapter;
+      }
+      final lessons = lessonData
+          .map((item) => Lesson.fromJson(item as Map))
+          .toList();
+      lessonsByChapter[chapterId] = lessons;
+      for (final lesson in lessons) {
+        lessonsById[lesson.id] = lesson;
+      }
+    } catch (error) {
+      errorMessage = _readableError(error);
+    } finally {
+      isBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<Lesson?> loadLessonDetail(String lessonId) async {
+    if (simulateOffline) {
+      return loadOfflineLesson(lessonId);
+    }
+
+    isBusy = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final lessonData = await _getData<Map<String, dynamic>>(
+        ApiEndpoints.lesson(lessonId),
+      );
+      final simulationsData = await _getData<List<dynamic>>(
+        ApiEndpoints.lessonSimulations(lessonId),
+      );
+      final questions = await loadQuestions(lessonId, notify: false);
+      final simulation = simulationsData.isEmpty
+          ? null
+          : simulationsData.first as Map<dynamic, dynamic>;
+      final lessonJson = Map<String, dynamic>.from(lessonData)
+        ..['simulation'] = simulation
+        ..['questions'] = questions.map((question) => question.toJson()).toList();
+      final lesson = Lesson.fromJson(lessonJson);
+      lessonsById[lessonId] = lesson;
+      questionsByLesson[lessonId] = questions;
+      return lesson;
+    } catch (error) {
+      errorMessage = _readableError(error);
+      return null;
+    } finally {
+      isBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Lesson? loadOfflineLesson(String id) {
     final data = Hive.box<Map>('offline_lessons').get(id);
     return data == null ? null : Lesson.fromJson(data);
   }
 
-  Future<void> downloadLesson(Lesson lesson) async {
+  Future<void> downloadLesson(String lessonId) async {
+    final lesson = lessonsById[lessonId] ?? await loadLessonDetail(lessonId);
+    if (lesson == null) {
+      throw StateError('Không thể tải bài học.');
+    }
     await Hive.box<Map>('offline_lessons').put(lesson.id, lesson.toJson());
     downloadedLessons.add(lesson.id);
     notifyListeners();
   }
 
-  Future<void> submitPendingIfOffline(QuizAttempt attempt) async {
+  Future<List<Question>> loadQuestions(
+    String lessonId, {
+    bool notify = true,
+  }) async {
     if (simulateOffline) {
-      await Hive.box<Map>('pending_progress').put(attempt.lessonId, {
-        'score': attempt.score,
-        'coins': attempt.coins,
-        'answers': attempt.answers,
-      });
+      final lesson = loadOfflineLesson(lessonId);
+      final questions = lesson?.questions ?? const <Question>[];
+      questionsByLesson[lessonId] = questions;
+      return questions;
     }
-  }
 
-  QuizAttempt submitQuiz(String lessonId, Map<String, int> answers) {
-    final lesson = repository.lessonById(lessonId);
-    final correct = lesson.questions
-        .where((q) => answers[q.id] == q.correctOption)
-        .length;
-    final score = correct / lesson.questions.length * 10;
-    final earned = score == 10
-        ? 30
-        : score >= 8
-        ? 20
-        : score >= 6
-        ? 15
-        : 0;
-    final newBadges = <String>[];
-    completedLessons.add(lessonId);
-    coins += earned + 10;
-    if (completedLessons.length == 1 && badges.add('Khởi đầu Vật Lý')) {
-      newBadges.add('Khởi đầu Vật Lý');
+    if (notify) {
+      isBusy = true;
+      errorMessage = null;
+      notifyListeners();
     }
-    if (score == 10 && badges.add('Điểm tuyệt đối')) {
-      newBadges.add('Điểm tuyệt đối');
-    }
-    _awardChapterBadges(newBadges);
-    if (completedLessons.length == repository.lessons.length &&
-        badges.add('Nhà bác học')) {
-      newBadges.add('Nhà bác học');
-    }
-    lastAttempt = QuizAttempt(
-      lessonId: lessonId,
-      answers: answers,
-      score: score,
-      coins: earned + 10,
-      newBadges: newBadges,
-    );
-    submitPendingIfOffline(lastAttempt!);
-    notifyListeners();
-    return lastAttempt!;
-  }
-
-  void _awardChapterBadges(List<String> newBadges) {
-    for (final chapter in repository.chapters) {
-      final lessons = repository.lessonsByChapter(chapter.id);
-      if (lessons.every((lesson) => completedLessons.contains(lesson.id))) {
-        final chapterCoinsKey = 'chapter-coins-${chapter.id}';
-        if (badges.add(chapterCoinsKey)) {
-          coins += 50;
-        }
-        final badge = switch (chapter.id) {
-          'motion' => 'Bậc thầy chuyển động',
-          'electric' => 'Điện thần',
-          _ => null,
-        };
-        if (badge != null && badges.add(badge)) {
-          newBadges.add(badge);
-        }
+    try {
+      final data = await _getData<List<dynamic>>(
+        ApiEndpoints.lessonQuestions(lessonId),
+      );
+      final questions = data.map((item) => Question.fromJson(item as Map)).toList();
+      questionsByLesson[lessonId] = questions;
+      return questions;
+    } catch (error) {
+      errorMessage = _readableError(error);
+      return const [];
+    } finally {
+      if (notify) {
+        isBusy = false;
+        notifyListeners();
       }
     }
   }
 
+  Future<QuizAttempt?> submitQuiz(
+    String lessonId,
+    Map<String, int> answers,
+  ) async {
+    isBusy = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final response = await _apiClient.dio.post<Map<String, dynamic>>(
+        ApiEndpoints.quizSubmit,
+        data: {
+          'lessonId': lessonId,
+          'answers': answers.entries
+              .map(
+                (entry) => {
+                  'questionId': entry.key,
+                  'selectedOption': entry.value,
+                },
+              )
+              .toList(),
+        },
+      );
+      final data = response.data?['data'] as Map<String, dynamic>;
+      final attempt = QuizAttempt.fromSubmitJson(data, answers);
+      lastAttempt = attempt;
+      completedLessons.add(lessonId);
+      await refreshCurrentUser();
+      await loadProgress();
+      await loadBadges();
+      return attempt;
+    } catch (error) {
+      errorMessage = _readableError(error);
+      return null;
+    } finally {
+      isBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadProgress() async {
+    try {
+      final data = await _getData<List<dynamic>>(ApiEndpoints.progressMe);
+      completedLessons
+        ..clear()
+        ..addAll(
+          data
+              .where((item) => (item as Map)['status'] == 'COMPLETED')
+              .map((item) => (item as Map)['lessonId'] as String),
+        );
+    } catch (error) {
+      errorMessage = _readableError(error);
+    }
+  }
+
+  Future<void> loadBadges() async {
+    try {
+      final data = await _getData<List<dynamic>>(ApiEndpoints.badgesMe);
+      badges
+        ..clear()
+        ..addAll(data.map((item) => (item as Map)['name'] as String));
+    } catch (error) {
+      errorMessage = _readableError(error);
+    }
+  }
+
   double chapterProgress(String chapterId) {
-    final lessons = repository.lessonsByChapter(chapterId);
+    final lessons = lessonsByChapter[chapterId] ?? const <Lesson>[];
     if (lessons.isEmpty) {
       return 0;
     }
-    return lessons.where((l) => completedLessons.contains(l.id)).length /
+    return lessons.where((lesson) => completedLessons.contains(lesson.id)).length /
         lessons.length;
+  }
+
+  Chapter? chapterById(String id) {
+    return chapters.where((chapter) => chapter.id == id).firstOrNull;
+  }
+
+  Future<bool> _authenticate(
+    Future<Map<String, dynamic>> Function() request,
+  ) async {
+    isBusy = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final data = await request();
+      final accessToken = data['accessToken'] as String;
+      final refreshToken = data['refreshToken'] as String;
+      await _tokenStorage.saveTokens(
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+      );
+      user = XUser.fromJson(data['user'] as Map);
+      coins = user?.coins ?? 0;
+      await loadHomeData();
+      return true;
+    } catch (error) {
+      errorMessage = _readableError(error);
+      return false;
+    } finally {
+      isBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<T> _getData<T>(String path) async {
+    final response = await _apiClient.dio.get<Map<String, dynamic>>(path);
+    final body = response.data;
+    if (body == null || body['success'] != true) {
+      throw StateError(body?['message'] as String? ?? 'API error');
+    }
+    return body['data'] as T;
+  }
+
+  void _handleUnauthorized() {
+    user = null;
+    coins = 0;
+    badges.clear();
+    completedLessons.clear();
+    lastAttempt = null;
+    router?.go('/login');
+    notifyListeners();
+  }
+
+  String _readableError(Object error) {
+    if (error is DioException) {
+      final data = error.response?.data;
+      if (data is Map && data['message'] is String) {
+        return data['message'] as String;
+      }
+      if (error.type == DioExceptionType.connectionError) {
+        return 'Không kết nối được backend. Hãy kiểm tra server API.';
+      }
+      return error.message ?? 'Lỗi kết nối API.';
+    }
+    return error.toString();
   }
 }

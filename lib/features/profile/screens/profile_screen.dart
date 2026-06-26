@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/widgets/app_scaffold.dart';
+import '../../../shared/widgets/empty_view.dart';
 import '../../progress/application/app_state.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -35,31 +36,30 @@ class ProfileScreen extends StatelessWidget {
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 10),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              for (final badge in [
-                'Khởi đầu Vật Lý',
-                'Điểm tuyệt đối',
-                'Bậc thầy chuyển động',
-                'Điện thần',
-                'Nhà bác học',
-              ])
-                Chip(
-                  avatar: Icon(
-                    state.badges.contains(badge)
-                        ? Icons.workspace_premium_rounded
-                        : Icons.lock_rounded,
+          if (state.badges.isEmpty)
+            const EmptyView(message: 'Chưa có huy hiệu nào.')
+          else
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (final badge in state.badges)
+                  Chip(
+                    avatar: const Icon(Icons.workspace_premium_rounded),
+                    label: Text(badge),
                   ),
-                  label: Text(badge),
-                ),
-            ],
-          ),
+              ],
+            ),
           const SizedBox(height: 16),
           Text(
             'Bài offline: ${state.downloadedLessons.length}',
             style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: () => context.read<AppState>().logout(),
+            icon: const Icon(Icons.logout_rounded),
+            label: const Text('Đăng xuất'),
           ),
         ],
       ),

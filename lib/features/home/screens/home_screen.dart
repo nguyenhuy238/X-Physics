@@ -3,6 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/widgets/app_scaffold.dart';
+import '../../../shared/widgets/empty_view.dart';
+import '../../../shared/widgets/error_view.dart';
+import '../../../shared/widgets/loading_view.dart';
 import '../../progress/application/app_state.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -14,7 +17,16 @@ class HomeScreen extends StatelessWidget {
     final user = state.user;
     return XScaffold(
       title: 'X-Physics',
-      child: ListView(
+      child: state.isBusy && state.chapters.isEmpty
+          ? const LoadingView(message: 'Đang tải dữ liệu học tập...')
+          : state.errorMessage != null && state.chapters.isEmpty
+          ? ErrorView(
+              message: state.errorMessage!,
+              onRetry: () => context.read<AppState>().loadHomeData(),
+            )
+          : state.chapters.isEmpty
+          ? const EmptyView(message: 'Chưa có chương học nào.')
+          : ListView(
         padding: const EdgeInsets.all(20),
         children: [
           Card(
@@ -63,7 +75,7 @@ class HomeScreen extends StatelessWidget {
                 mainAxisSpacing: 14,
                 crossAxisSpacing: 14,
                 children: [
-                  for (final chapter in state.repository.chapters)
+                  for (final chapter in state.chapters)
                     InkWell(
                       borderRadius: BorderRadius.circular(18),
                       onTap: () => context.go('/chapters/${chapter.id}'),
@@ -122,11 +134,11 @@ class HomeScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '${state.repository.chapters.length} chương • ${state.repository.lessons.length} bài học • ${state.repository.lessons.length * 5} câu hỏi',
+                      '${state.chapters.length} chương đang lấy từ API thật.',
                     ),
                     const SizedBox(height: 10),
                     const Text(
-                      'Quản lý chương, bài học, câu hỏi và thống kê cơ bản đang chạy bằng mock repository.',
+                      'Quản lý nội dung nâng cao sẽ dùng admin endpoints ở bước tiếp theo.',
                     ),
                   ],
                 ),

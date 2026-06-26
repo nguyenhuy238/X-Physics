@@ -13,10 +13,10 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final email = TextEditingController(text: 'nam@example.com');
   final password = TextEditingController(text: '123456');
-  String? error;
 
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
     return Scaffold(
       body: Center(
         child: ConstrainedBox(
@@ -49,30 +49,33 @@ class _LoginScreenState extends State<LoginScreen> {
                   obscureText: true,
                   decoration: const InputDecoration(labelText: 'Mật khẩu'),
                 ),
-                if (error != null)
+                if (state.errorMessage != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 12),
                     child: Text(
-                      error!,
+                      state.errorMessage!,
                       style: const TextStyle(color: Colors.red),
                     ),
                   ),
                 const SizedBox(height: 18),
                 FilledButton(
-                  onPressed: () {
-                    final ok = context.read<AppState>().login(
+                  onPressed: state.isBusy
+                      ? null
+                      : () async {
+                          final ok = await context.read<AppState>().login(
                       email.text.trim(),
                       password.text,
                     );
-                    if (ok) {
+                          if (ok && context.mounted) {
                       context.go('/');
                     }
-                    setState(
-                      () =>
-                          error = ok ? null : 'Email hoặc mật khẩu không đúng.',
-                    );
-                  },
-                  child: const Text('Đăng nhập'),
+                        },
+                  child: state.isBusy
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Đăng nhập'),
                 ),
                 TextButton(
                   onPressed: () => context.go('/register'),
