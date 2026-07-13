@@ -70,9 +70,40 @@ Index: `lesson_id`.
 | options_json   | jsonb        | not null      |
 | correct_option | integer      | not null      |
 | explanation    | text         | not null      |
+| difficulty     | varchar(20)  | EASY/MEDIUM/HARD, default MEDIUM |
 | order_index    | integer      | not null      |
 
 Index: `(lesson_id, order_index)`.
+Unique: `(lesson_id, order_index)`.
+
+Ordering convention: question order starts at `1` inside each lesson and is kept
+compact by Admin create/update/delete/reorder transactions.
+
+Existing databases should run:
+
+```sql
+alter table questions
+  add column if not exists difficulty varchar(20) not null default 'MEDIUM';
+
+alter table questions
+  add constraint questions_difficulty_check
+  check (difficulty in ('EASY', 'MEDIUM', 'HARD'));
+```
+
+If `questions_difficulty_check` already exists, skip the second statement.
+
+Existing databases with duplicate or sparse order can compact safely with:
+
+```sql
+with ordered_questions as (
+  select id, row_number() over (partition by lesson_id order by order_index asc, id asc) as next_order
+  from questions
+)
+update questions q
+set order_index = ordered_questions.next_order
+from ordered_questions
+where q.id = ordered_questions.id;
+```
 
 ## quiz_attempts
 
@@ -82,6 +113,7 @@ Index: `(lesson_id, order_index)`.
 | user_id          | uuid         | fk users.id   |
 | lesson_id        | varchar(80)  | fk lessons.id |
 | answers_json     | jsonb        | not null      |
+| review_json      | jsonb        | nullable      |
 | score            | numeric(4,2) | not null      |
 | correct_count    | integer      | not null      |
 | total_questions  | integer      | not null      |

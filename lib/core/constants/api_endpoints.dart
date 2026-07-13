@@ -25,6 +25,7 @@ class ApiEndpoints {
   static const adminChapters = '/api/admin/chapters';
   static const adminLessons = '/api/admin/lessons';
   static const adminQuestions = '/api/admin/questions';
+  static const adminQuestionsReorder = '/api/admin/questions/reorder';
 
   static String chapter(String id) => '/api/chapters/$id';
   static String chapterLessons(String id) => '/api/chapters/$id/lessons';

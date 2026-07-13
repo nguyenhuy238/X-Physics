@@ -51,7 +51,14 @@ interface QuestionRow {
   options_json: unknown;
   correct_option: number;
   explanation: string;
+  difficulty: "EASY" | "MEDIUM" | "HARD";
   order_index: number;
+}
+
+interface AdminQuestionRow extends QuestionRow {
+  lesson_title: string;
+  chapter_id: string;
+  chapter_title: string;
 }
 
 interface BadgeRow {
@@ -70,6 +77,7 @@ interface AttemptRow {
   user_id: string;
   lesson_id: string;
   answers_json: unknown;
+  review_json: unknown | null;
   score: string;
   correct_count: number;
   total_questions: number;
@@ -271,6 +279,14 @@ export class DatabaseRepository {
     return result.rows.map((row) => this.mapQuestion(row));
   }
 
+  async listAdminQuestionsByLesson(lessonId: string, db: Db = this.pool) {
+    const result = await db.query<QuestionRow>(
+      "select * from questions where lesson_id = $1 order by order_index asc, id asc",
+      [lessonId],
+    );
+    return result.rows.map((row) => this.mapQuestion(row));
+  }
+
   async listQuestionsWithoutCorrectOptions() {
     const result = await this.pool.query<QuestionRow>(
       "select * from questions order by lesson_id asc, order_index asc",
@@ -303,11 +319,111 @@ export class DatabaseRepository {
     return result.rows.map((row) => this.mapLesson(row));
   }
 
-  async adminListQuestions() {
-    const result = await this.pool.query<QuestionRow>(
-      "select * from questions order by lesson_id asc, order_index asc",
+  async findAdminLesson(id: string, db: Db = this.pool) {
+    const result = await db.query<LessonRow>(
+      "select * from lessons where id = $1 and is_published = true",
+      [id],
     );
-    return result.rows.map((row) => this.mapQuestion(row));
+    return result.rows[0] ? this.mapLesson(result.rows[0]) : null;
+  }
+
+  async adminListQuestions(query: {
+    lessonId?: string;
+    chapterId?: string;
+    search?: string;
+    difficulty?: "EASY" | "MEDIUM" | "HARD";
+    page?: number;
+    limit?: number;
+  }) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const offset = (page - 1) * limit;
+    const where: string[] = [];
+    const values: unknown[] = [];
+    const addValue = (value: unknown) => {
+      values.push(value);
+      return `$${values.length}`;
+    };
+
+    if (query.lessonId) {
+      where.push(`q.lesson_id = ${addValue(query.lessonId)}`);
+    }
+    if (query.chapterId) {
+      where.push(`l.chapter_id = ${addValue(query.chapterId)}`);
+    }
+    if (query.search) {
+      where.push(`q.question_text ilike ${addValue(`%${query.search}%`)}`);
+    }
+    if (query.difficulty) {
+      where.push(`q.difficulty = ${addValue(query.difficulty)}`);
+    }
+
+    const whereClause = where.length > 0 ? `where ${where.join(" and ")}` : "";
+    const countResult = await this.pool.query<{ total: string }>(
+      `select count(*) as total
+       from questions q
+       join lessons l on l.id = q.lesson_id
+       join chapters c on c.id = l.chapter_id
+       ${whereClause}`,
+      values,
+    );
+    const total = Number(countResult.rows[0]?.total ?? 0);
+    const listValues = [...values, limit, offset];
+    const result = await this.pool.query<AdminQuestionRow>(
+      `select q.*,
+              l.title as lesson_title,
+              l.chapter_id,
+              c.title as chapter_title
+       from questions q
+       join lessons l on l.id = q.lesson_id
+       join chapters c on c.id = l.chapter_id
+       ${whereClause}
+       order by c.order_index asc, l.order_index asc, q.order_index asc, q.id asc
+       limit $${values.length + 1} offset $${values.length + 2}`,
+      listValues,
+    );
+    return {
+      items: result.rows.map((row) => this.mapAdminQuestion(row)),
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async findAdminQuestion(id: string, db: Db = this.pool) {
+    const result = await db.query<AdminQuestionRow>(
+      `select q.*,
+              l.title as lesson_title,
+              l.chapter_id,
+              c.title as chapter_title
+       from questions q
+       join lessons l on l.id = q.lesson_id
+       join chapters c on c.id = l.chapter_id
+       where q.id = $1`,
+      [id],
+    );
+    if (!result.rows[0]) {
+      throw new NotFoundException("Question not found");
+    }
+    return this.mapAdminQuestion(result.rows[0]);
+  }
+
+  async questionOrderIndexExists(input: {
+    lessonId: string;
+    orderIndex: number;
+    excludeQuestionId?: string;
+  }) {
+    const result = await this.pool.query<{ exists: boolean }>(
+      `select exists(
+         select 1 from questions
+         where lesson_id = $1
+           and order_index = $2
+           and ($3::varchar is null or id <> $3)
+       )`,
+      [input.lessonId, input.orderIndex, input.excludeQuestionId ?? null],
+    );
+    return Boolean(result.rows[0]?.exists);
   }
 
   async upsertChapter(input: {
@@ -464,25 +580,30 @@ export class DatabaseRepository {
     return { id, deleted: true, mode: "soft" };
   }
 
-  async upsertQuestion(input: {
-    id: string;
-    lessonId: string;
-    questionText: string;
-    options: string[];
-    correctOption: number;
-    explanation: string;
-    orderIndex: number;
-  }) {
-    const result = await this.pool.query<QuestionRow>(
+  async upsertQuestion(
+    input: {
+      id: string;
+      lessonId: string;
+      questionText: string;
+      options: string[];
+      correctOption: number;
+      explanation: string;
+      difficulty: "EASY" | "MEDIUM" | "HARD";
+      orderIndex: number;
+    },
+    db: Db = this.pool,
+  ) {
+    const result = await db.query<QuestionRow>(
       `insert into questions
-        (id, lesson_id, question_text, options_json, correct_option, explanation, order_index)
-       values ($1, $2, $3, $4::jsonb, $5, $6, $7)
+        (id, lesson_id, question_text, options_json, correct_option, explanation, difficulty, order_index)
+       values ($1, $2, $3, $4::jsonb, $5, $6, $7, $8)
        on conflict (id) do update set
          lesson_id = excluded.lesson_id,
          question_text = excluded.question_text,
          options_json = excluded.options_json,
          correct_option = excluded.correct_option,
          explanation = excluded.explanation,
+         difficulty = excluded.difficulty,
          order_index = excluded.order_index
        returning *`,
       [
@@ -492,6 +613,7 @@ export class DatabaseRepository {
         JSON.stringify(input.options),
         input.correctOption,
         input.explanation,
+        input.difficulty,
         input.orderIndex,
       ],
     );
@@ -501,15 +623,17 @@ export class DatabaseRepository {
   async updateQuestion(
     id: string,
     input: Omit<Parameters<DatabaseRepository["upsertQuestion"]>[0], "id">,
+    db: Db = this.pool,
   ) {
-    const result = await this.pool.query<QuestionRow>(
+    const result = await db.query<QuestionRow>(
       `update questions
        set lesson_id = $2,
            question_text = $3,
            options_json = $4::jsonb,
            correct_option = $5,
            explanation = $6,
-           order_index = $7
+           difficulty = $7,
+           order_index = $8
        where id = $1
        returning *`,
       [
@@ -519,6 +643,7 @@ export class DatabaseRepository {
         JSON.stringify(input.options),
         input.correctOption,
         input.explanation,
+        input.difficulty,
         input.orderIndex,
       ],
     );
@@ -528,8 +653,8 @@ export class DatabaseRepository {
     return this.mapQuestion(result.rows[0]);
   }
 
-  async deleteQuestion(id: string) {
-    const result = await this.pool.query<QuestionRow>(
+  async deleteQuestion(id: string, db: Db = this.pool) {
+    const result = await db.query<QuestionRow>(
       "delete from questions where id = $1 returning *",
       [id],
     );
@@ -539,11 +664,48 @@ export class DatabaseRepository {
     return { id, deleted: true, mode: "hard" };
   }
 
+  async setQuestionOrder(
+    lessonId: string,
+    questionIds: string[],
+    db: Db = this.pool,
+  ) {
+    if (questionIds.length === 0) return [];
+    await db.query(
+      "update questions set order_index = -order_index where lesson_id = $1",
+      [lessonId],
+    );
+    const values = questionIds
+      .map(
+        (id, index) =>
+          `($${index * 2 + 2}::varchar, $${index * 2 + 3}::integer)`,
+      )
+      .join(", ");
+    const params: unknown[] = [lessonId];
+    questionIds.forEach((id, index) => {
+      params.push(id, index + 1);
+    });
+    const result = await db.query<{ id: string; order_index: number }>(
+      `update questions q
+       set order_index = v.order_index
+       from (values ${values}) as v(id, order_index)
+       where q.lesson_id = $1 and q.id = v.id
+       returning q.id, q.order_index`,
+      params,
+    );
+    return result.rows
+      .map((row) => ({
+        id: row.id,
+        orderIndex: row.order_index,
+      }))
+      .sort((a, b) => a.orderIndex - b.orderIndex);
+  }
+
   async createQuizAttempt(
     input: {
       userId: string;
       lessonId: string;
       answers: Array<{ questionId: string; selectedOption: number }>;
+      review: unknown[];
       score: number;
       correctCount: number;
       totalQuestions: number;
@@ -554,13 +716,14 @@ export class DatabaseRepository {
   ) {
     const result = await db.query<AttemptRow>(
       `insert into quiz_attempts
-        (user_id, lesson_id, answers_json, score, correct_count, total_questions, duration_seconds, coins_earned)
-       values ($1, $2, $3::jsonb, $4, $5, $6, $7, $8)
+        (user_id, lesson_id, answers_json, review_json, score, correct_count, total_questions, duration_seconds, coins_earned)
+       values ($1, $2, $3::jsonb, $4::jsonb, $5, $6, $7, $8, $9)
        returning *`,
       [
         input.userId,
         input.lessonId,
         JSON.stringify(input.answers),
+        JSON.stringify(input.review),
         input.score,
         input.correctCount,
         input.totalQuestions,
@@ -960,7 +1123,18 @@ export class DatabaseRepository {
       options: row.options_json,
       correctOption: row.correct_option,
       explanation: row.explanation,
+      difficulty: row.difficulty ?? "MEDIUM",
       orderIndex: row.order_index,
+    };
+  }
+
+  private mapAdminQuestion(row: AdminQuestionRow) {
+    return {
+      ...this.mapQuestion(row),
+      questionText: row.question_text,
+      lessonTitle: row.lesson_title,
+      chapterId: row.chapter_id,
+      chapterTitle: row.chapter_title,
     };
   }
 
@@ -972,6 +1146,7 @@ export class DatabaseRepository {
       lessonTitle: row.lesson_title,
       chapterId: row.chapter_id,
       answers: row.answers_json,
+      review: row.review_json ?? [],
       score: Number(row.score),
       correctCount: row.correct_count,
       totalQuestions: row.total_questions,

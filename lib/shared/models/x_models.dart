@@ -44,6 +44,15 @@ String _jsonString(
   return value as String? ?? '';
 }
 
+DateTime? _jsonDate(
+  Map<dynamic, dynamic> json,
+  String camelKey, [
+  String? snakeKey,
+]) {
+  final value = _jsonString(json, camelKey, snakeKey);
+  return value.isEmpty ? null : DateTime.tryParse(value);
+}
+
 class XBadge {
   const XBadge({
     required this.id,
@@ -277,6 +286,11 @@ class Question {
     required this.options,
     this.correctOption,
     required this.explanation,
+    this.difficulty = 'MEDIUM',
+    this.lessonTitle = '',
+    this.chapterId = '',
+    this.chapterTitle = '',
+    this.createdAt,
     this.orderIndex = 0,
   });
   final String id;
@@ -285,6 +299,11 @@ class Question {
   final List<String> options;
   final int? correctOption;
   final String explanation;
+  final String difficulty;
+  final String lessonTitle;
+  final String chapterId;
+  final String chapterTitle;
+  final DateTime? createdAt;
   final int orderIndex;
 
   Map<String, dynamic> toJson() => {
@@ -294,6 +313,11 @@ class Question {
     'options': options,
     if (correctOption != null) 'correctOption': correctOption,
     'explanation': explanation,
+    'difficulty': difficulty,
+    if (lessonTitle.isNotEmpty) 'lessonTitle': lessonTitle,
+    if (chapterId.isNotEmpty) 'chapterId': chapterId,
+    if (chapterTitle.isNotEmpty) 'chapterTitle': chapterTitle,
+    if (createdAt != null) 'createdAt': createdAt!.toIso8601String(),
     'orderIndex': orderIndex,
   };
 
@@ -305,8 +329,41 @@ class Question {
     correctOption: (json['correctOption'] ?? json['correct_option'] as num?)
         ?.toInt(),
     explanation: json['explanation'] as String? ?? '',
+    difficulty: json['difficulty'] as String? ?? 'MEDIUM',
+    lessonTitle: json['lessonTitle'] as String? ?? '',
+    chapterId:
+        json['chapterId'] as String? ?? json['chapter_id'] as String? ?? '',
+    chapterTitle: json['chapterTitle'] as String? ?? '',
+    createdAt: _jsonDate(json, 'createdAt', 'created_at'),
     orderIndex: _jsonInt(json, 'orderIndex', 'order_index'),
   );
+}
+
+class AdminQuestionPage {
+  const AdminQuestionPage({
+    required this.items,
+    required this.page,
+    required this.limit,
+    required this.total,
+    required this.totalPages,
+  });
+
+  final List<Question> items;
+  final int page;
+  final int limit;
+  final int total;
+  final int totalPages;
+
+  factory AdminQuestionPage.fromJson(Map<dynamic, dynamic> json) =>
+      AdminQuestionPage(
+        items: (json['items'] as List? ?? const [])
+            .map((item) => Question.fromJson(item as Map))
+            .toList(),
+        page: _jsonInt(json, 'page'),
+        limit: _jsonInt(json, 'limit'),
+        total: _jsonInt(json, 'total'),
+        totalPages: _jsonInt(json, 'totalPages'),
+      );
 }
 
 class QuizReviewItem {

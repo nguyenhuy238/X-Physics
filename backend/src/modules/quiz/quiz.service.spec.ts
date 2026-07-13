@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from "@nestjs/common";
 
 import { LessonsService } from "../lessons/lessons.service";
 import { QuizService } from "./quiz.service";
@@ -273,7 +277,7 @@ describe("QuizService submit", () => {
   it("rejects missing answer", async () => {
     await expect(
       submit(service, "lesson-1", answersFor("lesson-1", 5).slice(0, 4)),
-    ).rejects.toThrow("answers count must match questions count");
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it("rejects extra answer", async () => {
@@ -282,7 +286,7 @@ describe("QuizService submit", () => {
         ...answersFor("lesson-1", 5),
         { questionId: "lesson-1-q-extra", selectedOption: 0 },
       ]),
-    ).rejects.toThrow("answers count must match questions count");
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it("rejects duplicate questionId", async () => {
@@ -297,7 +301,7 @@ describe("QuizService submit", () => {
     const answers = answersFor("lesson-1", 5);
     answers[0] = { questionId: "lesson-2-q1", selectedOption: 0 };
     await expect(submit(service, "lesson-1", answers)).rejects.toThrow(
-      "questionId does not belong to lesson",
+      "Bộ câu hỏi đã được cập nhật",
     );
   });
 
@@ -518,6 +522,49 @@ describe("QuizService submit", () => {
       isCorrect: true,
       explanation: "Explanation 1",
     });
+  });
+
+  it("stores historical review snapshot on the attempt", async () => {
+    const result = await submit(service, "lesson-1", answersFor("lesson-1", 5));
+    expect(database.attempts[0].review).toEqual(result.review);
+
+    database.questionsByLesson.get("lesson-1")![0] = {
+      ...database.questionsByLesson.get("lesson-1")![0],
+      question: "Changed question",
+      correctOption: 1,
+      explanation: "Changed explanation",
+    };
+
+    expect(database.attempts[0].review[0]).toMatchObject({
+      question: "Question 1",
+      correctOption: 0,
+      explanation: "Explanation 1",
+    });
+  });
+
+  it("uses updated correct answer for future submits without changing old attempt", async () => {
+    await submit(service, "lesson-1", answersFor("lesson-1", 5));
+    database.questionsByLesson.get("lesson-1")![0].correctOption = 1;
+
+    const answers = answersFor("lesson-1", 5);
+    answers[0] = { questionId: "lesson-1-q1", selectedOption: 1 };
+    const next = await submit(service, "lesson-1", answers);
+
+    expect(next.correctCount).toBe(5);
+    expect(database.attempts[0].review[0].correctOption).toBe(0);
+  });
+
+  it("rejects stale question set with 409 and creates no side effects", async () => {
+    const answers = answersFor("lesson-1", 5);
+    database.questionsByLesson.get("lesson-1")!.pop();
+
+    await expect(submit(service, "lesson-1", answers)).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    expect(database.attempts).toHaveLength(0);
+    expect(database.progress.size).toBe(0);
+    expect(database.rewardEvents).toHaveLength(0);
+    expect(database.coins).toBe(0);
   });
 });
 

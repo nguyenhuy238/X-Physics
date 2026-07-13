@@ -55,16 +55,52 @@ create table if not exists questions (
   options_json jsonb not null,
   correct_option integer not null,
   explanation text not null,
+  difficulty varchar(20) not null default 'MEDIUM' check (difficulty in ('EASY', 'MEDIUM', 'HARD')),
   order_index integer not null
 );
 
+alter table questions
+  add column if not exists difficulty varchar(20) not null default 'MEDIUM';
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'questions_difficulty_check'
+  ) then
+    alter table questions
+      add constraint questions_difficulty_check
+      check (difficulty in ('EASY', 'MEDIUM', 'HARD'));
+  end if;
+end $$;
+
 create index if not exists questions_lesson_order_idx on questions(lesson_id, order_index);
+
+with ordered_questions as (
+  select id, row_number() over (partition by lesson_id order by order_index asc, id asc) as next_order
+  from questions
+)
+update questions q
+set order_index = ordered_questions.next_order
+from ordered_questions
+where q.id = ordered_questions.id;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'questions_lesson_order_unique'
+  ) then
+    alter table questions
+      add constraint questions_lesson_order_unique
+      unique (lesson_id, order_index);
+  end if;
+end $$;
 
 create table if not exists quiz_attempts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references users(id) on delete cascade,
   lesson_id varchar(80) not null references lessons(id) on delete cascade,
   answers_json jsonb not null,
+  review_json jsonb,
   score numeric(4,2) not null,
   correct_count integer not null,
   total_questions integer not null,
@@ -75,6 +111,9 @@ create table if not exists quiz_attempts (
 
 alter table quiz_attempts
   add column if not exists duration_seconds integer not null default 0;
+
+alter table quiz_attempts
+  add column if not exists review_json jsonb;
 
 create index if not exists quiz_attempts_user_lesson_idx on quiz_attempts(user_id, lesson_id);
 
