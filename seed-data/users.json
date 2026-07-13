@@ -1,11 +1,43 @@
 [
   {
     "id": "usr_student_nam",
-    "name": "Nguyen Van Nam",
+    "name": "Nguyễn Văn Nam",
     "email": "nam@example.com",
     "password": "123456",
     "role": "STUDENT",
-    "coins": 0
+    "coins": 45
+  },
+  {
+    "id": "usr_student_mai",
+    "name": "Trần Thị Mai",
+    "email": "mai@example.com",
+    "password": "123456",
+    "role": "STUDENT",
+    "coins": 30
+  },
+  {
+    "id": "usr_student_hung",
+    "name": "Lê Văn Hùng",
+    "email": "hung@example.com",
+    "password": "123456",
+    "role": "STUDENT",
+    "coins": 15
+  },
+  {
+    "id": "usr_student_lan",
+    "name": "Phạm Thị Lan",
+    "email": "lan@example.com",
+    "password": "123456",
+    "role": "STUDENT",
+    "coins": 10
+  },
+  {
+    "id": "usr_student_duc",
+    "name": "Hoàng Văn Đức",
+    "email": "duc@example.com",
+    "password": "123456",
+    "role": "STUDENT",
+    "coins": 5
   },
   {
     "id": "usr_admin",

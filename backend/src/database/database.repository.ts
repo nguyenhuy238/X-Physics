@@ -253,6 +253,21 @@ export class DatabaseRepository {
     });
   }
 
+  async adminListChapters() {
+    const result = await this.pool.query<ChapterRow & { created_at: Date }>(
+      `select c.*, count(l.id) as lesson_count
+       from chapters c
+       left join lessons l on l.chapter_id = c.id
+       group by c.id
+       order by c.order_index asc`,
+    );
+    return result.rows.map((row) => ({
+      ...this.mapChapter(row),
+      createdAt: row.created_at,
+      lessonCount: Number(row.lesson_count ?? 0),
+    }));
+  }
+
   async adminListLessons() {
     const result = await this.pool.query<LessonRow>(
       'select * from lessons order by chapter_id asc, order_index asc',
@@ -324,8 +339,7 @@ export class DatabaseRepository {
 
   async softDeleteChapter(id: string) {
     const result = await this.pool.query<ChapterRow>(
-      `update chapters
-       set is_published = false, updated_at = now()
+      `delete from chapters
        where id = $1
        returning *`,
       [id],
@@ -333,7 +347,7 @@ export class DatabaseRepository {
     if (!result.rows[0]) {
       throw new NotFoundException('Chapter not found');
     }
-    return { id, deleted: true, mode: 'soft' };
+    return { id, deleted: true, mode: 'hard' };
   }
 
   async upsertLesson(input: {
@@ -409,8 +423,7 @@ export class DatabaseRepository {
 
   async softDeleteLesson(id: string) {
     const result = await this.pool.query<LessonRow>(
-      `update lessons
-       set is_published = false, updated_at = now()
+      `delete from lessons
        where id = $1
        returning *`,
       [id],
@@ -418,7 +431,7 @@ export class DatabaseRepository {
     if (!result.rows[0]) {
       throw new NotFoundException('Lesson not found');
     }
-    return { id, deleted: true, mode: 'soft' };
+    return { id, deleted: true, mode: 'hard' };
   }
 
   async upsertQuestion(input: {
@@ -653,8 +666,11 @@ export class DatabaseRepository {
   }
 
   async statistics() {
-    const [users, attempts, completed, lessons] = await Promise.all([
-      this.pool.query<{ count: string }>('select count(*) from users'),
+    // Drop unique order_index constraint on chapters to avoid index collision crashes on live database
+    await this.pool.query('alter table chapters drop constraint if exists chapters_order_index_key').catch(() => {});
+
+    const [users, attempts, completed, lessons, chapters, questions] = await Promise.all([
+      this.pool.query<{ count: string }>("select count(*) from users where role = 'STUDENT'"),
       this.pool.query<{ count: string }>('select count(*) from quiz_attempts'),
       this.pool.query<{ count: string }>(
         "select count(*) from progress where status = 'COMPLETED'",
@@ -662,13 +678,93 @@ export class DatabaseRepository {
       this.pool.query<{ count: string }>(
         'select count(*) from lessons where is_published = true',
       ),
+      this.pool.query<{ count: string }>('select count(*) from chapters'),
+      this.pool.query<{ count: string }>('select count(*) from questions'),
     ]);
     const completedCount = Number(completed.rows[0]?.count ?? 0);
     const lessonCount = Number(lessons.rows[0]?.count ?? 0);
+
+    // Dynamic Chart Data: Unique active users per day over the last 7 days
+    const chartQuery = await this.pool.query<{ day_num: string; active_count: string }>(
+      `select to_char(d, 'ID') as day_num, coalesce(count(distinct q.user_id), 0) as active_count
+       from generate_series(now() - interval '6 days', now(), '1 day') d
+       left join quiz_attempts q on q.created_at::date = d::date
+       group by d::date, d
+       order by d::date`
+    );
+    const activeUsersData = chartQuery.rows.map(row => Number(row.active_count));
+
+    // Hardest Lessons: Top 5 lessons with lowest average quiz attempt score
+    const hardestQuery = await this.pool.query<{ title: string; avg_score: string }>(
+      `select l.title, coalesce(avg(q.score), 0.0) as avg_score
+       from lessons l
+       left join quiz_attempts q on q.lesson_id = l.id
+       where l.is_published = true
+       group by l.id, l.title
+       order by avg_score asc
+       limit 5`
+    );
+    const hardestLessons = hardestQuery.rows.map(row => ({
+      title: row.title,
+      percentage: Number(row.avg_score) / 10.0,
+    }));
+
+    // Blended Recent Activities: Blending quiz attempts, progress, signups and downloads
+    const activityQuery = await this.pool.query<{
+      type: string;
+      user_name: string;
+      action: string;
+      detail: string;
+      created_at: Date;
+    }>(
+      `(
+         select 'quiz' as type, u.name as user_name, 'Hoàn thành bài kiểm tra' as action, l.title as detail, q.created_at as created_at
+         from quiz_attempts q
+         join users u on u.id = q.user_id
+         join lessons l on l.id = q.lesson_id
+       )
+       union all
+       (
+         select 'progress' as type, u.name as user_name, 'Bắt đầu bài học' as action, l.title as detail, p.updated_at as created_at
+         from progress p
+         join users u on u.id = p.user_id
+         join lessons l on l.id = p.lesson_id
+         where p.status = 'IN_PROGRESS'
+       )
+       union all
+       (
+         select 'user' as type, name as user_name, 'Đăng ký tài khoản' as action, 'Lớp 8' as detail, created_at as created_at
+         from users
+         where role = 'STUDENT'
+       )
+       union all
+       (
+         select 'download' as type, u.name as user_name, 'Tải bài học offline' as action, l.title as detail, d.downloaded_at as created_at
+         from downloaded_lessons d
+         join users u on u.id = d.user_id
+         join lessons l on l.id = d.lesson_id
+       )
+       order by created_at desc
+       limit 4`
+    );
+    const recentActivities = activityQuery.rows.map(row => ({
+      type: row.type,
+      userName: row.user_name,
+      action: row.action,
+      detail: row.detail,
+      createdAt: row.createdAt ?? row.created_at, // Postgres query standardizes to camelCase, fallback to snake_case
+    }));
+
     return {
       totalUsers: Number(users.rows[0]?.count ?? 0),
       totalAttempts: Number(attempts.rows[0]?.count ?? 0),
       completionRate: lessonCount === 0 ? 0 : completedCount / lessonCount,
+      totalChapters: Number(chapters.rows[0]?.count ?? 0),
+      totalLessons: lessonCount,
+      totalQuestions: Number(questions.rows[0]?.count ?? 0),
+      activeUsersData,
+      hardestLessons,
+      recentActivities,
     };
   }
 
@@ -713,6 +809,7 @@ export class DatabaseRepository {
       estimatedMinutes: row.estimated_minutes,
       orderIndex: row.order_index,
       isPublished: row.is_published,
+      createdAt: row.created_at,
     };
   }
 

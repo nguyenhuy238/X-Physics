@@ -31,6 +31,7 @@ class Chapter {
     this.lessonCount = 0,
     this.orderIndex = 0,
     this.isPublished = true,
+    this.createdAt,
   });
   final String id;
   final String title;
@@ -40,6 +41,7 @@ class Chapter {
   final int lessonCount;
   final int orderIndex;
   final bool isPublished;
+  final String? createdAt;
 
   factory Chapter.fromJson(Map<dynamic, dynamic> json) => Chapter(
     id: json['id'] as String,
@@ -54,6 +56,7 @@ class Chapter {
     lessonCount: (json['lessonCount'] as num?)?.toInt() ?? 0,
     orderIndex: (json['orderIndex'] as num?)?.toInt() ?? 0,
     isPublished: json['isPublished'] as bool? ?? true,
+    createdAt: json['createdAt'] as String?,
   );
 }
 
@@ -69,6 +72,7 @@ class Lesson {
     required this.questions,
     this.orderIndex = 0,
     this.isPublished = true,
+    this.createdAt,
   });
   final String id;
   final String chapterId;
@@ -80,6 +84,7 @@ class Lesson {
   final List<Question> questions;
   final int orderIndex;
   final bool isPublished;
+  final String? createdAt;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -92,6 +97,7 @@ class Lesson {
     'questions': questions.map((q) => q.toJson()).toList(),
     'orderIndex': orderIndex,
     'isPublished': isPublished,
+    'createdAt': createdAt,
   };
 
   factory Lesson.fromJson(Map<dynamic, dynamic> json) => Lesson(
@@ -109,6 +115,7 @@ class Lesson {
         .toList(),
     orderIndex: (json['orderIndex'] as num?)?.toInt() ?? 0,
     isPublished: json['isPublished'] as bool? ?? true,
+    createdAt: json['createdAt'] as String?,
   );
 }
 

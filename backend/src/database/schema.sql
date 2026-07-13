@@ -15,7 +15,7 @@ create table if not exists chapters (
   id varchar(80) primary key,
   title varchar(180) not null,
   description text not null,
-  order_index integer unique not null,
+  order_index integer not null,
   is_published boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

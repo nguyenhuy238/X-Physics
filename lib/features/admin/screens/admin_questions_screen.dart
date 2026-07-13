@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/models/x_models.dart';
-import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_view.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../progress/application/app_state.dart';
+import '../widgets/admin_layout.dart';
 
 class AdminQuestionsScreen extends StatefulWidget {
   const AdminQuestionsScreen({super.key});
@@ -27,17 +27,17 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    return XScaffold(
-      title: 'Admin Questions',
-      actions: [
-        IconButton(
-          tooltip: 'Thêm question',
-          onPressed: state.adminLessons.isEmpty
-              ? null
-              : () => _showQuestionDialog(context),
-          icon: const Icon(Icons.add_rounded),
-        ),
-      ],
+    return AdminLayout(
+      title: 'Quản lý Câu hỏi',
+      subtitle: 'Tất cả câu hỏi trắc nghiệm tự luyện trong các bài học',
+      activeRoute: '/admin/questions',
+      floatingActionButton: FloatingActionButton(
+        tooltip: 'Thêm câu hỏi mới',
+        onPressed: state.adminLessons.isEmpty
+            ? null
+            : () => _showQuestionDialog(context),
+        child: const Icon(Icons.add_rounded),
+      ),
       child: state.isBusy && state.adminQuestions.isEmpty
           ? const LoadingView(message: 'Đang tải questions...')
           : state.errorMessage != null && state.adminQuestions.isEmpty
