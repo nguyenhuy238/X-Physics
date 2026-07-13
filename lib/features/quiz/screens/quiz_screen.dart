@@ -69,6 +69,7 @@ class _QuizScreenState extends State<QuizScreen> {
         _submitErrorMessage = null;
         secondsLeft = QuizScreen.initialSeconds;
         index = 0;
+        answers.clear();
       });
     }
 
@@ -249,6 +250,9 @@ class _QuizScreenState extends State<QuizScreen> {
     final question = _questions[index];
     final selected = answers[question.id];
     final isLast = index == _questions.length - 1;
+    final isStaleQuizError =
+        _submitErrorMessage?.contains('Bộ câu hỏi đã được cập nhật') == true ||
+        _submitErrorMessage?.contains('question set') == true;
     final timerColor = secondsLeft <= 30
         ? Theme.of(context).colorScheme.error
         : Theme.of(context).colorScheme.primary;
@@ -304,6 +308,11 @@ class _QuizScreenState extends State<QuizScreen> {
                       MaterialBanner(
                         content: Text(_submitErrorMessage!),
                         actions: [
+                          if (isStaleQuizError)
+                            TextButton(
+                              onPressed: _isSubmitting ? null : _loadQuestions,
+                              child: const Text('Tải lại quiz'),
+                            ),
                           TextButton(
                             onPressed: _isSubmitting
                                 ? null

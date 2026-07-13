@@ -487,16 +487,99 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     try {
       await loadAdminLessons();
-      final data = await _getData<List<dynamic>>(ApiEndpoints.adminQuestions);
+      final data = await _getData<dynamic>(ApiEndpoints.adminQuestions);
+      final items = data is Map
+          ? List<dynamic>.from(data['items'] as List? ?? const [])
+          : List<dynamic>.from(data as List);
       adminQuestions
         ..clear()
-        ..addAll(data.map((item) => Question.fromJson(item as Map)));
+        ..addAll(items.map((item) => Question.fromJson(item as Map)));
     } catch (error) {
       errorMessage = _readableError(error);
     } finally {
       isBusy = false;
       notifyListeners();
     }
+  }
+
+  Future<AdminQuestionPage> fetchAdminQuestions({
+    String? lessonId,
+    String? chapterId,
+    String? search,
+    String? difficulty,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final query = <String, dynamic>{
+      'page': page,
+      'limit': limit,
+      if (lessonId != null && lessonId.isNotEmpty) 'lessonId': lessonId,
+      if (chapterId != null && chapterId.isNotEmpty) 'chapterId': chapterId,
+      if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+      if (difficulty != null && difficulty.isNotEmpty) 'difficulty': difficulty,
+    };
+    final response = await _apiClient.dio.get<Map<String, dynamic>>(
+      ApiEndpoints.adminQuestions,
+      queryParameters: query,
+    );
+    final body = response.data;
+    if (body == null || body['success'] != true) {
+      throw StateError(body?['message'] as String? ?? 'API error');
+    }
+    return AdminQuestionPage.fromJson(body['data'] as Map);
+  }
+
+  Future<Question> fetchAdminQuestionDetail(String id) async {
+    final data = await _getData<Map<String, dynamic>>(
+      ApiEndpoints.adminQuestion(id),
+    );
+    return Question.fromJson(data);
+  }
+
+  Future<Question> writeAdminQuestion(
+    Question question, {
+    required bool isUpdate,
+  }) async {
+    final payload = _adminQuestionPayload(question);
+    final response = isUpdate
+        ? await _apiClient.dio.put<Map<String, dynamic>>(
+            ApiEndpoints.adminQuestion(question.id),
+            data: payload,
+          )
+        : await _apiClient.dio.post<Map<String, dynamic>>(
+            ApiEndpoints.adminQuestions,
+            data: payload,
+          );
+    final body = response.data;
+    if (body == null || body['success'] != true) {
+      throw StateError(body?['message'] as String? ?? 'API error');
+    }
+    return Question.fromJson(body['data'] as Map);
+  }
+
+  Future<void> removeAdminQuestion(String id) async {
+    final response = await _apiClient.dio.delete<Map<String, dynamic>>(
+      ApiEndpoints.adminQuestion(id),
+    );
+    if (response.data?['success'] != true) {
+      throw StateError(response.data?['message'] as String? ?? 'API error');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> reorderAdminQuestions({
+    required String lessonId,
+    required List<String> questionIds,
+  }) async {
+    final response = await _apiClient.dio.put<Map<String, dynamic>>(
+      ApiEndpoints.adminQuestionsReorder,
+      data: {'lessonId': lessonId, 'questionIds': questionIds},
+    );
+    final body = response.data;
+    if (body == null || body['success'] != true) {
+      throw StateError(body?['message'] as String? ?? 'API error');
+    }
+    final data = body['data'] as Map;
+    return List<Map<String, dynamic>>.from(data['items'] as List? ?? const []);
   }
 
   Future<bool> saveAdminChapter(Chapter chapter) async {
@@ -577,24 +660,15 @@ class AppState extends ChangeNotifier {
   }
 
   Future<bool> saveAdminQuestion(Question question, {required bool isUpdate}) {
-    final payload = {
-      'id': question.id,
-      'lessonId': question.lessonId,
-      'questionText': question.question,
-      'options': question.options,
-      'correctOption': question.correctOption ?? 0,
-      'explanation': question.explanation,
-      'orderIndex': question.orderIndex,
-    };
     return _adminWrite(
       () => isUpdate
           ? _apiClient.dio.put<Map<String, dynamic>>(
               ApiEndpoints.adminQuestion(question.id),
-              data: payload,
+              data: _adminQuestionPayload(question),
             )
           : _apiClient.dio.post<Map<String, dynamic>>(
               ApiEndpoints.adminQuestions,
-              data: payload,
+              data: _adminQuestionPayload(question),
             ),
       refresh: loadAdminQuestions,
     );
@@ -644,6 +718,18 @@ class AppState extends ChangeNotifier {
     }
     return body['data'] as T;
   }
+
+  String readableError(Object error) => _readableError(error);
+
+  Map<String, dynamic> _adminQuestionPayload(Question question) => {
+    'lessonId': question.lessonId,
+    'questionText': question.question,
+    'options': question.options,
+    'correctOption': question.correctOption ?? 0,
+    'explanation': question.explanation,
+    'difficulty': question.difficulty,
+    'orderIndex': question.orderIndex,
+  };
 
   Future<bool> _adminWrite(
     Future<Response<Map<String, dynamic>>> Function() request, {

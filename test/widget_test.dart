@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import 'package:x_physics/core/network/api_client.dart';
 import 'package:x_physics/core/router/app_router.dart';
 import 'package:x_physics/core/storage/token_storage.dart';
+import 'package:x_physics/features/admin/screens/admin_questions_screen.dart';
 import 'package:x_physics/features/progress/application/app_state.dart';
 import 'package:x_physics/features/progress/screens/progress_screen.dart';
 import 'package:x_physics/features/profile/screens/profile_screen.dart';
@@ -101,7 +102,54 @@ class FakeAppState extends AppState {
   int? lastDurationSeconds;
   Map<String, int>? lastAnswers;
   Completer<QuizAttempt?>? submitCompleter;
+  Completer<AdminQuestionPage>? adminQuestionCompleter;
+  int adminQuestionFetchCount = 0;
+  int adminWriteCount = 0;
+  int adminDeleteCount = 0;
+  int adminReorderCount = 0;
+  List<String>? lastReorderQuestionIds;
+  String? lastAdminSearch;
+  String? lastAdminChapterId;
+  String? lastAdminLessonId;
+  String? lastAdminDifficulty;
+  Question? lastWrittenQuestion;
+  var adminQuestionPage = AdminQuestionPage(
+    page: 1,
+    limit: 20,
+    total: 2,
+    totalPages: 1,
+    items: [
+      Question(
+        id: 'aq1',
+        lessonId: 'lesson-1',
+        lessonTitle: 'Chuyển động đều',
+        chapterId: 'chapter-1',
+        chapterTitle: 'Chuyển động cơ học',
+        question: 'Một vật chuyển động đều với v = 5 m/s trong 10s đi bao xa?',
+        options: ['10 m', '50 m', '5 m', '2 m'],
+        correctOption: 1,
+        explanation: 's = v * t = 50 m',
+        difficulty: 'EASY',
+        orderIndex: 1,
+      ),
+      Question(
+        id: 'aq2',
+        lessonId: 'lesson-1',
+        lessonTitle: 'Chuyển động đều',
+        chapterId: 'chapter-1',
+        chapterTitle: 'Chuyển động cơ học',
+        question:
+            'Vật đi 100 m trong 20 giây, vận tốc trung bình là bao nhiêu?',
+        options: ['3 m/s', '4 m/s', '5 m/s', '6 m/s'],
+        correctOption: 2,
+        explanation: 'v = s / t = 5 m/s',
+        difficulty: 'MEDIUM',
+        orderIndex: 2,
+      ),
+    ],
+  );
   bool failSubmit = false;
+  bool staleSubmit = false;
 
   @override
   Future<List<Question>> loadQuestions(String lessonId, {bool notify = true}) {
@@ -165,6 +213,166 @@ class FakeAppState extends AppState {
   Future<void> refreshProfile() => loadProfile();
 
   @override
+  Future<void> loadAdminChapters() async {
+    chapters
+      ..clear()
+      ..addAll(const [
+        Chapter(
+          id: 'chapter-1',
+          title: 'Chuyển động cơ học',
+          description: 'Mô tả',
+          orderIndex: 1,
+        ),
+        Chapter(
+          id: 'chapter-2',
+          title: 'Lực và áp suất',
+          description: 'Mô tả',
+          orderIndex: 2,
+        ),
+      ]);
+    notifyListeners();
+  }
+
+  @override
+  Future<void> loadAdminLessons() async {
+    await loadAdminChapters();
+    adminLessons
+      ..clear()
+      ..addAll([
+        Lesson(
+          id: 'lesson-1',
+          chapterId: 'chapter-1',
+          title: 'Chuyển động đều',
+          content: 'content',
+          formulaLatex: '',
+          estimatedMinutes: 10,
+          simulation: FormulaSimulationConfig.empty(),
+          questions: const [],
+          orderIndex: 1,
+        ),
+        Lesson(
+          id: 'lesson-2',
+          chapterId: 'chapter-1',
+          title: 'Vận tốc trung bình',
+          content: 'content',
+          formulaLatex: '',
+          estimatedMinutes: 10,
+          simulation: FormulaSimulationConfig.empty(),
+          questions: const [],
+          orderIndex: 2,
+        ),
+      ]);
+    notifyListeners();
+  }
+
+  @override
+  Future<AdminQuestionPage> fetchAdminQuestions({
+    String? lessonId,
+    String? chapterId,
+    String? search,
+    String? difficulty,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    adminQuestionFetchCount++;
+    lastAdminSearch = search;
+    lastAdminChapterId = chapterId;
+    lastAdminLessonId = lessonId;
+    lastAdminDifficulty = difficulty;
+    if (adminQuestionCompleter != null) {
+      return adminQuestionCompleter!.future;
+    }
+    var items = adminQuestionPage.items;
+    if (lessonId != null && lessonId.isNotEmpty) {
+      items = items.where((question) => question.lessonId == lessonId).toList();
+    }
+    if (chapterId != null && chapterId.isNotEmpty) {
+      items = items
+          .where((question) => question.chapterId == chapterId)
+          .toList();
+    }
+    if (difficulty != null && difficulty.isNotEmpty) {
+      items = items
+          .where((question) => question.difficulty == difficulty)
+          .toList();
+    }
+    if (search != null && search.trim().isNotEmpty) {
+      items = items
+          .where(
+            (question) =>
+                question.question.toLowerCase().contains(search.toLowerCase()),
+          )
+          .toList();
+    }
+    return AdminQuestionPage(
+      items: items,
+      page: page,
+      limit: limit,
+      total: items.length,
+      totalPages: items.isEmpty ? 0 : 1,
+    );
+  }
+
+  @override
+  Future<Question> fetchAdminQuestionDetail(String id) async {
+    return adminQuestionPage.items.firstWhere((question) => question.id == id);
+  }
+
+  @override
+  Future<Question> writeAdminQuestion(
+    Question question, {
+    required bool isUpdate,
+  }) async {
+    adminWriteCount++;
+    lastWrittenQuestion = question;
+    if (question.question == 'fail') throw Exception('Validation failed');
+    return question;
+  }
+
+  @override
+  Future<void> removeAdminQuestion(String id) async {
+    adminDeleteCount++;
+    adminQuestionPage = AdminQuestionPage(
+      items: adminQuestionPage.items
+          .where((question) => question.id != id)
+          .toList(),
+      page: 1,
+      limit: 20,
+      total: adminQuestionPage.total - 1,
+      totalPages: 1,
+    );
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> reorderAdminQuestions({
+    required String lessonId,
+    required List<String> questionIds,
+  }) async {
+    adminReorderCount++;
+    lastReorderQuestionIds = questionIds;
+    if (questionIds.contains('fail')) {
+      throw Exception('Reorder failed');
+    }
+    adminQuestionPage = AdminQuestionPage(
+      items: questionIds
+          .map(
+            (id) => adminQuestionPage.items.firstWhere(
+              (question) => question.id == id,
+            ),
+          )
+          .toList(),
+      page: 1,
+      limit: 20,
+      total: adminQuestionPage.total,
+      totalPages: adminQuestionPage.totalPages,
+    );
+    return [
+      for (var i = 0; i < questionIds.length; i++)
+        {'id': questionIds[i], 'orderIndex': i + 1},
+    ];
+  }
+
+  @override
   Future<QuizAttempt?> submitQuiz(
     String lessonId,
     Map<String, int> answers, {
@@ -175,6 +383,10 @@ class FakeAppState extends AppState {
     lastAnswers = Map<String, int>.from(answers);
     if (submitCompleter != null) {
       return submitCompleter!.future;
+    }
+    if (staleSubmit) {
+      quizSubmitError = 'Bộ câu hỏi đã được cập nhật. Vui lòng tải lại quiz.';
+      return null;
     }
     if (failSubmit) {
       quizSubmitError = 'Submit failed';
@@ -284,6 +496,27 @@ Future<GoRouter> _pumpProgress(WidgetTester tester, FakeAppState state) async {
   );
   await _pumpRouter(tester, state, router);
   return router;
+}
+
+Future<void> _pumpAdminQuestions(
+  WidgetTester tester,
+  FakeAppState state,
+) async {
+  await tester.binding.setSurfaceSize(const Size(1500, 900));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  state.loading = false;
+  state.user = const XUser(
+    id: 'admin-1',
+    name: 'Admin User',
+    email: 'admin@example.com',
+    role: 'ADMIN',
+  );
+  await tester.pumpWidget(
+    ChangeNotifierProvider<AppState>.value(
+      value: state,
+      child: const MaterialApp(home: AdminQuestionsScreen()),
+    ),
+  );
 }
 
 Future<GoRouter> _pumpProfile(
@@ -1134,6 +1367,239 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(router.routerDelegate.currentConfiguration.uri.path, '/login');
+  });
+
+  testWidgets(
+    'admin questions shows loading then list data with answer and chips',
+    (tester) async {
+      final state = FakeAppState();
+      state.adminQuestionCompleter = Completer<AdminQuestionPage>();
+
+      await _pumpAdminQuestions(tester, state);
+      await tester.pump();
+      expect(find.text('Đang tải câu hỏi...'), findsOneWidget);
+
+      state.adminQuestionCompleter!.complete(state.adminQuestionPage);
+      state.adminQuestionCompleter = null;
+      await tester.pumpAndSettle();
+
+      expect(find.text('Quản lý Câu hỏi'), findsOneWidget);
+      expect(find.text('B. 50 m'), findsOneWidget);
+      expect(find.text('C. 5 m/s'), findsOneWidget);
+      expect(find.text('Dễ'), findsOneWidget);
+      expect(find.text('Trung bình'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'admin questions filters call API and clear filters resets them',
+    (tester) async {
+      final state = FakeAppState();
+      await _pumpAdminQuestions(tester, state);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).last, 'ohm');
+      await tester.pump(const Duration(milliseconds: 450));
+      await tester.pumpAndSettle();
+      expect(state.lastAdminSearch, 'ohm');
+
+      await tester.tap(find.byType(DropdownButtonFormField<String>).at(2));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Khó').last);
+      await tester.pumpAndSettle();
+      expect(state.lastAdminDifficulty, 'HARD');
+
+    await tester.tap(find.text('Xóa bộ lọc').first);
+      await tester.pumpAndSettle();
+      expect(state.lastAdminDifficulty, isNull);
+    },
+  );
+
+  testWidgets('admin questions shows filtered empty state', (tester) async {
+    final state = FakeAppState()
+      ..adminQuestionPage = const AdminQuestionPage(
+        items: [],
+        page: 1,
+        limit: 20,
+        total: 0,
+        totalPages: 0,
+      );
+    await _pumpAdminQuestions(tester, state);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).last, 'missing');
+    await tester.pump(const Duration(milliseconds: 450));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Không tìm thấy câu hỏi phù hợp.'), findsOneWidget);
+  });
+
+  testWidgets(
+    'admin questions validates create form and prevents double save',
+    (tester) async {
+      final state = FakeAppState();
+      await _pumpAdminQuestions(tester, state);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Thêm câu hỏi'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Lưu'));
+      await tester.pump();
+      expect(find.text('Bắt buộc'), findsWidgets);
+      expect(state.adminWriteCount, 0);
+
+      await tester.enterText(find.byType(TextFormField).at(0), 'New question');
+      await tester.enterText(find.byType(TextFormField).at(1), 'A');
+      await tester.enterText(find.byType(TextFormField).at(2), 'B');
+      await tester.enterText(find.byType(TextFormField).at(3), 'C');
+      await tester.enterText(find.byType(TextFormField).at(4), 'D');
+      await tester.enterText(find.byType(TextFormField).at(5), 'Because');
+      await tester.ensureVisible(find.text('Lưu').last);
+      await tester.tap(find.text('Lưu').last);
+      await tester.pumpAndSettle();
+
+      expect(state.adminWriteCount, 1);
+      expect(state.lastWrittenQuestion?.question, 'New question');
+    },
+  );
+
+  testWidgets('admin questions detail and delete work through dialogs', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    await _pumpAdminQuestions(tester, state);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Xem').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Chi tiết câu hỏi'), findsOneWidget);
+    expect(find.text('s = v * t = 50 m'), findsOneWidget);
+    await tester.tap(find.text('Đóng'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Xóa').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Xóa câu hỏi?'), findsOneWidget);
+    await tester.tap(find.text('Xóa').last);
+    await tester.pumpAndSettle();
+
+    expect(state.adminDeleteCount, 1);
+  });
+
+  testWidgets('admin questions reorder is enabled only for a selected lesson', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    await _pumpAdminQuestions(tester, state);
+    await tester.pumpAndSettle();
+
+    var reorder = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'Sắp xếp'),
+    );
+    expect(reorder.onPressed, isNull);
+
+    await tester.tap(find.byType(DropdownButtonFormField<String>).at(1));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Chuyển động đều').last);
+    await tester.pumpAndSettle();
+
+    reorder = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'Sắp xếp'),
+    );
+    expect(reorder.onPressed, isNotNull);
+  });
+
+  testWidgets('admin questions reorder dialog cancel and save behavior', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    await _pumpAdminQuestions(tester, state);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(DropdownButtonFormField<String>).at(1));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Chuyển động đều').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sắp xếp'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sắp xếp câu hỏi'), findsOneWidget);
+    expect(find.textContaining('Một vật chuyển động'), findsWidgets);
+
+    await tester.tap(find.text('Hủy'));
+    await tester.pumpAndSettle();
+    expect(state.adminReorderCount, 0);
+
+    await tester.tap(find.text('Sắp xếp'));
+    await tester.pumpAndSettle();
+    await tester.drag(
+      find.byIcon(Icons.drag_handle_rounded).first,
+      const Offset(0, 90),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Lưu').last);
+    await tester.pumpAndSettle();
+
+    expect(state.adminReorderCount, 1);
+    expect(state.lastReorderQuestionIds, isNotNull);
+    expect(state.lastReorderQuestionIds!.toSet(), {'aq1', 'aq2'});
+  });
+
+  testWidgets('stale quiz 409 shows reload and reload resets answers', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    state.loadQueue
+      ..add(() => Future.value([_questions.first]))
+      ..add(
+        () => Future.value([
+          const Question(
+            id: 'q3',
+            lessonId: 'lesson-1',
+            question: 'Reloaded question',
+            options: ['A3', 'B3'],
+            explanation: '',
+          ),
+        ]),
+      );
+    state.staleSubmit = true;
+    await _loadQuiz(tester, state);
+
+    await tester.tap(find.text('A1'));
+    await tester.pump();
+    await tester.tap(find.text('Nop bai'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Nop bai').last);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Bộ câu hỏi đã được cập nhật'), findsOneWidget);
+    expect(find.text('Tải lại quiz'), findsOneWidget);
+
+    await tester.tap(find.text('Tải lại quiz'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Reloaded question'), findsOneWidget);
+    final submitButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Nop bai'),
+    );
+    expect(submitButton.onPressed, isNull);
+  });
+
+  testWidgets('student cannot access admin questions route', (tester) async {
+    final state = FakeAppState()
+      ..loading = false
+      ..user = const XUser(
+        id: 'student-1',
+        name: 'Student',
+        email: 'student@example.com',
+        role: 'STUDENT',
+      );
+    final router = buildRouter(state);
+
+    await _pumpRouter(tester, state, router);
+    router.go('/admin/questions');
+    await tester.pumpAndSettle();
+
+    expect(router.routerDelegate.currentConfiguration.uri.path, '/');
   });
 
   testWidgets('profile uses three badge columns on wide screens', (

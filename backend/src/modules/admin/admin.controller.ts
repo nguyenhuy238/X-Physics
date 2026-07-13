@@ -6,6 +6,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 
@@ -16,7 +17,10 @@ import { RolesGuard } from '../../common/roles.guard';
 import {
   AdminChapterDto,
   AdminLessonDto,
-  AdminQuestionDto,
+  AdminQuestionQueryDto,
+  CreateAdminQuestionDto,
+  ReorderAdminQuestionsDto,
+  UpdateAdminQuestionDto,
 } from './dto/admin-content.dto';
 import { AdminService } from './admin.service';
 
@@ -47,8 +51,18 @@ export class AdminController {
   }
 
   @Get('questions')
-  async questions() {
-    return ApiResponseDto.ok(await this.adminService.questions());
+  async questions(@Query() query: AdminQuestionQueryDto) {
+    return ApiResponseDto.ok(await this.adminService.questions(query));
+  }
+
+  @Get('questions/:id')
+  async question(@Param('id') id: string) {
+    return ApiResponseDto.ok(await this.adminService.question(id));
+  }
+
+  @Put('questions/reorder')
+  async reorderQuestions(@Body() dto: ReorderAdminQuestionsDto) {
+    return ApiResponseDto.ok(await this.adminService.reorderQuestions(dto));
   }
 
   @Post('chapters')
@@ -91,7 +105,7 @@ export class AdminController {
   }
 
   @Post('questions')
-  async createQuestion(@Body() dto: AdminQuestionDto) {
+  async createQuestion(@Body() dto: CreateAdminQuestionDto) {
     return ApiResponseDto.ok(
       await this.adminService.createQuestion(dto),
       'Created',
@@ -101,7 +115,7 @@ export class AdminController {
   @Put('questions/:id')
   async updateQuestion(
     @Param('id') id: string,
-    @Body() dto: AdminQuestionDto,
+    @Body() dto: UpdateAdminQuestionDto,
   ) {
     return ApiResponseDto.ok(await this.adminService.updateQuestion(id, dto));
   }

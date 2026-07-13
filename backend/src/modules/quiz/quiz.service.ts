@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable } from "@nestjs/common";
 
 import { AuthenticatedUser } from "../../common/current-user";
 import { DatabaseRepository } from "../../database/database.repository";
@@ -36,6 +36,18 @@ export class QuizService {
       const totalQuestions = questions.length;
       const score = Number(((correctCount / totalQuestions) * 10).toFixed(2));
       const perfectScore = correctCount === totalQuestions;
+      const review = questions.map((question) => {
+        const selectedOption = answersByQuestion.get(question.id) ?? null;
+        return {
+          questionId: question.id,
+          question: question.question,
+          options: question.options,
+          selectedOption,
+          correctOption: question.correctOption,
+          isCorrect: selectedOption === question.correctOption,
+          explanation: question.explanation,
+        };
+      });
 
       const previousProgress = await this.database.findProgressForLesson(
         user.id,
@@ -66,6 +78,7 @@ export class QuizService {
           totalQuestions,
           durationSeconds: dto.durationSeconds,
           coinsEarned: lessonCoins + quizCoins,
+          review,
         },
         client,
       );
@@ -119,18 +132,7 @@ export class QuizService {
         coinsEarned: earnedCoins,
         totalCoins: updatedUser.coins,
         newBadges,
-        review: questions.map((question) => {
-          const selectedOption = answersByQuestion.get(question.id) ?? null;
-          return {
-            questionId: question.id,
-            question: question.question,
-            options: question.options,
-            selectedOption,
-            correctOption: question.correctOption,
-            isCorrect: selectedOption === question.correctOption,
-            explanation: question.explanation,
-          };
-        }),
+        review,
       };
     });
   }
@@ -160,10 +162,6 @@ export class QuizService {
     if (!Array.isArray(dto.answers) || dto.answers.length === 0) {
       throw new BadRequestException("answers must be a non-empty array");
     }
-    if (dto.answers.length !== questions.length) {
-      throw new BadRequestException("answers count must match questions count");
-    }
-
     const questionsById = new Map(
       questions.map((question) => [question.id, question]),
     );
@@ -185,7 +183,9 @@ export class QuizService {
 
       const question = questionsById.get(answer.questionId);
       if (!question) {
-        throw new BadRequestException("questionId does not belong to lesson");
+        throw new ConflictException(
+          "Bộ câu hỏi đã được cập nhật. Vui lòng tải lại quiz.",
+        );
       }
       const options = Array.isArray(question.options) ? question.options : [];
       if (answer.selectedOption >= options.length) {
@@ -195,8 +195,15 @@ export class QuizService {
 
     for (const question of questions) {
       if (!seenQuestionIds.has(question.id)) {
-        throw new BadRequestException("Missing answer for question");
+        throw new ConflictException(
+          "Bộ câu hỏi đã được cập nhật. Vui lòng tải lại quiz.",
+        );
       }
+    }
+    if (dto.answers.length !== questions.length) {
+      throw new ConflictException(
+        "Bộ câu hỏi đã được cập nhật. Vui lòng tải lại quiz.",
+      );
     }
   }
 
