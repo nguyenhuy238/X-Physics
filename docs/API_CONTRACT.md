@@ -200,19 +200,57 @@ Response data:
 
 ### GET /api/lessons/{id}/questions
 
-Response data: list of questions without `correctOption` unless teacher/admin or review mode.
+Response data: list of questions for taking a quiz. This endpoint must not return
+`correctOption`, `correctAnswer`, or `explanation`.
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": [
+    {
+      "id": "motion-1-q1",
+      "lessonId": "motion-1",
+      "question": "Cong thuc tinh quang duong trong chuyen dong deu la gi?",
+      "options": ["s = v * t", "v = s * t", "t = s * v", "s = v / t"],
+      "orderIndex": 1
+    }
+  ]
+}
+```
 
 ## Quiz
 
 ### POST /api/quiz/submit
 
 Auth: required.
+Role: `STUDENT`.
+
+Validation:
+
+- `lessonId` must exist and have questions.
+- `answers` must be a non-empty array.
+- Each question in the lesson must be answered exactly once.
+- Duplicate question IDs, question IDs from another lesson, and out-of-range
+  `selectedOption` values return `400`.
+- `durationSeconds` must be an integer from `0` to `3600`.
+- Backend ignores any frontend score/correct count/coins values and calculates
+  them from stored questions.
+
+Reward idempotency:
+
+- First valid lesson completion creates `LESSON_COMPLETE` reward `+10`.
+- Quiz score reward uses best-score delta: tier `15`, `20`, `30`.
+- Chapter completion creates `CHAPTER_COMPLETE` reward `+50` once per chapter.
+- A valid attempt is always saved, but rewards are only created when idempotency
+  rules allow them.
 
 Request:
 
 ```json
 {
   "lessonId": "motion-1",
+  "durationSeconds": 123,
   "answers": [
     {
       "questionId": "motion-1-q1",
@@ -234,14 +272,27 @@ Response:
     "score": 8,
     "correctCount": 4,
     "totalQuestions": 5,
-    "coinsEarned": 30,
-    "newBadges": ["Khoi dau Vat Li"],
+    "durationSeconds": 123,
+    "earnedCoins": 20,
+    "totalCoins": 150,
+    "newBadges": [
+      {
+        "id": "starter",
+        "name": "Khoi dau Vat Li",
+        "description": "Hoan thanh bai hoc dau tien.",
+        "iconUrl": "school",
+        "ruleKey": "complete_first_lesson"
+      }
+    ],
     "review": [
       {
         "questionId": "motion-1-q1",
-        "correctOption": 0,
+        "question": "Cong thuc tinh quang duong trong chuyen dong deu la gi?",
+        "options": ["s = v * t", "v = s * t", "t = s * v", "s = v / t"],
         "selectedOption": 0,
-        "explanation": "Ap dung dung cong thuc."
+        "correctOption": 0,
+        "isCorrect": true,
+        "explanation": "Quang duong bang van toc nhan voi thoi gian."
       }
     ]
   }
@@ -258,9 +309,46 @@ Auth: required.
 
 ## Progress and Badges
 
-### GET /api/dashboard/me
+### GET /api/progress/dashboard/me
 
-Auth: required. Returns summary for home dashboard.
+Auth: required. Returns summary for home/progress dashboard.
+
+Compatibility route: `GET /api/dashboard/me`.
+
+Response:
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "overallProgress": 50.0,
+    "completedLessons": 3,
+    "totalLessons": 6,
+    "averageScore": 8.33,
+    "totalCoins": 150,
+    "chapterProgress": [
+      {
+        "chapterId": "motion",
+        "title": "Chuyen dong co hoc",
+        "completedLessons": 2,
+        "totalLessons": 2,
+        "progressPercent": 100.0
+      }
+    ],
+    "recentAttempts": [
+      {
+        "attemptId": "att_001",
+        "lessonId": "motion-1",
+        "lessonTitle": "Chuyen dong deu",
+        "score": 8,
+        "durationSeconds": 123,
+        "submittedAt": "2026-07-13T09:00:00.000Z"
+      }
+    ]
+  }
+}
+```
 
 ### GET /api/progress/me
 
@@ -282,7 +370,59 @@ Request:
 
 ### GET /api/badges/me
 
-Auth: required.
+Auth: required. Compatibility endpoint that returns earned badges only.
+
+### GET /api/profile/achievements
+
+Auth: required. Preferred endpoint for Profile/Achievements.
+
+Compatibility route: `GET /api/profile/me`.
+
+Response:
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "user": {
+      "id": "usr_001",
+      "name": "Nguyen Van Nam",
+      "email": "nam@example.com",
+      "role": "STUDENT",
+      "coins": 150,
+      "avatarUrl": null
+    },
+    "totalCoins": 150,
+    "completedLessons": 3,
+    "totalLessons": 6,
+    "overallProgress": 0.5,
+    "averageScore": 8.33,
+    "recentAttempts": [],
+    "earnedBadges": [
+      {
+        "id": "starter",
+        "name": "Khoi dau Vat Li",
+        "description": "Hoan thanh bai hoc dau tien.",
+        "iconUrl": "school",
+        "ruleKey": "complete_first_lesson",
+        "achievedAt": "2026-07-13T09:00:00.000Z"
+      }
+    ],
+    "lockedBadges": [
+      {
+        "id": "scientist",
+        "name": "Nha bac hoc",
+        "description": "Hoan thanh toan bo MVP.",
+        "iconUrl": "science",
+        "ruleKey": "complete_all_lessons",
+        "progressCurrent": 3,
+        "progressTarget": 6
+      }
+    ]
+  }
+}
+```
 
 ### POST /api/sync/progress
 

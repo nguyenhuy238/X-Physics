@@ -1,9 +1,9 @@
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 
-import * as bcrypt from 'bcrypt';
-import { config } from 'dotenv';
-import { Pool } from 'pg';
+import * as bcrypt from "bcrypt";
+import { config } from "dotenv";
+import { Pool } from "pg";
 
 config();
 
@@ -12,33 +12,41 @@ type SeedUser = {
   name: string;
   email: string;
   password: string;
-  role: 'STUDENT' | 'TEACHER' | 'ADMIN';
+  role: "STUDENT" | "TEACHER" | "ADMIN";
   coins: number;
 };
 
 async function readJson<T>(fileName: string): Promise<T> {
-  const file = await readFile(join(__dirname, '..', '..', '..', 'seed-data', fileName), 'utf8');
+  const file = await readFile(
+    join(__dirname, "..", "..", "..", "seed-data", fileName),
+    "utf8",
+  );
   return JSON.parse(file) as T;
 }
 
 async function main() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
-    throw new Error('DATABASE_URL is required');
+    throw new Error("DATABASE_URL is required");
   }
 
   const pool = new Pool({ connectionString });
-  const schema = await readFile(join(__dirname, 'schema.sql'), 'utf8');
+  const schema = await readFile(join(__dirname, "schema.sql"), "utf8");
   const client = await pool.connect();
 
   try {
-    await client.query('BEGIN');
+    await client.query("BEGIN");
     await client.query(schema);
 
-    const users = await readJson<SeedUser[]>('users.json');
+    const users = await readJson<SeedUser[]>("users.json");
     const chapters = await readJson<
-      Array<{ id: string; title: string; description: string; orderIndex: number }>
-    >('chapters.json');
+      Array<{
+        id: string;
+        title: string;
+        description: string;
+        orderIndex: number;
+      }>
+    >("chapters.json");
     const lessons = await readJson<
       Array<{
         id: string;
@@ -49,7 +57,7 @@ async function main() {
         estimatedMinutes: number;
         orderIndex: number;
       }>
-    >('lessons.json');
+    >("lessons.json");
     const simulations = await readJson<
       Array<{
         id: string;
@@ -60,7 +68,7 @@ async function main() {
         variables: unknown;
         result: unknown;
       }>
-    >('simulations.json');
+    >("simulations.json");
     const questions = await readJson<
       Array<{
         id: string;
@@ -70,7 +78,7 @@ async function main() {
         correctOption: number;
         explanation: string;
       }>
-    >('questions.json');
+    >("questions.json");
     const badges = await readJson<
       Array<{
         id: string;
@@ -78,8 +86,10 @@ async function main() {
         description: string;
         icon: string;
         ruleKey: string;
+        conditionValue?: string | null;
+        metadata?: unknown;
       }>
-    >('badges.json');
+    >("badges.json");
 
     for (const user of users) {
       const passwordHash = await bcrypt.hash(user.password, 10);
@@ -184,21 +194,31 @@ async function main() {
 
     for (const badge of badges) {
       await client.query(
-        `insert into badges (id, name, description, icon, rule_key)
-         values ($1, $2, $3, $4, $5)
+        `insert into badges (id, name, description, icon, rule_key, condition_value, metadata_json)
+         values ($1, $2, $3, $4, $5, $6, $7::jsonb)
          on conflict (id) do update set
            name = excluded.name,
            description = excluded.description,
            icon = excluded.icon,
-           rule_key = excluded.rule_key`,
-        [badge.id, badge.name, badge.description, badge.icon, badge.ruleKey],
+           rule_key = excluded.rule_key,
+           condition_value = excluded.condition_value,
+           metadata_json = excluded.metadata_json`,
+        [
+          badge.id,
+          badge.name,
+          badge.description,
+          badge.icon,
+          badge.ruleKey,
+          badge.conditionValue ?? null,
+          JSON.stringify(badge.metadata ?? {}),
+        ],
       );
     }
 
-    await client.query('COMMIT');
-    console.log('Database schema and seed data are ready.');
+    await client.query("COMMIT");
+    console.log("Database schema and seed data are ready.");
   } catch (error) {
-    await client.query('ROLLBACK');
+    await client.query("ROLLBACK");
     throw error;
   } finally {
     client.release();

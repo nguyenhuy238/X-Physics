@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'dart:developer' as developer;
 
 import '../constants/api_endpoints.dart';
 import '../storage/token_storage.dart';
@@ -69,7 +70,13 @@ class ApiClient {
             request.headers['Authorization'] = 'Bearer $accessToken';
             final retryResponse = await dio.fetch<dynamic>(request);
             handler.resolve(retryResponse);
-          } catch (_) {
+          } catch (refreshError, stackTrace) {
+            developer.log(
+              'Token refresh failed',
+              name: 'ApiClient',
+              error: refreshError,
+              stackTrace: stackTrace,
+            );
             await tokenStorage.clear();
             onUnauthorized?.call();
             handler.next(error);

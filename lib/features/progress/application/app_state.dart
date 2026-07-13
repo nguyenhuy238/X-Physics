@@ -7,7 +7,9 @@ import '../../../core/constants/api_endpoints.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/storage/token_storage.dart';
+import '../../profile/data/profile_repository.dart';
 import '../../../shared/models/x_models.dart';
+import '../data/progress_repository.dart';
 
 class AppState extends ChangeNotifier {
   AppState() : _tokenStorage = TokenStorage() {
@@ -16,16 +18,26 @@ class AppState extends ChangeNotifier {
       tokenStorage: _tokenStorage,
       onUnauthorized: _handleUnauthorized,
     );
+    _progressRepository = ProgressRepository(_apiClient);
+    _profileRepository = ProfileRepository(_apiClient);
   }
 
   late final ApiClient _apiClient;
+  late final ProgressRepository _progressRepository;
+  late final ProfileRepository _profileRepository;
   final TokenStorage _tokenStorage;
 
   GoRouter? router;
   XUser? user;
   bool loading = true;
   bool isBusy = false;
+  bool isProgressDashboardLoading = false;
+  bool isProfileLoading = false;
   String? errorMessage;
+  String? quizLoadError;
+  String? quizSubmitError;
+  String? progressDashboardError;
+  String? profileError;
   int coins = 0;
   bool simulateOffline = false;
 
@@ -41,6 +53,9 @@ class AppState extends ChangeNotifier {
   final adminQuestions = <Question>[];
   Map<String, dynamic>? adminStatistics;
   QuizAttempt? lastAttempt;
+  ProgressDashboard? progressDashboard;
+  ProfileSummary? profileSummary;
+  final quizResultsByLesson = <String, QuizAttempt>{};
 
   Future<void> bootstrap() async {
     router = buildRouter(this);
@@ -91,8 +106,8 @@ class AppState extends ChangeNotifier {
   Future<void> logout() async {
     try {
       await _apiClient.dio.post<Map<String, dynamic>>(ApiEndpoints.logout);
-    } catch (_) {
-      // Local logout must still clear credentials if the backend is unreachable.
+    } catch (error) {
+      errorMessage = _readableError(error);
     }
     await _tokenStorage.clear();
     _handleUnauthorized();
@@ -111,12 +126,51 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> loadHomeData() async {
-    await Future.wait([
-      loadChapters(),
-      loadProgress(),
-      loadBadges(),
-    ]);
+    await Future.wait([loadChapters(), loadProgress(), loadBadges()]);
   }
+
+  Future<void> loadProgressDashboard() async {
+    isProgressDashboardLoading = true;
+    progressDashboardError = null;
+    notifyListeners();
+    try {
+      progressDashboard = await _progressRepository.dashboard();
+    } catch (error) {
+      progressDashboardError = _readableError(error);
+    } finally {
+      isProgressDashboardLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> refreshProgressDashboard() => loadProgressDashboard();
+
+  Future<void> loadProfile() async {
+    isProfileLoading = true;
+    profileError = null;
+    notifyListeners();
+    try {
+      profileSummary = await _profileRepository.me();
+      coins = profileSummary?.totalCoins ?? coins;
+      final profileUser = profileSummary?.user;
+      if (profileUser != null && profileUser.id.isNotEmpty) {
+        user = XUser(
+          id: profileUser.id,
+          name: profileUser.name,
+          email: profileUser.email,
+          role: user?.role ?? 'STUDENT',
+          coins: profileSummary?.totalCoins ?? coins,
+        );
+      }
+    } catch (error) {
+      profileError = _readableError(error);
+    } finally {
+      isProfileLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> refreshProfile() => loadProfile();
 
   Future<void> loadChapters() async {
     isBusy = true;
@@ -189,7 +243,9 @@ class AppState extends ChangeNotifier {
           : simulationsData.first as Map<dynamic, dynamic>;
       final lessonJson = Map<String, dynamic>.from(lessonData)
         ..['simulation'] = simulation
-        ..['questions'] = questions.map((question) => question.toJson()).toList();
+        ..['questions'] = questions
+            .map((question) => question.toJson())
+            .toList();
       final lesson = Lesson.fromJson(lessonJson);
       lessonsById[lessonId] = lesson;
       questionsByLesson[lessonId] = questions;
@@ -226,23 +282,29 @@ class AppState extends ChangeNotifier {
       final lesson = loadOfflineLesson(lessonId);
       final questions = lesson?.questions ?? const <Question>[];
       questionsByLesson[lessonId] = questions;
+      quizLoadError = questions.isEmpty && lesson == null
+          ? 'Khong tim thay bai hoc offline.'
+          : null;
       return questions;
     }
 
     if (notify) {
       isBusy = true;
-      errorMessage = null;
+      quizLoadError = null;
       notifyListeners();
     }
     try {
       final data = await _getData<List<dynamic>>(
         ApiEndpoints.lessonQuestions(lessonId),
       );
-      final questions = data.map((item) => Question.fromJson(item as Map)).toList();
+      final questions = data
+          .map((item) => Question.fromJson(item as Map))
+          .toList();
       questionsByLesson[lessonId] = questions;
+      quizLoadError = null;
       return questions;
     } catch (error) {
-      errorMessage = _readableError(error);
+      quizLoadError = _readableError(error);
       return const [];
     } finally {
       if (notify) {
@@ -254,16 +316,18 @@ class AppState extends ChangeNotifier {
 
   Future<QuizAttempt?> submitQuiz(
     String lessonId,
-    Map<String, int> answers,
-  ) async {
+    Map<String, int> answers, {
+    int durationSeconds = 0,
+  }) async {
     isBusy = true;
-    errorMessage = null;
+    quizSubmitError = null;
     notifyListeners();
     try {
       final response = await _apiClient.dio.post<Map<String, dynamic>>(
         ApiEndpoints.quizSubmit,
         data: {
           'lessonId': lessonId,
+          'durationSeconds': durationSeconds,
           'answers': answers.entries
               .map(
                 (entry) => {
@@ -276,14 +340,18 @@ class AppState extends ChangeNotifier {
       );
       final data = response.data?['data'] as Map<String, dynamic>;
       final attempt = QuizAttempt.fromSubmitJson(data, answers);
+      quizSubmitError = null;
       lastAttempt = attempt;
+      quizResultsByLesson[lessonId] = attempt;
       completedLessons.add(lessonId);
       await refreshCurrentUser();
       await loadProgress();
       await loadBadges();
+      await loadProgressDashboard();
+      await loadProfile();
       return attempt;
     } catch (error) {
-      errorMessage = _readableError(error);
+      quizSubmitError = _readableError(error);
       return null;
     } finally {
       isBusy = false;
@@ -322,7 +390,9 @@ class AppState extends ChangeNotifier {
     if (lessons.isEmpty) {
       return 0;
     }
-    return lessons.where((lesson) => completedLessons.contains(lesson.id)).length /
+    return lessons
+            .where((lesson) => completedLessons.contains(lesson.id))
+            .length /
         lessons.length;
   }
 
@@ -604,6 +674,13 @@ class AppState extends ChangeNotifier {
     badges.clear();
     completedLessons.clear();
     lastAttempt = null;
+    quizLoadError = null;
+    quizSubmitError = null;
+    progressDashboard = null;
+    progressDashboardError = null;
+    profileSummary = null;
+    profileError = null;
+    quizResultsByLesson.clear();
     router?.go('/login');
     notifyListeners();
   }

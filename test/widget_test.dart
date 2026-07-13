@@ -1,32 +1,1164 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hive_flutter/hive_flutter.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-
-import 'package:x_physics/app.dart';
+import 'package:x_physics/core/network/api_client.dart';
+import 'package:x_physics/core/router/app_router.dart';
+import 'package:x_physics/core/storage/token_storage.dart';
 import 'package:x_physics/features/progress/application/app_state.dart';
+import 'package:x_physics/features/progress/screens/progress_screen.dart';
+import 'package:x_physics/features/profile/screens/profile_screen.dart';
+import 'package:x_physics/features/quiz/screens/quiz_result_screen.dart';
+import 'package:x_physics/features/quiz/screens/quiz_screen.dart';
+import 'package:x_physics/shared/models/x_models.dart';
+
+const _questions = [
+  Question(
+    id: 'q1',
+    lessonId: 'lesson-1',
+    question: 'Question 1',
+    options: ['A1', 'B1', 'C1', 'D1'],
+    explanation: '',
+  ),
+  Question(
+    id: 'q2',
+    lessonId: 'lesson-1',
+    question: 'Question 2',
+    options: ['A2', 'B2', 'C2', 'D2'],
+    explanation: '',
+  ),
+];
+
+class FakeTokenStorage extends TokenStorage {
+  String? accessToken = 'expired';
+  String? refreshToken = 'refresh';
+  bool cleared = false;
+
+  @override
+  Future<String?> readAccessToken() async => accessToken;
+
+  @override
+  Future<String?> readRefreshToken() async => refreshToken;
+
+  @override
+  Future<void> saveTokens({
+    required String accessToken,
+    required String refreshToken,
+  }) async {
+    this.accessToken = accessToken;
+    this.refreshToken = refreshToken;
+  }
+
+  @override
+  Future<void> clear() async {
+    cleared = true;
+    accessToken = null;
+    refreshToken = null;
+  }
+}
+
+class FailingRefreshAdapter implements HttpClientAdapter {
+  int protectedCalls = 0;
+  int refreshCalls = 0;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    if (options.path == '/api/auth/refresh') {
+      refreshCalls++;
+    } else {
+      protectedCalls++;
+    }
+    return ResponseBody.fromString(
+      jsonEncode({'success': false, 'message': 'Unauthorized'}),
+      401,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
+class FakeAppState extends AppState {
+  final loadQueue = <Future<List<Question>> Function()>[];
+  final dashboardQueue = <Future<ProgressDashboard?> Function()>[];
+  final profileQueue = <Future<ProfileSummary?> Function()>[];
+  int loadCount = 0;
+  int dashboardLoadCount = 0;
+  int profileLoadCount = 0;
+  int submitCount = 0;
+  int? lastDurationSeconds;
+  Map<String, int>? lastAnswers;
+  Completer<QuizAttempt?>? submitCompleter;
+  bool failSubmit = false;
+
+  @override
+  Future<List<Question>> loadQuestions(String lessonId, {bool notify = true}) {
+    loadCount++;
+    if (loadQueue.isNotEmpty) {
+      return loadQueue.removeAt(0)().then((questions) {
+        if (questions.isEmpty && errorMessage != null) {
+          quizLoadError = errorMessage;
+        }
+        return questions;
+      });
+    }
+    questionsByLesson[lessonId] = _questions;
+    errorMessage = null;
+    return Future.value(_questions);
+  }
+
+  @override
+  Future<void> loadProgressDashboard() async {
+    dashboardLoadCount++;
+    isProgressDashboardLoading = true;
+    progressDashboardError = null;
+    notifyListeners();
+    try {
+      if (dashboardQueue.isNotEmpty) {
+        progressDashboard = await dashboardQueue.removeAt(0)();
+      }
+    } catch (error) {
+      progressDashboardError = error.toString();
+    } finally {
+      isProgressDashboardLoading = false;
+      notifyListeners();
+    }
+  }
+
+  @override
+  Future<void> refreshProgressDashboard() => loadProgressDashboard();
+
+  @override
+  Future<void> loadProfile() async {
+    profileLoadCount++;
+    isProfileLoading = true;
+    profileError = null;
+    notifyListeners();
+    try {
+      if (profileQueue.isNotEmpty) {
+        profileSummary = await profileQueue.removeAt(0)();
+        if (profileSummary != null) {
+          coins = profileSummary!.totalCoins;
+        }
+      }
+    } catch (error) {
+      profileError = error.toString();
+    } finally {
+      isProfileLoading = false;
+      notifyListeners();
+    }
+  }
+
+  @override
+  Future<void> refreshProfile() => loadProfile();
+
+  @override
+  Future<QuizAttempt?> submitQuiz(
+    String lessonId,
+    Map<String, int> answers, {
+    int durationSeconds = 0,
+  }) async {
+    submitCount++;
+    lastDurationSeconds = durationSeconds;
+    lastAnswers = Map<String, int>.from(answers);
+    if (submitCompleter != null) {
+      return submitCompleter!.future;
+    }
+    if (failSubmit) {
+      quizSubmitError = 'Submit failed';
+      return null;
+    }
+    lastAttempt = QuizAttempt(
+      attemptId: 'attempt-1',
+      lessonId: lessonId,
+      answers: answers,
+      score: 10,
+      earnedCoins: 0,
+      newBadges: const [],
+      correctCount: answers.length,
+      totalQuestions: _questions.length,
+      durationSeconds: durationSeconds,
+    );
+    quizResultsByLesson[lessonId] = lastAttempt!;
+    await loadProgressDashboard();
+    await loadProfile();
+    return lastAttempt;
+  }
+
+  @override
+  Future<void> logout() async {
+    user = null;
+    coins = 0;
+    badges.clear();
+    completedLessons.clear();
+    lastAttempt = null;
+    progressDashboard = null;
+    profileSummary = null;
+    quizResultsByLesson.clear();
+    router?.go('/login');
+    notifyListeners();
+  }
+}
+
+GoRouter _buildTestRouter({
+  required FakeAppState state,
+  String initialLocation = '/quiz/lesson-1',
+  QuizAttempt? initialResult,
+}) {
+  return GoRouter(
+    initialLocation: initialLocation,
+    routes: [
+      GoRoute(
+        path: '/',
+        builder: (_, _) => const Scaffold(body: Text('Home route')),
+      ),
+      GoRoute(
+        path: '/lessons/:id',
+        builder: (_, routeState) =>
+            Scaffold(body: Text('Lesson ${routeState.pathParameters['id']}')),
+      ),
+      GoRoute(
+        path: '/quiz/:id',
+        builder: (_, routeState) =>
+            QuizScreen(lessonId: routeState.pathParameters['id'] ?? 'lesson-1'),
+      ),
+      GoRoute(
+        path: '/quiz/:id/result',
+        builder: (_, routeState) => QuizResultScreen(
+          lessonId: routeState.pathParameters['id'] ?? 'lesson-1',
+          initialAttempt: routeState.extra is QuizAttempt
+              ? routeState.extra! as QuizAttempt
+              : initialResult,
+        ),
+      ),
+    ],
+  );
+}
+
+Future<GoRouter> _pumpRouter(
+  WidgetTester tester,
+  FakeAppState state,
+  GoRouter router,
+) async {
+  await tester.pumpWidget(
+    ChangeNotifierProvider<AppState>.value(
+      value: state,
+      child: MaterialApp.router(routerConfig: router),
+    ),
+  );
+  return router;
+}
+
+Future<GoRouter> _pumpQuiz(WidgetTester tester, FakeAppState state) async {
+  final router = _buildTestRouter(state: state);
+  await _pumpRouter(tester, state, router);
+  return router;
+}
+
+Future<GoRouter> _pumpProgress(WidgetTester tester, FakeAppState state) async {
+  final router = GoRouter(
+    initialLocation: '/progress',
+    routes: [
+      GoRoute(path: '/progress', builder: (_, _) => const ProgressScreen()),
+      GoRoute(
+        path: '/offline',
+        builder: (_, _) => const Scaffold(body: Text('Offline route')),
+      ),
+      GoRoute(
+        path: '/profile',
+        builder: (_, _) => const Scaffold(body: Text('Profile route')),
+      ),
+    ],
+  );
+  await _pumpRouter(tester, state, router);
+  return router;
+}
+
+Future<GoRouter> _pumpProfile(
+  WidgetTester tester,
+  FakeAppState state, {
+  Size? surfaceSize,
+}) async {
+  if (surfaceSize != null) {
+    await tester.binding.setSurfaceSize(surfaceSize);
+  }
+  final router = GoRouter(
+    initialLocation: '/profile',
+    routes: [
+      GoRoute(
+        path: '/login',
+        builder: (_, _) => const Scaffold(body: Text('Login route')),
+      ),
+      GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
+      GoRoute(
+        path: '/offline',
+        builder: (_, _) => const Scaffold(body: Text('Offline route')),
+      ),
+    ],
+  );
+  state.router = router;
+  await _pumpRouter(tester, state, router);
+  return router;
+}
+
+Future<GoRouter> _pumpResult(
+  WidgetTester tester,
+  FakeAppState state,
+  QuizAttempt? attempt, {
+  String lessonId = 'lesson-1',
+}) async {
+  final router = GoRouter(
+    initialLocation: '/quiz/$lessonId/result',
+    routes: [
+      GoRoute(
+        path: '/',
+        builder: (_, _) => const Scaffold(body: Text('Home route')),
+      ),
+      GoRoute(
+        path: '/lessons/:id',
+        builder: (_, routeState) =>
+            Scaffold(body: Text('Lesson ${routeState.pathParameters['id']}')),
+      ),
+      GoRoute(
+        path: '/quiz/:id/result',
+        builder: (_, routeState) => QuizResultScreen(
+          lessonId: routeState.pathParameters['id'] ?? lessonId,
+          initialAttempt: attempt,
+        ),
+      ),
+    ],
+  );
+
+  await _pumpRouter(tester, state, router);
+  await tester.pumpAndSettle();
+  return router;
+}
+
+Future<void> _loadQuiz(WidgetTester tester, FakeAppState state) async {
+  await _pumpQuiz(tester, state);
+  await tester.pump();
+  await tester.pump();
+}
+
+Future<void> _selectOnlyQuestionAndOpenConfirm(WidgetTester tester) async {
+  await tester.tap(find.text('A1'));
+  await tester.pump();
+  await tester.tap(find.text('Nop bai'));
+  await tester.pumpAndSettle();
+}
 
 void main() {
-  testWidgets('X-Physics renders login screen', (WidgetTester tester) async {
-    TestWidgetsFlutterBinding.ensureInitialized();
-    await Hive.initFlutter('build/test_hive');
-    await Hive.openBox<Map>('offline_lessons');
-    await Hive.openBox<Map>('pending_progress');
+  test('api client clears tokens when refresh token fails', () async {
+    final tokenStorage = FakeTokenStorage();
+    final adapter = FailingRefreshAdapter();
+    var unauthorized = false;
+    final client = ApiClient(
+      'http://localhost:3000',
+      tokenStorage: tokenStorage,
+      onUnauthorized: () => unauthorized = true,
+    )..dio.httpClientAdapter = adapter;
 
-    await tester.pumpWidget(
-      ChangeNotifierProvider(
-        create: (_) => AppState()..bootstrap(),
-        child: const XPhysicsApp(),
+    await expectLater(
+      client.dio.get<Map<String, dynamic>>('/api/protected'),
+      throwsA(isA<DioException>()),
+    );
+
+    expect(adapter.protectedCalls, 1);
+    expect(adapter.refreshCalls, 1);
+    expect(tokenStorage.cleared, isTrue);
+    expect(unauthorized, isTrue);
+  });
+
+  QuizAttempt makeAttempt({
+    int earnedCoins = 20,
+    List<XBadge> badges = const [],
+    List<QuizReviewItem> review = const [],
+  }) {
+    return QuizAttempt(
+      attemptId: 'attempt-42',
+      lessonId: 'lesson-1',
+      answers: const {'q1': 0, 'q2': 1},
+      score: 8,
+      earnedCoins: earnedCoins,
+      totalCoins: 150,
+      newBadges: badges,
+      correctCount: 1,
+      totalQuestions: 2,
+      durationSeconds: 123,
+      review: review,
+    );
+  }
+
+  ProgressDashboard makeDashboard({
+    int completedLessons = 3,
+    int totalLessons = 6,
+    List<RecentQuizAttempt>? attempts,
+  }) {
+    return ProgressDashboard(
+      overallProgress: totalLessons == 0
+          ? 0
+          : completedLessons / totalLessons * 100,
+      completedLessons: completedLessons,
+      totalLessons: totalLessons,
+      averageScore: 8.24,
+      totalCoins: 140,
+      chapterProgress: const [
+        ChapterProgressSummary(
+          chapterId: 'motion',
+          title: 'Chuyen dong co hoc',
+          completedLessons: 2,
+          totalLessons: 2,
+          progressPercent: 100,
+        ),
+        ChapterProgressSummary(
+          chapterId: 'electric',
+          title: 'Dien hoc',
+          completedLessons: 1,
+          totalLessons: 4,
+          progressPercent: 25,
+        ),
+      ],
+      recentAttempts:
+          attempts ??
+          [
+            for (var i = 0; i < 5; i++)
+              RecentQuizAttempt(
+                attemptId: 'attempt-$i',
+                lessonId: 'lesson-$i',
+                lessonTitle: 'Bai ${i + 1}',
+                score: (6 + i).clamp(0, 10).toDouble(),
+                submittedAt: DateTime(2026, 7, 13, i),
+                durationSeconds: 120 + i,
+              ),
+          ],
+    );
+  }
+
+  ProfileSummary makeProfile({
+    int coins = 150,
+    List<AchievementBadge> earned = const [],
+    List<AchievementBadge> locked = const [],
+    List<RecentQuizAttempt> attempts = const [],
+  }) {
+    return ProfileSummary(
+      user: const ProfileUser(
+        id: 'user-1',
+        name: 'Nguyen Van Nam',
+        email: 'nam@example.com',
+      ),
+      totalCoins: coins,
+      completedLessons: 3,
+      averageScore: 8.2,
+      recentAttempts: attempts,
+      earnedBadges: earned,
+      lockedBadges: locked,
+    );
+  }
+
+  const earnedBadge = AchievementBadge(
+    id: 'starter',
+    name: 'Khoi dau',
+    description: 'Hoan thanh bai dau tien',
+    iconUrl: '',
+    ruleKey: 'complete_first_lesson',
+    isEarned: true,
+    achievedAt: null,
+  );
+
+  const lockedBadge = AchievementBadge(
+    id: 'scientist',
+    name: 'Nha bac hoc',
+    description: 'Hoan thanh tat ca bai',
+    iconUrl: '',
+    ruleKey: 'complete_all_lessons',
+    isEarned: false,
+    progressCurrent: 1,
+    progressTarget: 3,
+  );
+
+  testWidgets('shows loading while questions are loading', (tester) async {
+    final state = FakeAppState();
+    state.loadQueue.add(() => Completer<List<Question>>().future);
+
+    await _pumpQuiz(tester, state);
+    await tester.pump();
+
+    expect(find.text('Dang tai cau hoi...'), findsOneWidget);
+  });
+
+  testWidgets('shows load error and retries', (tester) async {
+    final state = FakeAppState();
+    state.loadQueue
+      ..add(() {
+        state.errorMessage = 'Network down';
+        return Future.value(const []);
+      })
+      ..add(() {
+        state.errorMessage = null;
+        return Future.value(_questions);
+      });
+
+    await _loadQuiz(tester, state);
+
+    expect(find.text('Network down'), findsOneWidget);
+    await tester.tap(find.text('Thu lai'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Question 1'), findsOneWidget);
+    expect(state.loadCount, 2);
+  });
+
+  testWidgets('keeps selected answer when moving next and previous', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    await _loadQuiz(tester, state);
+
+    await tester.tap(find.text('A1'));
+    await tester.pump();
+    await tester.tap(find.text('Tiep tuc'));
+    await tester.pump();
+    expect(find.text('Question 2'), findsOneWidget);
+
+    await tester.tap(find.text('Truoc'));
+    await tester.pump();
+
+    expect(find.text('Question 1'), findsOneWidget);
+    expect(find.byIcon(Icons.radio_button_checked_rounded), findsOneWidget);
+  });
+
+  testWidgets('next is disabled until current question has an answer', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    await _loadQuiz(tester, state);
+
+    final next = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Tiep tuc'),
+    );
+    expect(next.onPressed, isNull);
+  });
+
+  testWidgets('double tapping submit confirmation sends one request', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    state.loadQueue.add(() => Future.value([_questions.first]));
+    state.submitCompleter = Completer<QuizAttempt?>();
+    await _loadQuiz(tester, state);
+    await _selectOnlyQuestionAndOpenConfirm(tester);
+
+    final confirm = find.text('Nop bai').last;
+    await tester.tap(confirm);
+    await tester.tap(confirm, warnIfMissed: false);
+    await tester.pump();
+
+    expect(state.submitCount, 1);
+    state.submitCompleter!.complete(
+      QuizAttempt(
+        attemptId: 'attempt-1',
+        lessonId: 'lesson-1',
+        answers: const {'q1': 0},
+        score: 10,
+        earnedCoins: 0,
+        newBadges: const [],
       ),
     );
-    await tester.pumpAndSettle(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+  });
 
-    expect(find.text('Đăng nhập X-Physics'), findsOneWidget);
+  testWidgets('timer and button submit race sends one request', (tester) async {
+    final state = FakeAppState();
+    state.loadQueue.add(() => Future.value([_questions.first]));
+    state.submitCompleter = Completer<QuizAttempt?>();
+    await _loadQuiz(tester, state);
+    await tester.tap(find.text('A1'));
+    await tester.pump();
+
+    await tester.pump(const Duration(seconds: 299));
+    await tester.tap(find.text('Nop bai'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(state.submitCount, 1);
+    expect(state.lastDurationSeconds, 300);
+    state.submitCompleter!.complete(
+      QuizAttempt(
+        attemptId: 'attempt-1',
+        lessonId: 'lesson-1',
+        answers: const {'q1': 0},
+        score: 10,
+        earnedCoins: 0,
+        newBadges: const [],
+      ),
+    );
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('submit error keeps answers and allows retry', (tester) async {
+    final state = FakeAppState();
+    state.loadQueue.add(() => Future.value([_questions.first]));
+    state.failSubmit = true;
+    await _loadQuiz(tester, state);
+    await _selectOnlyQuestionAndOpenConfirm(tester);
+    await tester.tap(find.text('Nop bai').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Submit failed'), findsOneWidget);
+    expect(find.byIcon(Icons.radio_button_checked_rounded), findsOneWidget);
+
+    state.failSubmit = false;
+    await tester.tap(find.text('Thu lai'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ket qua'), findsOneWidget);
+  });
+
+  testWidgets('disposing quiz cancels timer', (tester) async {
+    final state = FakeAppState();
+    state.loadQueue.add(() => Future.value([_questions.first]));
+    await _loadQuiz(tester, state);
+
+    await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
+    await tester.pump(const Duration(seconds: 301));
+
+    expect(state.submitCount, 0);
+  });
+
+  test('parses quiz attempt score from int and double', () {
+    final fromInt = QuizAttempt.fromSubmitJson({
+      'attemptId': 'a1',
+      'lessonId': 'lesson-1',
+      'score': 8,
+      'earnedCoins': 0,
+      'newBadges': [],
+    }, const {});
+    final fromDouble = QuizAttempt.fromSubmitJson({
+      'attemptId': 'a2',
+      'lessonId': 'lesson-1',
+      'score': 8.5,
+      'earnedCoins': 0,
+      'newBadges': [],
+    }, const {});
+
+    expect(fromInt.score, 8.0);
+    expect(fromDouble.score, 8.5);
+  });
+
+  testWidgets('result handles empty badge list and zero earned coins', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    await _pumpResult(tester, state, makeAttempt(earnedCoins: 0));
+
+    expect(find.text('Khong nhan them xu'), findsOneWidget);
+    expect(find.text('Huy hieu moi'), findsNothing);
+  });
+
+  testWidgets('result shows badge fallback icon when icon url is empty', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    await _pumpResult(
+      tester,
+      state,
+      makeAttempt(
+        badges: const [
+          XBadge(
+            id: 'badge-1',
+            name: 'Perfect',
+            description: 'Score 10',
+            iconUrl: '',
+            ruleKey: 'PERFECT_SCORE',
+          ),
+        ],
+      ),
+    );
+
+    expect(find.text('Perfect'), findsOneWidget);
+    expect(find.byIcon(Icons.workspace_premium_rounded), findsOneWidget);
+  });
+
+  testWidgets(
+    'result renders backend review correctness without recalculating',
+    (tester) async {
+      final state = FakeAppState();
+      await _pumpResult(
+        tester,
+        state,
+        makeAttempt(
+          review: const [
+            QuizReviewItem(
+              questionId: 'q1',
+              question: 'Correct review',
+              options: ['A', 'B'],
+              correctOption: 1,
+              selectedOption: 0,
+              isCorrect: true,
+              explanation: 'Backend says correct',
+            ),
+            QuizReviewItem(
+              questionId: 'q2',
+              question: 'Wrong review',
+              options: ['C', 'D'],
+              correctOption: 1,
+              selectedOption: null,
+              isCorrect: false,
+              explanation: 'No answer',
+            ),
+          ],
+        ),
+      );
+
+      expect(find.text('Correct review'), findsOneWidget);
+      await tester.drag(find.byType(ListView), const Offset(0, -500));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Wrong review'), findsOneWidget);
+      expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.cancel_rounded), findsOneWidget);
+      expect(find.text('Ban chua chon dap an.'), findsOneWidget);
+    },
+  );
+
+  testWidgets('result route without state shows safe missing state', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    await _pumpResult(tester, state, null);
+
+    expect(
+      find.text('Khong tim thay ket qua quiz cho lan lam nay.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('home CTA navigates with go', (tester) async {
+    final state = FakeAppState();
+    await _pumpResult(tester, state, makeAttempt());
+
+    await tester.tap(find.text('Ve trang chu').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Home route'), findsOneWidget);
+  });
+
+  testWidgets('next lesson CTA uses the following lesson when available', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    final simulation = FormulaSimulationConfig.empty();
+    state.lessonsByChapter['chapter-1'] = [
+      Lesson(
+        id: 'lesson-1',
+        chapterId: 'chapter-1',
+        title: 'One',
+        content: '',
+        formulaLatex: '',
+        estimatedMinutes: 10,
+        simulation: simulation,
+        questions: const [],
+      ),
+      Lesson(
+        id: 'lesson-2',
+        chapterId: 'chapter-1',
+        title: 'Two',
+        content: '',
+        formulaLatex: '',
+        estimatedMinutes: 10,
+        simulation: simulation,
+        questions: const [],
+      ),
+    ];
+
+    await _pumpResult(tester, state, makeAttempt());
+    await tester.tap(find.text('Hoc bai tiep theo'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lesson lesson-2'), findsOneWidget);
+  });
+
+  testWidgets('submit result navigation replaces quiz route', (tester) async {
+    final state = FakeAppState();
+    state.loadQueue.add(() => Future.value([_questions.first]));
+    final router = await _pumpQuiz(tester, state);
+    await tester.pump();
+    await tester.pump();
+
+    await _selectOnlyQuestionAndOpenConfirm(tester);
+    await tester.tap(find.text('Nop bai').last);
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      '/quiz/lesson-1/result',
+    );
+    expect(router.canPop(), isFalse);
+  });
+
+  testWidgets('result screen does not refresh state on build', (tester) async {
+    final state = FakeAppState();
+    await _pumpResult(tester, state, makeAttempt());
+
+    expect(state.loadCount, 0);
+    expect(state.submitCount, 0);
+  });
+
+  testWidgets('progress dashboard shows loading', (tester) async {
+    final state = FakeAppState();
+    state.dashboardQueue.add(() => Completer<ProgressDashboard?>().future);
+
+    await _pumpProgress(tester, state);
+    await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+  });
+
+  testWidgets('progress dashboard shows error and retries', (tester) async {
+    final state = FakeAppState();
+    state.dashboardQueue
+      ..add(() => Future<ProgressDashboard?>.error('Network down'))
+      ..add(() => Future.value(makeDashboard()));
+
+    await _pumpProgress(tester, state);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Network down'), findsOneWidget);
+    await tester.tap(find.text('Thu lai'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('50.0%'), findsOneWidget);
+    expect(state.dashboardLoadCount, 2);
+  });
+
+  testWidgets('progress dashboard shows empty state', (tester) async {
+    final state = FakeAppState();
+    state.dashboardQueue.add(
+      () => Future.value(makeDashboard(completedLessons: 0, attempts: [])),
+    );
+
+    await _pumpProgress(tester, state);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.textContaining('Chua co tien do hoc tap'), findsOneWidget);
+  });
+
+  testWidgets('progress dashboard shows data and chapter progress', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    state.dashboardQueue.add(() => Future.value(makeDashboard()));
+
+    await _pumpProgress(tester, state);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('50.0%'), findsOneWidget);
+    expect(find.text('3/6'), findsOneWidget);
+    expect(find.text('8.24'), findsOneWidget);
+    expect(find.text('140'), findsOneWidget);
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+    expect(find.text('Chuyen dong co hoc'), findsOneWidget);
+    expect(find.text('Dien hoc'), findsOneWidget);
+  });
+
+  testWidgets('progress chart handles 0, 1, and 5 attempts', (tester) async {
+    final state = FakeAppState();
+    state.dashboardQueue.add(
+      () => Future.value(makeDashboard(completedLessons: 1, attempts: [])),
+    );
+    await _pumpProgress(tester, state);
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Chua co lan lam quiz nao.'), findsOneWidget);
+
+    state.progressDashboard = makeDashboard(
+      completedLessons: 1,
+      attempts: [
+        RecentQuizAttempt(
+          attemptId: 'a1',
+          lessonId: 'l1',
+          lessonTitle: 'Mot',
+          score: 7,
+          submittedAt: DateTime(2026),
+          durationSeconds: 1,
+        ),
+      ],
+    );
+    state.notifyListeners();
+    await tester.pump();
+    expect(find.text('Mot'), findsOneWidget);
+
+    state.progressDashboard = makeDashboard();
+    state.notifyListeners();
+    await tester.pump();
+    expect(find.text('Bai 1'), findsOneWidget);
+    expect(find.text('Bai 5'), findsOneWidget);
+  });
+
+  testWidgets('progress refresh keeps stale data and shows snackbar on error', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    state.progressDashboard = makeDashboard();
+    state.dashboardQueue.add(
+      () => Future<ProgressDashboard?>.error('Refresh failed'),
+    );
+
+    await _pumpProgress(tester, state);
+    await tester.pump();
+    await tester.tap(find.byTooltip('Lam moi'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('50.0%'), findsOneWidget);
+    expect(find.text('Refresh failed'), findsOneWidget);
+  });
+
+  testWidgets('quiz submit refreshes progress dashboard', (tester) async {
+    final state = FakeAppState();
+    await state.submitQuiz('lesson-1', const {'q1': 0});
+
+    expect(state.dashboardLoadCount, 1);
+  });
+
+  testWidgets('quiz state resets between lessons', (tester) async {
+    final state = FakeAppState();
+    state.loadQueue
+      ..add(
+        () => Future.value([
+          const Question(
+            id: 'l1-q1',
+            lessonId: 'lesson-1',
+            question: 'Lesson 1 question',
+            options: ['A', 'B'],
+            explanation: '',
+          ),
+        ]),
+      )
+      ..add(
+        () => Future.value([
+          const Question(
+            id: 'l2-q1',
+            lessonId: 'lesson-2',
+            question: 'Lesson 2 question',
+            options: ['C', 'D'],
+            explanation: '',
+          ),
+        ]),
+      );
+    final router = await _pumpQuiz(tester, state);
+    await tester.pump();
+    await tester.pump();
+    await tester.tap(find.text('A'));
+    await tester.pump();
+
+    router.go('/quiz/lesson-2');
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Lesson 2 question'), findsOneWidget);
+    expect(find.byIcon(Icons.radio_button_checked_rounded), findsNothing);
+  });
+
+  testWidgets('profile shows earned and locked badges', (tester) async {
+    final state = FakeAppState();
+    state.profileQueue.add(
+      () => Future.value(
+        makeProfile(earned: [earnedBadge], locked: [lockedBadge]),
+      ),
+    );
+
+    await _pumpProfile(tester, state);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Nguyen Van Nam'), findsOneWidget);
+    expect(find.text('nam@example.com'), findsOneWidget);
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+    expect(find.text('Khoi dau'), findsOneWidget);
+    expect(find.text('Nha bac hoc'), findsOneWidget);
+    expect(find.byIcon(Icons.lock_rounded), findsWidgets);
+  });
+
+  testWidgets('profile handles badge icon null and opens detail', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    state.profileQueue.add(
+      () => Future.value(makeProfile(earned: [earnedBadge])),
+    );
+
+    await _pumpProfile(tester, state);
+    await tester.pump();
+    await tester.pump();
+
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Khoi dau'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hoan thanh bai dau tien'), findsOneWidget);
+    expect(find.text('Da dat'), findsOneWidget);
+  });
+
+  testWidgets('profile locked badge detail shows backend progress', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    state.profileQueue.add(
+      () => Future.value(makeProfile(locked: [lockedBadge])),
+    );
+
+    await _pumpProfile(tester, state);
+    await tester.pump();
+    await tester.pump();
+
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Nha bac hoc'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tien do: 1/3'), findsOneWidget);
+  });
+
+  testWidgets('profile shows empty chart and empty badges safely', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    state.profileQueue.add(() => Future.value(makeProfile()));
+
+    await _pumpProfile(tester, state);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Chua co diem quiz nao.'), findsOneWidget);
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+    expect(find.text('Chua co huy hieu nao.'), findsOneWidget);
+  });
+
+  testWidgets('profile error retries and refreshes coins', (tester) async {
+    final state = FakeAppState();
+    state.profileQueue
+      ..add(() => Future<ProfileSummary?>.error('Profile down'))
+      ..add(() => Future.value(makeProfile(coins: 200)));
+
+    await _pumpProfile(tester, state);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Profile down'), findsOneWidget);
+    await tester.tap(find.text('Thu lai'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('200'), findsOneWidget);
+    expect(state.coins, 200);
+  });
+
+  testWidgets('profile refresh keeps stale data and shows snackbar on error', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    state.profileSummary = makeProfile(coins: 150);
+    state.profileQueue.add(
+      () => Future<ProfileSummary?>.error('Profile stale'),
+    );
+
+    await _pumpProfile(tester, state);
+    await tester.pump();
+    await tester.tap(find.byTooltip('Lam moi'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('150'), findsOneWidget);
+    expect(find.text('Profile stale'), findsOneWidget);
+  });
+
+  testWidgets('logout clears sensitive state and goes to login', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    state.user = const XUser(
+      id: 'user-1',
+      name: 'Nam',
+      email: 'nam@example.com',
+      role: 'STUDENT',
+      coins: 10,
+    );
+    state.profileSummary = makeProfile(earned: [earnedBadge]);
+    state.progressDashboard = makeDashboard();
+
+    final router = await _pumpProfile(tester, state);
+    await tester.drag(find.byType(ListView), const Offset(0, -700));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Dang xuat'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Login route'), findsOneWidget);
+    expect(state.user, isNull);
+    expect(state.profileSummary, isNull);
+    expect(state.progressDashboard, isNull);
+    expect(router.routerDelegate.currentConfiguration.uri.path, '/login');
+  });
+
+  testWidgets('protected routes redirect to login when unauthenticated', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    state.loading = false;
+    state.user = null;
+    final router = buildRouter(state);
+
+    await _pumpRouter(tester, state, router);
+    router.go('/profile');
+    await tester.pumpAndSettle();
+
+    expect(router.routerDelegate.currentConfiguration.uri.path, '/login');
+  });
+
+  testWidgets('profile uses three badge columns on wide screens', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    state.profileQueue.add(
+      () => Future.value(
+        makeProfile(
+          earned: const [earnedBadge],
+          locked: const [lockedBadge, lockedBadge, lockedBadge],
+        ),
+      ),
+    );
+
+    await _pumpProfile(tester, state, surfaceSize: const Size(800, 900));
+    await tester.pump();
+    await tester.pump();
+
+    final grids = find.byType(GridView);
+    expect(grids, findsOneWidget);
+    final grid = tester.widget<GridView>(grids);
+    final delegate =
+        grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+    expect(delegate.crossAxisCount, 3);
+    await tester.binding.setSurfaceSize(null);
   });
 }
