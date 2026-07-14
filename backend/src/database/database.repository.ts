@@ -121,6 +121,8 @@ interface ChapterProgressRow {
 
 @Injectable()
 export class DatabaseRepository {
+  private learningActivitySchemaReady = false;
+
   constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
 
   async withTransaction<T>(work: (client: PoolClient) => Promise<T>) {
@@ -979,6 +981,7 @@ export class DatabaseRepository {
     input: { sourceType: string; sourceId: string; activityDate?: string },
     db: Db = this.pool,
   ) {
+    await this.ensureLearningActivitySchema(db);
     const result = await db.query<{ activity_date: Date | string }>(
       `insert into learning_activity (user_id, activity_date, source_type, source_id)
        values ($1, coalesce($2::date, (now() at time zone 'utc')::date), $3, $4)
@@ -991,6 +994,7 @@ export class DatabaseRepository {
   }
 
   async currentLearningStreak(userId: string, db: Db = this.pool) {
+    await this.ensureLearningActivitySchema(db);
     const result = await db.query<{ activity_date: Date }>(
       `select activity_date
        from learning_activity
@@ -1017,6 +1021,28 @@ export class DatabaseRepository {
       expected = previousDate.toISOString().slice(0, 10);
     }
     return streak;
+  }
+
+  private async ensureLearningActivitySchema(db: Db = this.pool) {
+    if (this.learningActivitySchemaReady) return;
+
+    await db.query(`
+      create table if not exists learning_activity (
+        id uuid primary key default gen_random_uuid(),
+        user_id uuid not null references users(id) on delete cascade,
+        activity_date date not null,
+        source_type varchar(60) not null,
+        source_id varchar(120) not null,
+        created_at timestamptz not null default now(),
+        unique (user_id, activity_date)
+      )
+    `);
+    await db.query(`
+      create index if not exists learning_activity_user_date_idx
+      on learning_activity(user_id, activity_date desc)
+    `);
+
+    this.learningActivitySchemaReady = true;
   }
 
   async countCompletedLessons(userId: string, db: Db = this.pool) {
