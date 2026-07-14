@@ -7,9 +7,11 @@ import '../../../shared/models/x_models.dart';
 /// `Future`. Only `saveLesson` is async, matching Hive's real `Box.put`
 /// signature.
 abstract class OfflineRepository {
-  Future<void> saveLesson(Lesson lesson);
+  Future<void> saveLesson(String userId, Lesson lesson);
 
-  Lesson? getLesson(String lessonId);
+  Lesson? getLesson(String userId, String lessonId);
 
-  List<String> getDownloadedLessonIds();
+  List<String> getDownloadedLessonIds(String userId);
+
+  Future<void> deleteLesson(String userId, String lessonId);
 }

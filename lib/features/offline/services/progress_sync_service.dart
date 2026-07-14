@@ -7,9 +7,11 @@ import '../../../core/storage/local_storage_service.dart';
 /// test/offline_sync_test.dart.
 typedef SyncPost =
     Future<Map<String, dynamic>> Function(
+      String userId,
       String path,
       Map<String, dynamic> data,
     );
+typedef IsUserActive = bool Function(String userId);
 
 /// Flushes locally-queued reading-progress updates (the `pending_progress`
 /// Hive box, see [LocalStorageService]) to `POST /api/sync/progress` once
@@ -18,45 +20,57 @@ typedef SyncPost =
 class ProgressSyncService {
   ProgressSyncService({
     required SyncPost post,
+    IsUserActive? isUserActive,
     LocalStorageService? localStorage,
     String path = '/api/sync/progress',
   }) : _post = post,
+       _isUserActive = isUserActive ?? ((_) => true),
        _localStorage = localStorage ?? const LocalStorageService(),
        _path = path;
 
   final SyncPost _post;
+  final IsUserActive _isUserActive;
   final LocalStorageService _localStorage;
   final String _path;
-  Future<int>? _runningSync;
+  final _runningSyncByUser = <String, Future<int>>{};
 
   /// Returns the number of items successfully synced (`0` if the queue was
   /// empty or the request failed — everything stays queued on failure so
   /// it is retried on the next reconnect).
-  Future<int> syncPending() {
-    final current = _runningSync;
+  Future<int> syncPending(String? userId) {
+    final normalizedUserId = userId?.trim();
+    if (normalizedUserId == null || normalizedUserId.isEmpty) {
+      return Future.value(0);
+    }
+
+    final current = _runningSyncByUser[normalizedUserId];
     if (current != null) {
       return current;
     }
 
-    final future = _syncPendingOnce();
-    _runningSync = future;
+    final future = _syncPendingOnce(normalizedUserId);
+    _runningSyncByUser[normalizedUserId] = future;
     future.whenComplete(() {
-      if (identical(_runningSync, future)) {
-        _runningSync = null;
+      if (identical(_runningSyncByUser[normalizedUserId], future)) {
+        _runningSyncByUser.remove(normalizedUserId);
       }
     });
     return future;
   }
 
-  Future<int> _syncPendingOnce() async {
-    final snapshot = _localStorage.pendingProgressSnapshot();
+  Future<int> _syncPendingOnce(String userId) async {
+    final snapshot = _localStorage.pendingProgressSnapshot(userId);
     final items = snapshot.values.toList(growable: false);
     if (items.isEmpty) {
       return 0;
     }
 
     try {
-      await _post(_path, {'items': items});
+      if (!_isUserActive(userId)) {
+        return 0;
+      }
+      final payloadItems = items.map(_syncPayloadItem).toList(growable: false);
+      await _post(userId, _path, {'items': payloadItems});
     } catch (_) {
       // Network/API failure: keep everything queued. The backend accepts
       // or rejects the whole batch (see
@@ -65,7 +79,17 @@ class ProgressSyncService {
       return 0;
     }
 
+    if (!_isUserActive(userId)) {
+      return 0;
+    }
     await _localStorage.removePendingProgressSnapshot(snapshot);
     return items.length;
   }
+
+  Map<String, dynamic> _syncPayloadItem(Map<String, dynamic> item) => {
+    'lessonId': item['lessonId'],
+    'progressPercent': item['progressPercent'],
+    'clientUpdatedAt': item['clientUpdatedAt'],
+    if (item['quizAttempt'] is Map) 'quizAttempt': item['quizAttempt'],
+  };
 }

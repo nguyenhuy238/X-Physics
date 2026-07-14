@@ -27,7 +27,10 @@ class AppState extends ChangeNotifier {
     );
     _progressRepository = ProgressRepository(_apiClient);
     _profileRepository = ProfileRepository(_apiClient);
-    _progressSyncService = ProgressSyncService(post: _syncPost);
+    _progressSyncService = ProgressSyncService(
+      post: _syncPostForUser,
+      isUserActive: _isCurrentUserId,
+    );
     _listenConnectivity();
   }
 
@@ -45,6 +48,7 @@ class AppState extends ChangeNotifier {
   final OfflineRepository _offlineRepository = OfflineService();
   StreamSubscription<bool>? _connectivitySub;
   bool _disposed = false;
+  int _authGeneration = 0;
 
   GoRouter? router;
   XUser? user;
@@ -87,9 +91,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> bootstrap() async {
     router = buildRouter(this);
-    downloadedLessons
-      ..clear()
-      ..addAll(_offlineRepository.getDownloadedLessonIds());
+    downloadedLessons.clear();
 
     isOffline = !(await _connectivityService.isOnline());
 
@@ -102,9 +104,10 @@ class AppState extends ChangeNotifier {
 
     try {
       await refreshCurrentUser();
+      _refreshDownloadedLessonsForCurrentUser();
       await loadHomeData();
       if (!isOffline) {
-        await _progressSyncService.syncPending();
+        await _syncPendingForCurrentUser();
       }
     } catch (error) {
       await _tokenStorage.clear();
@@ -132,7 +135,7 @@ class AppState extends ChangeNotifier {
         isOffline = !online;
         notifyListeners();
         if (backOnline) {
-          unawaited(_progressSyncService.syncPending().then((_) {}));
+          unawaited(_syncPendingForCurrentUser());
         }
       }, onError: (Object error, StackTrace stackTrace) {});
     } catch (_) {
@@ -153,6 +156,10 @@ class AppState extends ChangeNotifier {
     if (lessonId.trim().isEmpty) {
       return;
     }
+    final userId = _currentUserId;
+    if (userId == null) {
+      return;
+    }
     final clamped = progressPercent < 0
         ? 0
         : (progressPercent > 100 ? 100 : progressPercent);
@@ -163,7 +170,7 @@ class AppState extends ChangeNotifier {
     };
 
     if (effectiveOffline) {
-      await _localStorage.queuePendingProgress(item);
+      await _localStorage.queuePendingProgress(userId, item);
       return;
     }
 
@@ -172,8 +179,19 @@ class AppState extends ChangeNotifier {
         'items': [item],
       });
     } catch (_) {
-      await _localStorage.queuePendingProgress(item);
+      await _localStorage.queuePendingProgress(userId, item);
     }
+  }
+
+  Future<Map<String, dynamic>> _syncPostForUser(
+    String userId,
+    String path,
+    Map<String, dynamic> data,
+  ) async {
+    if (_currentUserId != userId) {
+      throw StateError('Authenticated user changed before sync started.');
+    }
+    return _syncPost(path, data);
   }
 
   Future<Map<String, dynamic>> _syncPost(
@@ -219,6 +237,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    _authGeneration++;
     try {
       await _apiClient.dio.post<Map<String, dynamic>>(ApiEndpoints.logout);
     } catch (error) {
@@ -269,6 +288,7 @@ class AppState extends ChangeNotifier {
       coins = profileSummary?.totalCoins ?? coins;
       final profileUser = profileSummary?.user;
       if (profileUser != null && profileUser.id.isNotEmpty) {
+        final previousUserId = user?.id;
         user = XUser(
           id: profileUser.id,
           name: profileUser.name,
@@ -276,6 +296,10 @@ class AppState extends ChangeNotifier {
           role: user?.role ?? 'STUDENT',
           coins: profileSummary?.totalCoins ?? coins,
         );
+        if (previousUserId != user?.id) {
+          _authGeneration++;
+          _refreshDownloadedLessonsForCurrentUser();
+        }
       }
     } catch (error) {
       profileError = _readableError(error);
@@ -374,14 +398,21 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Lesson? loadOfflineLesson(String id) => _offlineRepository.getLesson(id);
+  Lesson? loadOfflineLesson(String id) {
+    final userId = _currentUserId;
+    return userId == null ? null : _offlineRepository.getLesson(userId, id);
+  }
 
   Future<void> downloadLesson(String lessonId) async {
+    final userId = _currentUserId;
+    if (userId == null) {
+      throw StateError('Bạn cần đăng nhập để tải bài học offline.');
+    }
     final lesson = lessonsById[lessonId] ?? await loadLessonDetail(lessonId);
     if (lesson == null) {
       throw StateError('Không thể tải bài học.');
     }
-    await _offlineRepository.saveLesson(lesson);
+    await _offlineRepository.saveLesson(userId, lesson);
     downloadedLessons.add(lesson.id);
     notifyListeners();
     // Best-effort: record the download server-side for Admin statistics.
@@ -422,7 +453,10 @@ class AppState extends ChangeNotifier {
   /// Number of reading-progress updates queued locally, waiting to be sent
   /// to `POST /api/sync/progress`. Drives the sync-status banner in the
   /// Offline Downloads screen.
-  int get pendingSyncCount => _localStorage.pendingProgressItems().length;
+  int get pendingSyncCount {
+    final userId = _currentUserId;
+    return userId == null ? 0 : _localStorage.pendingProgressCount(userId);
+  }
 
   /// Manually flushes the pending-progress queue (the "Đồng bộ ngay"
   /// button). No-ops while offline.
@@ -430,8 +464,9 @@ class AppState extends ChangeNotifier {
     if (effectiveOffline) {
       return;
     }
-    final synced = await _progressSyncService.syncPending();
-    if (synced > 0 && !_disposed) {
+    final generation = _authGeneration;
+    final synced = await _syncPendingForCurrentUser();
+    if (synced > 0 && !_disposed && generation == _authGeneration) {
       notifyListeners();
     }
   }
@@ -861,6 +896,8 @@ class AppState extends ChangeNotifier {
       );
       user = XUser.fromJson(data['user'] as Map);
       coins = user?.coins ?? 0;
+      _authGeneration++;
+      _refreshDownloadedLessonsForCurrentUser();
       await loadHomeData();
       return true;
     } catch (error) {
@@ -917,6 +954,7 @@ class AppState extends ChangeNotifier {
   }
 
   void _handleUnauthorized() {
+    _authGeneration++;
     user = null;
     coins = 0;
     badges.clear();
@@ -928,10 +966,42 @@ class AppState extends ChangeNotifier {
     progressDashboardError = null;
     profileSummary = null;
     profileError = null;
+    downloadedLessons.clear();
     quizResultsByLesson.clear();
     router?.go('/login');
     notifyListeners();
   }
+
+  String? get _currentUserId {
+    final id = user?.id.trim();
+    return id == null || id.isEmpty ? null : id;
+  }
+
+  void _refreshDownloadedLessonsForCurrentUser() {
+    final userId = _currentUserId;
+    downloadedLessons
+      ..clear()
+      ..addAll(
+        userId == null
+            ? const <String>[]
+            : _offlineRepository.getDownloadedLessonIds(userId),
+      );
+  }
+
+  Future<int> _syncPendingForCurrentUser() async {
+    final userId = _currentUserId;
+    if (userId == null) {
+      return 0;
+    }
+    final generation = _authGeneration;
+    final synced = await _progressSyncService.syncPending(userId);
+    if (generation != _authGeneration || _currentUserId != userId) {
+      return 0;
+    }
+    return synced;
+  }
+
+  bool _isCurrentUserId(String userId) => _currentUserId == userId;
 
   String _readableError(Object error) {
     if (error is DioException) {

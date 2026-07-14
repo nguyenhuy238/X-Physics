@@ -23,13 +23,15 @@ offline reaches the server once the device is back online.
   paths so a real network drop behaves exactly like the demo toggle.
 - `LocalStorageService` (`lib/core/storage/local_storage_service.dart`)
   owns two Hive boxes:
-  - `offline_lessons` — full lesson JSON, written by `AppState.downloadLesson`.
+  - `offline_lessons` — user-scoped full lesson JSON, written by
+    `AppState.downloadLesson`.
   - `pending_progress` — queued progress updates not yet sent to the
-    server, keyed by `lessonId` (only the latest update per lesson is
-    kept).
+    server, keyed by `<userId>::<lessonId>` (only the latest update per
+    user/lesson pair is kept).
 - `ProgressSyncService` (`lib/features/offline/services/progress_sync_service.dart`)
-  flushes `pending_progress` to `POST /api/sync/progress`
-  (`backend/src/modules/offline-sync`) and clears the queue on success.
+  flushes the authenticated user's `pending_progress` to
+  `POST /api/sync/progress` (`backend/src/modules/offline-sync`) and clears
+  only the matching snapshot on success.
 
 ## Flow
 
@@ -47,7 +49,7 @@ flowchart TD
     G --> I[Cho ket noi lai]
     I --> J[ConnectivityService bao da online]
     J --> K[ProgressSyncService.syncPending]
-    K -- Thanh cong --> L[Xoa pending_progress]
+    K -- Thanh cong --> L[Xoa pending_progress cua user hien tai]
     K -- That bai --> I
 ```
 
@@ -58,8 +60,9 @@ connectivity transition.
 
 ## Known limitations (MVP)
 
-- `pending_progress` only keeps the latest update per lesson (keyed by
-  `lessonId`); intermediate values in between are not preserved.
+- `pending_progress` only keeps the latest update per user/lesson pair
+  (keyed by `<userId>::<lessonId>`); intermediate values in between are not
+  preserved.
 - Quiz submission (`AppState.submitQuiz`, `POST /api/quiz/submit`) is
   **not** queued by this flow: grading requires the correct answers,
   which the client never receives — `GET /api/lessons/{id}/questions`
@@ -85,6 +88,9 @@ connectivity transition.
   (`pendingSyncCount` / "Đồng bộ ngay" button) and an approximate cached
   size per lesson (`estimatedOfflineSizeBytes`, based on re-encoding the
   cached JSON — not the actual bytes on disk).
+- Legacy offline/progress entries without `userId` are not treated as owned
+  by the current user. Legacy pending progress is not synced automatically.
+  See `docs/TV3_MULTI_USER_OFFLINE.md`.
 
 ## Manual test steps ("test mất mạng")
 
