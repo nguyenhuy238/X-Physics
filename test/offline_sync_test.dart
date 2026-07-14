@@ -165,25 +165,31 @@ void main() {
       expect(storage.offlineLessonsBox().isEmpty, isTrue);
     });
 
-    test('new offline lesson records metadata and stable fingerprint', () async {
-      final lesson = _lessonWithQuestion('Versioned copy', 'Original question');
+    test(
+      'new offline lesson records metadata and stable fingerprint',
+      () async {
+        final lesson = _lessonWithQuestion(
+          'Versioned copy',
+          'Original question',
+        );
 
-      await storage.saveOfflineLesson(userId: userA, lesson: lesson);
+        await storage.saveOfflineLesson(userId: userA, lesson: lesson);
 
-      final snapshot = storage.getOfflineLessonSnapshot(
-        userId: userA,
-        lessonId: lessonId,
-      );
-      expect(snapshot, isNotNull);
-      expect(snapshot!.metadata.userId, userA);
-      expect(snapshot.metadata.lessonId, lessonId);
-      expect(snapshot.metadata.contentFingerprint, isNotEmpty);
-      expect(snapshot.metadata.updateAvailable, isFalse);
-      expect(
-        snapshot.metadata.contentFingerprint,
-        OfflineLessonVersioning.fingerprintForLesson(lesson),
-      );
-    });
+        final snapshot = storage.getOfflineLessonSnapshot(
+          userId: userA,
+          lessonId: lessonId,
+        );
+        expect(snapshot, isNotNull);
+        expect(snapshot!.metadata.userId, userA);
+        expect(snapshot.metadata.lessonId, lessonId);
+        expect(snapshot.metadata.contentFingerprint, isNotEmpty);
+        expect(snapshot.metadata.updateAvailable, isFalse);
+        expect(
+          snapshot.metadata.contentFingerprint,
+          OfflineLessonVersioning.fingerprintForLesson(lesson),
+        );
+      },
+    );
 
     test('legacy offline lesson without metadata is still readable', () async {
       await storage.offlineLessonsBox().put('$userA::$lessonId', {
@@ -238,16 +244,21 @@ void main() {
     });
 
     test('fingerprint changes when cached content changes', () {
-      final original = _lessonWithQuestion('Versioned copy', 'Original question');
+      final original = _lessonWithQuestion(
+        'Versioned copy',
+        'Original question',
+      );
       final changedQuestion = _lessonWithQuestion(
         'Versioned copy',
         'Updated question',
       );
 
-      final originalFingerprint =
-          OfflineLessonVersioning.fingerprintForLesson(original);
-      final updatedFingerprint =
-          OfflineLessonVersioning.fingerprintForLesson(changedQuestion);
+      final originalFingerprint = OfflineLessonVersioning.fingerprintForLesson(
+        original,
+      );
+      final updatedFingerprint = OfflineLessonVersioning.fingerprintForLesson(
+        changedQuestion,
+      );
 
       expect(updatedFingerprint, isNot(originalFingerprint));
       expect(

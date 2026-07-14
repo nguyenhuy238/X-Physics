@@ -158,7 +158,9 @@ class OfflineLessonVersioning {
       'content': lesson.content,
       'formulaLatex': lesson.formulaLatex,
       'simulation': lesson.simulation.toJson(),
-      'questions': lesson.questions.map((question) => question.toJson()).toList(),
+      'questions': lesson.questions
+          .map((question) => question.toJson())
+          .toList(),
     };
     final canonicalJson = jsonEncode(_canonicalize(content));
     return sha256.convert(utf8.encode(canonicalJson)).toString();
@@ -173,8 +175,12 @@ class OfflineLessonVersioning {
     String? serverFingerprint,
   }) {
     if (localVersion != null && serverVersion != null) {
-      if (serverVersion > localVersion) return OfflineLessonFreshness.serverNewer;
-      if (serverVersion < localVersion) return OfflineLessonFreshness.localNewer;
+      if (serverVersion > localVersion) {
+        return OfflineLessonFreshness.serverNewer;
+      }
+      if (serverVersion < localVersion) {
+        return OfflineLessonFreshness.localNewer;
+      }
       return OfflineLessonFreshness.same;
     }
 
@@ -184,8 +190,12 @@ class OfflineLessonVersioning {
       if (localDate == null || serverDate == null) {
         return OfflineLessonFreshness.unknown;
       }
-      if (serverDate.isAfter(localDate)) return OfflineLessonFreshness.serverNewer;
-      if (serverDate.isBefore(localDate)) return OfflineLessonFreshness.localNewer;
+      if (serverDate.isAfter(localDate)) {
+        return OfflineLessonFreshness.serverNewer;
+      }
+      if (serverDate.isBefore(localDate)) {
+        return OfflineLessonFreshness.localNewer;
+      }
       return OfflineLessonFreshness.same;
     }
 

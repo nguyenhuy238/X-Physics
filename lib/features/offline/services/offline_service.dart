@@ -76,7 +76,9 @@ class OfflineService implements OfflineRepository {
       userId: userId,
       lesson: lesson,
     );
-    await saveSnapshot(OfflineLessonSnapshot(lesson: lesson, metadata: metadata));
+    await saveSnapshot(
+      OfflineLessonSnapshot(lesson: lesson, metadata: metadata),
+    );
   }
 
   @override
@@ -97,7 +99,9 @@ class OfflineService implements OfflineRepository {
     if (snapshot == null) {
       return;
     }
-    await saveSnapshot(OfflineLessonSnapshot(lesson: snapshot.lesson, metadata: metadata));
+    await saveSnapshot(
+      OfflineLessonSnapshot(lesson: snapshot.lesson, metadata: metadata),
+    );
   }
 
   @override

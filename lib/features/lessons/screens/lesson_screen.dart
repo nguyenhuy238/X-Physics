@@ -206,14 +206,19 @@ class _OfflineUpdateBannerState extends State<_OfflineUpdateBanner> {
 
   @override
   Widget build(BuildContext context) {
-    final offline = context.select<AppState, bool>((state) => state.effectiveOffline);
+    final offline = context.select<AppState, bool>(
+      (state) => state.effectiveOffline,
+    );
     return Material(
       color: const Color(0xFFFFF7E6),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
-            const Icon(Icons.system_update_alt_rounded, color: Color(0xFFB8860B)),
+            const Icon(
+              Icons.system_update_alt_rounded,
+              color: Color(0xFFB8860B),
+            ),
             const SizedBox(width: 10),
             const Expanded(child: Text('Có bản cập nhật cho bản offline.')),
             TextButton.icon(

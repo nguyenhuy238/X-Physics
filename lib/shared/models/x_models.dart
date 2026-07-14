@@ -136,6 +136,7 @@ class Lesson {
     this.orderIndex = 0,
     this.isPublished = true,
     this.createdAt,
+    this.updatedAt,
   });
   final String id;
   final String chapterId;
@@ -148,6 +149,7 @@ class Lesson {
   final int orderIndex;
   final bool isPublished;
   final String? createdAt;
+  final String? updatedAt;
 
   Map<String, dynamic> toJson() => {
     'id': id,

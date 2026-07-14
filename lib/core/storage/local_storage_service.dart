@@ -41,10 +41,7 @@ class LocalStorageService {
   }
 
   Lesson? getOfflineLesson({required String userId, required String lessonId}) {
-    return getOfflineLessonSnapshot(
-      userId: userId,
-      lessonId: lessonId,
-    )?.lesson;
+    return getOfflineLessonSnapshot(userId: userId, lessonId: lessonId)?.lesson;
   }
 
   OfflineLessonSnapshot? getOfflineLessonSnapshot({
@@ -196,7 +193,9 @@ class LocalStorageService {
     return normalized;
   }
 
-  OfflineLessonSnapshot? _offlineSnapshotFromValue(Map<dynamic, dynamic> value) {
+  OfflineLessonSnapshot? _offlineSnapshotFromValue(
+    Map<dynamic, dynamic> value,
+  ) {
     try {
       return OfflineLessonSnapshot.fromCacheMap(value);
     } catch (_) {

@@ -457,7 +457,9 @@ class AppState extends ChangeNotifier {
     offlineUpdateError = null;
     notifyListeners();
     try {
-      for (final lessonId in _offlineRepository.getDownloadedLessonIds(userId)) {
+      for (final lessonId in _offlineRepository.getDownloadedLessonIds(
+        userId,
+      )) {
         if (_currentUserId != userId || effectiveOffline) {
           break;
         }
@@ -492,8 +494,9 @@ class AppState extends ChangeNotifier {
       throw StateError('Dữ liệu bài học không hợp lệ.');
     }
 
-    final serverFingerprint =
-        OfflineLessonVersioning.fingerprintForLesson(lesson);
+    final serverFingerprint = OfflineLessonVersioning.fingerprintForLesson(
+      lesson,
+    );
     final freshness = OfflineLessonVersioning.compare(
       localFingerprint: currentSnapshot.metadata.contentFingerprint,
       serverFingerprint: serverFingerprint,
@@ -636,8 +639,9 @@ class AppState extends ChangeNotifier {
       if (_currentUserId != userId) {
         return OfflineLessonFreshness.unknown;
       }
-      final serverFingerprint =
-          OfflineLessonVersioning.fingerprintForLesson(serverLesson);
+      final serverFingerprint = OfflineLessonVersioning.fingerprintForLesson(
+        serverLesson,
+      );
       final freshness = OfflineLessonVersioning.compare(
         localFingerprint: snapshot.metadata.contentFingerprint,
         serverFingerprint: serverFingerprint,

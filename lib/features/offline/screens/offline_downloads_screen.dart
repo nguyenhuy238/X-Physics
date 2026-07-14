@@ -18,9 +18,12 @@ class _OfflineDownloadsScreenState extends State<OfflineDownloadsScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(
-      () => context.read<AppState>().checkDownloadedLessonsForUpdates(),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      context.read<AppState>().checkDownloadedLessonsForUpdates();
+    });
   }
 
   @override
@@ -142,7 +145,9 @@ class _OfflineLessonTileState extends State<_OfflineLessonTile> {
           widget.lesson.title,
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
-        subtitle: subtitleParts.isEmpty ? null : Text(subtitleParts.join(' • ')),
+        subtitle: subtitleParts.isEmpty
+            ? null
+            : Text(subtitleParts.join(' • ')),
         trailing: updateAvailable
             ? _updating
                   ? const SizedBox(
