@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
@@ -6,7 +8,10 @@ import 'package:hive/hive.dart';
 import '../../../core/constants/api_endpoints.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/router/app_router.dart';
+import '../../../core/storage/local_storage_service.dart';
 import '../../../core/storage/token_storage.dart';
+import '../../offline/services/connectivity_service.dart';
+import '../../offline/services/progress_sync_service.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../../shared/models/x_models.dart';
 import '../data/progress_repository.dart';
@@ -20,12 +25,18 @@ class AppState extends ChangeNotifier {
     );
     _progressRepository = ProgressRepository(_apiClient);
     _profileRepository = ProfileRepository(_apiClient);
+    _progressSyncService = ProgressSyncService(post: _syncPost);
+    _listenConnectivity();
   }
 
   late final ApiClient _apiClient;
   late final ProgressRepository _progressRepository;
   late final ProfileRepository _profileRepository;
+  late final ProgressSyncService _progressSyncService;
   final TokenStorage _tokenStorage;
+  final ConnectivityService _connectivityService = ConnectivityService();
+  final LocalStorageService _localStorage = const LocalStorageService();
+  StreamSubscription<bool>? _connectivitySub;
 
   GoRouter? router;
   XUser? user;
@@ -40,6 +51,15 @@ class AppState extends ChangeNotifier {
   String? profileError;
   int coins = 0;
   bool simulateOffline = false;
+
+  /// Real network status detected via `connectivity_plus`. `simulateOffline`
+  /// stays available for the demo "airplane mode" switch (see
+  /// `shared/widgets/app_scaffold.dart`); both are OR-ed together in
+  /// [effectiveOffline] so a real network drop is handled the same way as
+  /// the manual demo toggle. See docs/OFFLINE_FLOW.md.
+  bool isOffline = false;
+
+  bool get effectiveOffline => simulateOffline || isOffline;
 
   final chapters = <Chapter>[];
   final lessonsByChapter = <String, List<Lesson>>{};
@@ -63,6 +83,8 @@ class AppState extends ChangeNotifier {
       ..clear()
       ..addAll(Hive.box<Map>('offline_lessons').keys.cast<String>());
 
+    isOffline = !(await _connectivityService.isOnline());
+
     final accessToken = await _tokenStorage.readAccessToken();
     if (accessToken == null || accessToken.isEmpty) {
       loading = false;
@@ -73,6 +95,9 @@ class AppState extends ChangeNotifier {
     try {
       await refreshCurrentUser();
       await loadHomeData();
+      if (!isOffline) {
+        await _progressSyncService.syncPending();
+      }
     } catch (error) {
       await _tokenStorage.clear();
       user = null;
@@ -81,6 +106,83 @@ class AppState extends ChangeNotifier {
       loading = false;
       notifyListeners();
     }
+  }
+
+  /// Starts listening for real connectivity transitions and flushes the
+  /// pending-progress queue whenever the device comes back online. Wrapped
+  /// defensively: `connectivity_plus` has no platform channel in
+  /// `flutter_test`, and `AppState`'s constructor runs in dozens of
+  /// existing widget tests via `FakeAppState`, so any failure here must
+  /// never throw.
+  void _listenConnectivity() {
+    try {
+      _connectivitySub = _connectivityService.onStatusChange.listen((
+        online,
+      ) {
+        final backOnline = isOffline && online;
+        isOffline = !online;
+        notifyListeners();
+        if (backOnline) {
+          unawaited(_progressSyncService.syncPending().then((_) {}));
+        }
+      }, onError: (Object _, StackTrace __) {});
+    } catch (_) {
+      // No connectivity platform channel available — keep isOffline at its
+      // default value and skip live updates.
+    }
+  }
+
+  /// Records how much of a lesson the student has read. When offline this
+  /// is queued locally and flushed by [ProgressSyncService] the next time
+  /// the app reconnects; when online it is sent immediately but still
+  /// falls back to the local queue if the request fails (e.g. the
+  /// connection drops mid-request). See docs/OFFLINE_FLOW.md.
+  Future<void> updateReadingProgress(
+    String lessonId,
+    int progressPercent,
+  ) async {
+    final clamped = progressPercent < 0
+        ? 0
+        : (progressPercent > 100 ? 100 : progressPercent);
+    final item = <String, dynamic>{
+      'lessonId': lessonId,
+      'progressPercent': clamped,
+      'clientUpdatedAt': DateTime.now().toUtc().toIso8601String(),
+    };
+
+    if (effectiveOffline) {
+      await _localStorage.queuePendingProgress(item);
+      return;
+    }
+
+    try {
+      await _syncPost(ApiEndpoints.syncProgress, {
+        'items': [item],
+      });
+    } catch (_) {
+      await _localStorage.queuePendingProgress(item);
+    }
+  }
+
+  Future<Map<String, dynamic>> _syncPost(
+    String path,
+    Map<String, dynamic> data,
+  ) async {
+    final response = await _apiClient.dio.post<Map<String, dynamic>>(
+      path,
+      data: data,
+    );
+    final body = response.data;
+    if (body == null || body['success'] != true) {
+      throw StateError(body?['message'] as String? ?? 'Sync API error');
+    }
+    return body;
+  }
+
+  @override
+  void dispose() {
+    _connectivitySub?.cancel();
+    super.dispose();
   }
 
   Future<bool> login(String email, String password) async {
@@ -223,7 +325,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<Lesson?> loadLessonDetail(String lessonId) async {
-    if (simulateOffline) {
+    if (effectiveOffline) {
       return loadOfflineLesson(lessonId);
     }
 
@@ -278,7 +380,7 @@ class AppState extends ChangeNotifier {
     String lessonId, {
     bool notify = true,
   }) async {
-    if (simulateOffline) {
+    if (effectiveOffline) {
       final lesson = loadOfflineLesson(lessonId);
       final questions = lesson?.questions ?? const <Question>[];
       questionsByLesson[lessonId] = questions;

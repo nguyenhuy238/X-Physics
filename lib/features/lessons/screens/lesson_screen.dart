@@ -22,6 +22,7 @@ class _LessonScreenState extends State<LessonScreen> {
   final scroll = ScrollController();
   double progress = 0;
   Lesson? lesson;
+  bool _readingProgressReported = false;
 
   @override
   void initState() {
@@ -35,6 +36,16 @@ class _LessonScreenState extends State<LessonScreen> {
         () => progress = (scroll.offset / scroll.position.maxScrollExtent)
             .clamp(0, 1),
       );
+      // Report reading progress once the student has effectively reached
+      // the end of the lesson. Queued locally when offline and synced
+      // later — see AppState.updateReadingProgress / docs/OFFLINE_FLOW.md.
+      if (progress >= 0.9 && !_readingProgressReported) {
+        _readingProgressReported = true;
+        context.read<AppState>().updateReadingProgress(
+          widget.lessonId,
+          (progress * 100).round(),
+        );
+      }
     });
   }
 
@@ -59,7 +70,7 @@ class _LessonScreenState extends State<LessonScreen> {
     }
     if (currentLesson == null) {
       return XScaffold(
-        title: state.simulateOffline ? 'Không có dữ liệu offline' : 'Bài học',
+        title: state.effectiveOffline ? 'Không có dữ liệu offline' : 'Bài học',
         child: ErrorView(
           message: state.errorMessage ??
               'Bài học này chưa có dữ liệu. Hãy kiểm tra kết nối hoặc tải bài offline trước.',
