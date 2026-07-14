@@ -3,14 +3,15 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hive/hive.dart';
 
 import '../../../core/constants/api_endpoints.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/storage/local_storage_service.dart';
 import '../../../core/storage/token_storage.dart';
+import '../../offline/data/offline_repository.dart';
 import '../../offline/services/connectivity_service.dart';
+import '../../offline/services/offline_service.dart';
 import '../../offline/services/progress_sync_service.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../../shared/models/x_models.dart';
@@ -36,6 +37,11 @@ class AppState extends ChangeNotifier {
   final TokenStorage _tokenStorage;
   final ConnectivityService _connectivityService = ConnectivityService();
   final LocalStorageService _localStorage = const LocalStorageService();
+  // `OfflineService()` is safe to construct eagerly: it resolves the Hive
+  // box lazily (see offline_service.dart) instead of touching `Hive.box`
+  // in its constructor, so it never throws in widget tests that construct
+  // `AppState`/`FakeAppState` without opening any Hive box.
+  final OfflineRepository _offlineRepository = OfflineService();
   StreamSubscription<bool>? _connectivitySub;
 
   GoRouter? router;
@@ -81,7 +87,7 @@ class AppState extends ChangeNotifier {
     router = buildRouter(this);
     downloadedLessons
       ..clear()
-      ..addAll(Hive.box<Map>('offline_lessons').keys.cast<String>());
+      ..addAll(_offlineRepository.getDownloadedLessonIds());
 
     isOffline = !(await _connectivityService.isOnline());
 
@@ -361,17 +367,14 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Lesson? loadOfflineLesson(String id) {
-    final data = Hive.box<Map>('offline_lessons').get(id);
-    return data == null ? null : Lesson.fromJson(data);
-  }
+  Lesson? loadOfflineLesson(String id) => _offlineRepository.getLesson(id);
 
   Future<void> downloadLesson(String lessonId) async {
     final lesson = lessonsById[lessonId] ?? await loadLessonDetail(lessonId);
     if (lesson == null) {
       throw StateError('Không thể tải bài học.');
     }
-    await Hive.box<Map>('offline_lessons').put(lesson.id, lesson.toJson());
+    await _offlineRepository.saveLesson(lesson);
     downloadedLessons.add(lesson.id);
     notifyListeners();
   }
