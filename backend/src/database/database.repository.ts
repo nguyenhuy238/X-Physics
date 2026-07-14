@@ -32,6 +32,7 @@ interface LessonRow {
   estimated_minutes: number;
   order_index: number;
   is_published: boolean;
+  created_at: Date;
 }
 
 interface SimulationRow {
@@ -1151,7 +1152,7 @@ export class DatabaseRepository {
       userName: row.user_name,
       action: row.action,
       detail: row.detail,
-      createdAt: row.createdAt ?? row.created_at, // Postgres query standardizes to camelCase, fallback to snake_case
+      createdAt: row.created_at,
     }));
 
     return {
