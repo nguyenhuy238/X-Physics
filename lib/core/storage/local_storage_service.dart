@@ -1,5 +1,6 @@
 import 'package:hive/hive.dart';
 
+import '../../features/offline/models/offline_lesson_model.dart';
 import '../../shared/models/x_models.dart';
 
 String buildUserLessonKey(String userId, String lessonId) {
@@ -29,30 +30,40 @@ class LocalStorageService {
     required String userId,
     required Lesson lesson,
   }) async {
-    final key = buildUserLessonKey(userId, lesson.id);
-    await offlineLessonsBox().put(key, {
-      'userId': userId.trim(),
-      'lessonId': lesson.id.trim(),
-      'lesson': lesson.toJson(),
-    });
+    final metadata = OfflineLessonVersioning.metadataForDownloadedLesson(
+      userId: userId,
+      lesson: lesson,
+    );
+    await offlineLessonsBox().put(
+      buildUserLessonKey(metadata.userId, metadata.lessonId),
+      OfflineLessonSnapshot(lesson: lesson, metadata: metadata).toCacheMap(),
+    );
   }
 
   Lesson? getOfflineLesson({required String userId, required String lessonId}) {
-    final key = buildUserLessonKey(userId, lessonId);
-    final value = offlineLessonsBox().get(key);
+    return getOfflineLessonSnapshot(
+      userId: userId,
+      lessonId: lessonId,
+    )?.lesson;
+  }
+
+  OfflineLessonSnapshot? getOfflineLessonSnapshot({
+    required String userId,
+    required String lessonId,
+  }) {
+    final value = offlineLessonsBox().get(buildUserLessonKey(userId, lessonId));
     if (value == null) {
       return null;
     }
-    final normalized = _normalizeMap(value);
-    if (normalized['userId'] != userId.trim()) {
+    try {
+      final snapshot = OfflineLessonSnapshot.fromCacheMap(value);
+      if (snapshot.metadata.userId != userId.trim()) {
+        return null;
+      }
+      return snapshot.lesson.id == lessonId.trim() ? snapshot : null;
+    } catch (_) {
       return null;
     }
-    final lessonJson = normalized['lesson'];
-    if (lessonJson is! Map) {
-      return null;
-    }
-    final lesson = Lesson.fromJson(lessonJson);
-    return lesson.id == lessonId.trim() ? lesson : null;
   }
 
   List<Lesson> getOfflineLessons(String userId) => getOfflineLessonIds(userId)
@@ -73,13 +84,12 @@ class LocalStorageService {
       if (value == null) {
         continue;
       }
-      final normalized = _normalizeMap(value);
-      if (normalized['userId'] != normalizedUserId) {
+      final snapshot = _offlineSnapshotFromValue(value);
+      if (snapshot == null || snapshot.metadata.userId != normalizedUserId) {
         continue;
       }
-      final lessonId = normalized['lessonId'];
-      if (lessonId is String && lessonId.isNotEmpty) {
-        ids.add(lessonId);
+      if (snapshot.metadata.lessonId.isNotEmpty) {
+        ids.add(snapshot.metadata.lessonId);
       }
     }
     return ids;
@@ -184,6 +194,14 @@ class LocalStorageService {
       normalized[key.toString()] = value;
     });
     return normalized;
+  }
+
+  OfflineLessonSnapshot? _offlineSnapshotFromValue(Map<dynamic, dynamic> value) {
+    try {
+      return OfflineLessonSnapshot.fromCacheMap(value);
+    } catch (_) {
+      return null;
+    }
   }
 
   bool _mapsEqual(Map<String, dynamic> left, Map<String, dynamic> right) {

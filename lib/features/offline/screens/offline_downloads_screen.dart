@@ -7,8 +7,21 @@ import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_view.dart';
 import '../../progress/application/app_state.dart';
 
-class OfflineDownloadsScreen extends StatelessWidget {
+class OfflineDownloadsScreen extends StatefulWidget {
   const OfflineDownloadsScreen({super.key});
+
+  @override
+  State<OfflineDownloadsScreen> createState() => _OfflineDownloadsScreenState();
+}
+
+class _OfflineDownloadsScreenState extends State<OfflineDownloadsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(
+      () => context.read<AppState>().checkDownloadedLessonsForUpdates(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,31 +57,106 @@ class OfflineDownloadsScreen extends StatelessWidget {
             style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
           ),
           const SizedBox(height: 8),
+          if (state.isCheckingOfflineUpdates) ...[
+            const LinearProgressIndicator(minHeight: 3),
+            const SizedBox(height: 8),
+          ],
           if (lessons.isEmpty)
             const EmptyView(message: 'Chưa có bài học nào được tải offline.')
           else
             ...lessons.map(
               (lesson) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.offline_pin_rounded),
-                    title: Text(
-                      lesson.title,
-                      style: const TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                    subtitle: () {
-                      final bytes = state.estimatedOfflineSizeBytes(
-                        lesson.id,
-                      );
-                      return bytes == null ? null : Text(_formatSize(bytes));
-                    }(),
-                    onTap: () => context.go('/lessons/${lesson.id}'),
-                  ),
-                ),
+                child: _OfflineLessonTile(lesson: lesson),
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _OfflineLessonTile extends StatefulWidget {
+  const _OfflineLessonTile({required this.lesson});
+
+  final Lesson lesson;
+
+  @override
+  State<_OfflineLessonTile> createState() => _OfflineLessonTileState();
+}
+
+class _OfflineLessonTileState extends State<_OfflineLessonTile> {
+  bool _updating = false;
+
+  Future<void> _update() async {
+    setState(() => _updating = true);
+    try {
+      final updated = await context.read<AppState>().updateOfflineLesson(
+        widget.lesson.id,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              updated
+                  ? 'Đã cập nhật bản offline.'
+                  : 'Bản offline hiện tại không bị thay đổi.',
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _updating = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    final updateAvailable = state.offlineLessonUpdateAvailable(
+      widget.lesson.id,
+    );
+    final bytes = state.estimatedOfflineSizeBytes(widget.lesson.id);
+    final subtitleParts = <String>[
+      if (bytes != null) _formatSize(bytes),
+      if (updateAvailable) 'Có bản cập nhật',
+    ];
+
+    return Card(
+      child: ListTile(
+        leading: Icon(
+          updateAvailable
+              ? Icons.system_update_alt_rounded
+              : Icons.offline_pin_rounded,
+          color: updateAvailable ? const Color(0xFFB8860B) : null,
+        ),
+        title: Text(
+          widget.lesson.title,
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+        subtitle: subtitleParts.isEmpty ? null : Text(subtitleParts.join(' • ')),
+        trailing: updateAvailable
+            ? _updating
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : IconButton(
+                      tooltip: 'Cập nhật bản offline',
+                      icon: const Icon(Icons.update_rounded),
+                      onPressed: state.effectiveOffline ? null : _update,
+                    )
+            : null,
+        onTap: () => context.go('/lessons/${widget.lesson.id}'),
       ),
     );
   }

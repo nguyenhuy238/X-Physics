@@ -162,7 +162,8 @@ Response:
     "contentMarkdown": "# Chuyen dong deu",
     "formulaLatex": "s = v \\times t",
     "estimatedMinutes": 12,
-    "orderIndex": 1
+    "orderIndex": 1,
+    "updatedAt": "2026-07-14T08:00:00.000Z"
   }
 }
 ```

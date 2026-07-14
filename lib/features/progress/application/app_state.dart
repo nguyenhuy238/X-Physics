@@ -11,6 +11,7 @@ import '../../../core/router/app_router.dart';
 import '../../../core/storage/local_storage_service.dart';
 import '../../../core/storage/token_storage.dart';
 import '../../offline/data/offline_repository.dart';
+import '../../offline/models/offline_lesson_model.dart';
 import '../../offline/services/connectivity_service.dart';
 import '../../offline/services/offline_service.dart';
 import '../../offline/services/progress_sync_service.dart';
@@ -79,6 +80,11 @@ class AppState extends ChangeNotifier {
   final questionsByLesson = <String, List<Question>>{};
   final completedLessons = <String>{};
   final downloadedLessons = <String>{};
+  final offlineUpdateAvailableLessons = <String>{};
+  final _offlineUpdateChecksInFlight =
+      <String, Future<OfflineLessonFreshness>>{};
+  bool isCheckingOfflineUpdates = false;
+  String? offlineUpdateError;
   final badges = <String>{};
   final adminUsers = <XUser>[];
   final adminLessons = <Lesson>[];
@@ -362,32 +368,26 @@ class AppState extends ChangeNotifier {
   }
 
   Future<Lesson?> loadLessonDetail(String lessonId) async {
+    final userId = _currentUserId;
+    final cached = userId == null
+        ? null
+        : _offlineRepository.getLesson(userId, lessonId);
     if (effectiveOffline) {
-      return loadOfflineLesson(lessonId);
+      return cached;
+    }
+    if (cached != null) {
+      unawaited(checkLessonUpdate(lessonId));
+      return cached;
     }
 
     isBusy = true;
     errorMessage = null;
     notifyListeners();
     try {
-      final lessonData = await _getData<Map<String, dynamic>>(
-        ApiEndpoints.lesson(lessonId),
+      final lesson = await _fetchCompleteLessonFromApi(
+        lessonId,
+        updateMemoryCache: true,
       );
-      final simulationsData = await _getData<List<dynamic>>(
-        ApiEndpoints.lessonSimulations(lessonId),
-      );
-      final questions = await loadQuestions(lessonId, notify: false);
-      final simulation = simulationsData.isEmpty
-          ? null
-          : simulationsData.first as Map<dynamic, dynamic>;
-      final lessonJson = Map<String, dynamic>.from(lessonData)
-        ..['simulation'] = simulation
-        ..['questions'] = questions
-            .map((question) => question.toJson())
-            .toList();
-      final lesson = Lesson.fromJson(lessonJson);
-      lessonsById[lessonId] = lesson;
-      questionsByLesson[lessonId] = questions;
       return lesson;
     } catch (error) {
       errorMessage = _readableError(error);
@@ -402,6 +402,14 @@ class AppState extends ChangeNotifier {
     final userId = _currentUserId;
     return userId == null ? null : _offlineRepository.getLesson(userId, id);
   }
+
+  OfflineLessonSnapshot? loadOfflineLessonSnapshot(String id) {
+    final userId = _currentUserId;
+    return userId == null ? null : _offlineRepository.getSnapshot(userId, id);
+  }
+
+  bool offlineLessonUpdateAvailable(String lessonId) =>
+      offlineUpdateAvailableLessons.contains(lessonId);
 
   Future<void> downloadLesson(String lessonId) async {
     final userId = _currentUserId;
@@ -418,6 +426,105 @@ class AppState extends ChangeNotifier {
     // Best-effort: record the download server-side for Admin statistics.
     // Never blocks or fails the (already-successful) local download.
     unawaited(_recordDownloadEvent(lesson.id));
+  }
+
+  Future<OfflineLessonFreshness> checkLessonUpdate(String lessonId) {
+    final normalizedLessonId = lessonId.trim();
+    if (normalizedLessonId.isEmpty || effectiveOffline) {
+      return Future.value(OfflineLessonFreshness.unknown);
+    }
+    final existing = _offlineUpdateChecksInFlight[normalizedLessonId];
+    if (existing != null) {
+      return existing;
+    }
+    final future = _checkLessonUpdate(normalizedLessonId);
+    _offlineUpdateChecksInFlight[normalizedLessonId] = future;
+    return future.whenComplete(
+      () => _offlineUpdateChecksInFlight.remove(normalizedLessonId),
+    );
+  }
+
+  Future<void> checkDownloadedLessonsForUpdates() async {
+    if (effectiveOffline || isCheckingOfflineUpdates) {
+      return;
+    }
+    final userId = _currentUserId;
+    if (userId == null) {
+      return;
+    }
+
+    isCheckingOfflineUpdates = true;
+    offlineUpdateError = null;
+    notifyListeners();
+    try {
+      for (final lessonId in _offlineRepository.getDownloadedLessonIds(userId)) {
+        if (_currentUserId != userId || effectiveOffline) {
+          break;
+        }
+        await checkLessonUpdate(lessonId);
+      }
+    } catch (error) {
+      offlineUpdateError = _readableError(error);
+    } finally {
+      isCheckingOfflineUpdates = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> updateOfflineLesson(String lessonId) async {
+    final userId = _currentUserId;
+    if (userId == null) {
+      throw StateError('Bạn cần đăng nhập để cập nhật bài học offline.');
+    }
+    if (effectiveOffline) {
+      throw StateError('Cần có mạng để cập nhật bài học offline.');
+    }
+    final currentSnapshot = _offlineRepository.getSnapshot(userId, lessonId);
+    if (currentSnapshot == null) {
+      throw StateError('Không tìm thấy bài học offline.');
+    }
+
+    final lesson = await _fetchCompleteLessonFromApi(
+      lessonId,
+      updateMemoryCache: true,
+    );
+    if (lesson.id != lessonId.trim()) {
+      throw StateError('Dữ liệu bài học không hợp lệ.');
+    }
+
+    final serverFingerprint =
+        OfflineLessonVersioning.fingerprintForLesson(lesson);
+    final freshness = OfflineLessonVersioning.compare(
+      localFingerprint: currentSnapshot.metadata.contentFingerprint,
+      serverFingerprint: serverFingerprint,
+    );
+    if (freshness == OfflineLessonFreshness.localNewer ||
+        freshness == OfflineLessonFreshness.unknown) {
+      final metadata = currentSnapshot.metadata.copyWith(
+        lastCheckedAt: DateTime.now().toUtc(),
+        updateAvailable: false,
+      );
+      await _offlineRepository.updateMetadata(userId, lessonId, metadata);
+      offlineUpdateAvailableLessons.remove(lessonId);
+      notifyListeners();
+      return false;
+    }
+
+    final now = DateTime.now().toUtc();
+    final metadata = OfflineLessonVersioning.metadataForDownloadedLesson(
+      userId: userId,
+      lesson: lesson,
+      downloadedAt: now,
+      lastCheckedAt: now,
+      updateAvailable: false,
+    );
+    await _offlineRepository.saveSnapshot(
+      OfflineLessonSnapshot(lesson: lesson, metadata: metadata),
+    );
+    downloadedLessons.add(lesson.id);
+    offlineUpdateAvailableLessons.remove(lesson.id);
+    notifyListeners();
+    return true;
   }
 
   Future<void> _recordDownloadEvent(String lessonId) async {
@@ -443,11 +550,11 @@ class AppState extends ChangeNotifier {
   /// display in the Offline Downloads screen. Approximate on purpose — Hive
   /// does not expose per-entry disk size directly.
   int? estimatedOfflineSizeBytes(String lessonId) {
-    final lesson = loadOfflineLesson(lessonId);
-    if (lesson == null) {
+    final snapshot = loadOfflineLessonSnapshot(lessonId);
+    if (snapshot == null) {
       return null;
     }
-    return utf8.encode(jsonEncode(lesson.toJson())).length;
+    return utf8.encode(jsonEncode(snapshot.toCacheMap())).length;
   }
 
   /// Number of reading-progress updates queued locally, waiting to be sent
@@ -509,6 +616,82 @@ class AppState extends ChangeNotifier {
         notifyListeners();
       }
     }
+  }
+
+  Future<OfflineLessonFreshness> _checkLessonUpdate(String lessonId) async {
+    final userId = _currentUserId;
+    if (userId == null || effectiveOffline) {
+      return OfflineLessonFreshness.unknown;
+    }
+    final snapshot = _offlineRepository.getSnapshot(userId, lessonId);
+    if (snapshot == null) {
+      return OfflineLessonFreshness.unknown;
+    }
+
+    try {
+      final serverLesson = await _fetchCompleteLessonFromApi(
+        lessonId,
+        updateMemoryCache: false,
+      );
+      if (_currentUserId != userId) {
+        return OfflineLessonFreshness.unknown;
+      }
+      final serverFingerprint =
+          OfflineLessonVersioning.fingerprintForLesson(serverLesson);
+      final freshness = OfflineLessonVersioning.compare(
+        localFingerprint: snapshot.metadata.contentFingerprint,
+        serverFingerprint: serverFingerprint,
+      );
+      if (freshness == OfflineLessonFreshness.unknown) {
+        return freshness;
+      }
+
+      final metadata = snapshot.metadata.copyWith(
+        serverUpdatedAt: serverLesson.updatedAt,
+        lastCheckedAt: DateTime.now().toUtc(),
+        updateAvailable: freshness == OfflineLessonFreshness.serverNewer,
+      );
+      await _offlineRepository.updateMetadata(userId, lessonId, metadata);
+      if (freshness == OfflineLessonFreshness.serverNewer) {
+        offlineUpdateAvailableLessons.add(lessonId);
+      } else {
+        offlineUpdateAvailableLessons.remove(lessonId);
+      }
+      notifyListeners();
+      return freshness;
+    } catch (_) {
+      return OfflineLessonFreshness.unknown;
+    }
+  }
+
+  Future<Lesson> _fetchCompleteLessonFromApi(
+    String lessonId, {
+    required bool updateMemoryCache,
+  }) async {
+    final lessonData = await _getData<Map<String, dynamic>>(
+      ApiEndpoints.lesson(lessonId),
+    );
+    final simulationsData = await _getData<List<dynamic>>(
+      ApiEndpoints.lessonSimulations(lessonId),
+    );
+    final questionsData = await _getData<List<dynamic>>(
+      ApiEndpoints.lessonQuestions(lessonId),
+    );
+    final questions = questionsData
+        .map((item) => Question.fromJson(item as Map))
+        .toList();
+    final simulation = simulationsData.isEmpty
+        ? null
+        : simulationsData.first as Map<dynamic, dynamic>;
+    final lessonJson = Map<String, dynamic>.from(lessonData)
+      ..['simulation'] = simulation
+      ..['questions'] = questions.map((question) => question.toJson()).toList();
+    final lesson = Lesson.fromJson(lessonJson);
+    if (updateMemoryCache) {
+      lessonsById[lessonId] = lesson;
+      questionsByLesson[lessonId] = questions;
+    }
+    return lesson;
   }
 
   Future<QuizAttempt?> submitQuiz(
@@ -967,6 +1150,8 @@ class AppState extends ChangeNotifier {
     profileSummary = null;
     profileError = null;
     downloadedLessons.clear();
+    offlineUpdateAvailableLessons.clear();
+    _offlineUpdateChecksInFlight.clear();
     quizResultsByLesson.clear();
     router?.go('/login');
     notifyListeners();
@@ -979,6 +1164,7 @@ class AppState extends ChangeNotifier {
 
   void _refreshDownloadedLessonsForCurrentUser() {
     final userId = _currentUserId;
+    offlineUpdateAvailableLessons.clear();
     downloadedLessons
       ..clear()
       ..addAll(
@@ -986,6 +1172,13 @@ class AppState extends ChangeNotifier {
             ? const <String>[]
             : _offlineRepository.getDownloadedLessonIds(userId),
       );
+    if (userId != null) {
+      for (final snapshot in _offlineRepository.getDownloadedLessons(userId)) {
+        if (snapshot.updateAvailable) {
+          offlineUpdateAvailableLessons.add(snapshot.metadata.lessonId);
+        }
+      }
+    }
   }
 
   Future<int> _syncPendingForCurrentUser() async {

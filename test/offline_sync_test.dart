@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:x_physics/core/storage/local_storage_service.dart';
+import 'package:x_physics/features/offline/models/offline_lesson_model.dart';
 import 'package:x_physics/features/offline/services/progress_sync_service.dart';
 import 'package:x_physics/features/progress/application/app_state.dart';
 import 'package:x_physics/shared/models/x_models.dart';
@@ -21,6 +22,45 @@ Lesson _lesson(String title) => Lesson(
   estimatedMinutes: 10,
   simulation: FormulaSimulationConfig.empty(),
   questions: const [],
+);
+
+Lesson _lessonWithQuestion(String title, String question) => Lesson(
+  id: lessonId,
+  chapterId: 'motion',
+  title: title,
+  content: 'Lesson content for $title',
+  formulaLatex: r's = v \times t',
+  estimatedMinutes: 10,
+  simulation: const FormulaSimulationConfig(
+    title: 'Motion sim',
+    formula: r's = v \times t',
+    variables: [
+      FormulaVariable(
+        symbol: 'v',
+        label: 'Velocity',
+        unit: 'm/s',
+        min: 1,
+        max: 10,
+        defaultValue: 5,
+      ),
+    ],
+    result: FormulaResult(
+      symbol: 's',
+      label: 'Distance',
+      unit: 'm',
+      expression: 'v * t',
+    ),
+  ),
+  questions: [
+    Question(
+      id: '$lessonId-q1',
+      lessonId: lessonId,
+      question: question,
+      options: const ['A', 'B', 'C', 'D'],
+      correctOption: 0,
+      explanation: 'Because physics.',
+    ),
+  ],
 );
 
 Map<String, dynamic> _progress(
@@ -123,6 +163,100 @@ void main() {
         throwsArgumentError,
       );
       expect(storage.offlineLessonsBox().isEmpty, isTrue);
+    });
+
+    test('new offline lesson records metadata and stable fingerprint', () async {
+      final lesson = _lessonWithQuestion('Versioned copy', 'Original question');
+
+      await storage.saveOfflineLesson(userId: userA, lesson: lesson);
+
+      final snapshot = storage.getOfflineLessonSnapshot(
+        userId: userA,
+        lessonId: lessonId,
+      );
+      expect(snapshot, isNotNull);
+      expect(snapshot!.metadata.userId, userA);
+      expect(snapshot.metadata.lessonId, lessonId);
+      expect(snapshot.metadata.contentFingerprint, isNotEmpty);
+      expect(snapshot.metadata.updateAvailable, isFalse);
+      expect(
+        snapshot.metadata.contentFingerprint,
+        OfflineLessonVersioning.fingerprintForLesson(lesson),
+      );
+    });
+
+    test('legacy offline lesson without metadata is still readable', () async {
+      await storage.offlineLessonsBox().put('$userA::$lessonId', {
+        'userId': userA,
+        'lessonId': lessonId,
+        'lesson': _lesson('Legacy copy').toJson(),
+      });
+
+      final snapshot = storage.getOfflineLessonSnapshot(
+        userId: userA,
+        lessonId: lessonId,
+      );
+
+      expect(snapshot?.lesson.title, 'Legacy copy');
+      expect(snapshot?.metadata.contentFingerprint, isNotEmpty);
+      expect(snapshot?.metadata.lastCheckedAt, isNull);
+      expect(snapshot?.metadata.updateAvailable, isFalse);
+    });
+  });
+
+  group('offline lesson freshness', () {
+    test('compares numeric version before other metadata', () {
+      expect(
+        OfflineLessonVersioning.compare(localVersion: 1, serverVersion: 2),
+        OfflineLessonFreshness.serverNewer,
+      );
+      expect(
+        OfflineLessonVersioning.compare(localVersion: 2, serverVersion: 1),
+        OfflineLessonFreshness.localNewer,
+      );
+      expect(
+        OfflineLessonVersioning.compare(localVersion: 2, serverVersion: 2),
+        OfflineLessonFreshness.same,
+      );
+    });
+
+    test('compares UTC timestamps and returns unknown for invalid dates', () {
+      expect(
+        OfflineLessonVersioning.compare(
+          localUpdatedAt: '2026-07-14T08:00:00+07:00',
+          serverUpdatedAt: '2026-07-14T02:00:00Z',
+        ),
+        OfflineLessonFreshness.serverNewer,
+      );
+      expect(
+        OfflineLessonVersioning.compare(
+          localUpdatedAt: 'not-a-date',
+          serverUpdatedAt: '2026-07-14T02:00:00Z',
+        ),
+        OfflineLessonFreshness.unknown,
+      );
+    });
+
+    test('fingerprint changes when cached content changes', () {
+      final original = _lessonWithQuestion('Versioned copy', 'Original question');
+      final changedQuestion = _lessonWithQuestion(
+        'Versioned copy',
+        'Updated question',
+      );
+
+      final originalFingerprint =
+          OfflineLessonVersioning.fingerprintForLesson(original);
+      final updatedFingerprint =
+          OfflineLessonVersioning.fingerprintForLesson(changedQuestion);
+
+      expect(updatedFingerprint, isNot(originalFingerprint));
+      expect(
+        OfflineLessonVersioning.compare(
+          localFingerprint: originalFingerprint,
+          serverFingerprint: updatedFingerprint,
+        ),
+        OfflineLessonFreshness.serverNewer,
+      );
     });
   });
 

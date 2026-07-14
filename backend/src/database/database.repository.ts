@@ -33,6 +33,7 @@ interface LessonRow {
   order_index: number;
   is_published: boolean;
   created_at: Date;
+  updated_at: Date;
 }
 
 interface SimulationRow {
@@ -1259,6 +1260,7 @@ export class DatabaseRepository {
       orderIndex: row.order_index,
       isPublished: row.is_published,
       createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 

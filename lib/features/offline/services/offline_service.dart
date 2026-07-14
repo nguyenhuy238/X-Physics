@@ -3,6 +3,7 @@ import 'package:hive/hive.dart';
 import '../../../core/storage/local_storage_service.dart';
 import '../../../shared/models/x_models.dart';
 import '../data/offline_repository.dart';
+import '../models/offline_lesson_model.dart';
 
 class OfflineService implements OfflineRepository {
   /// [box] is only for tests. The real box is resolved lazily via [_box]
@@ -19,21 +20,20 @@ class OfflineService implements OfflineRepository {
       _injectedBox ?? const LocalStorageService().offlineLessonsBox();
 
   @override
-  Lesson? getLesson(String userId, String lessonId) {
+  Lesson? getLesson(String userId, String lessonId) =>
+      getSnapshot(userId, lessonId)?.lesson;
+
+  @override
+  OfflineLessonSnapshot? getSnapshot(String userId, String lessonId) {
     final value = _box.get(buildUserLessonKey(userId, lessonId));
     if (value == null) {
       return null;
     }
-    final normalized = _normalizeMap(value);
-    if (normalized['userId'] != userId.trim()) {
+    final snapshot = _snapshotFromValue(value);
+    if (snapshot == null || snapshot.metadata.userId != userId.trim()) {
       return null;
     }
-    final lessonJson = normalized['lesson'];
-    if (lessonJson is! Map) {
-      return null;
-    }
-    final lesson = Lesson.fromJson(lessonJson);
-    return lesson.id == lessonId.trim() ? lesson : null;
+    return snapshot.lesson.id == lessonId.trim() ? snapshot : null;
   }
 
   @override
@@ -52,36 +52,63 @@ class OfflineService implements OfflineRepository {
       if (value == null) {
         continue;
       }
-      final normalized = _normalizeMap(value);
-      if (normalized['userId'] != normalizedUserId) {
+      final snapshot = _snapshotFromValue(value);
+      if (snapshot == null || snapshot.metadata.userId != normalizedUserId) {
         continue;
       }
-      final lessonId = normalized['lessonId'];
-      if (lessonId is String && lessonId.isNotEmpty) {
-        ids.add(lessonId);
+      if (snapshot.metadata.lessonId.isNotEmpty) {
+        ids.add(snapshot.metadata.lessonId);
       }
     }
     return ids;
   }
 
   @override
+  List<OfflineLessonSnapshot> getDownloadedLessons(String userId) =>
+      getDownloadedLessonIds(userId)
+          .map((lessonId) => getSnapshot(userId, lessonId))
+          .whereType<OfflineLessonSnapshot>()
+          .toList(growable: false);
+
+  @override
   Future<void> saveLesson(String userId, Lesson lesson) async {
-    await _box.put(buildUserLessonKey(userId, lesson.id), {
-      'userId': userId.trim(),
-      'lessonId': lesson.id.trim(),
-      'lesson': lesson.toJson(),
-    });
+    final metadata = OfflineLessonVersioning.metadataForDownloadedLesson(
+      userId: userId,
+      lesson: lesson,
+    );
+    await saveSnapshot(OfflineLessonSnapshot(lesson: lesson, metadata: metadata));
+  }
+
+  @override
+  Future<void> saveSnapshot(OfflineLessonSnapshot snapshot) async {
+    await _box.put(
+      buildUserLessonKey(snapshot.metadata.userId, snapshot.metadata.lessonId),
+      snapshot.toCacheMap(),
+    );
+  }
+
+  @override
+  Future<void> updateMetadata(
+    String userId,
+    String lessonId,
+    OfflineLessonMetadata metadata,
+  ) async {
+    final snapshot = getSnapshot(userId, lessonId);
+    if (snapshot == null) {
+      return;
+    }
+    await saveSnapshot(OfflineLessonSnapshot(lesson: snapshot.lesson, metadata: metadata));
   }
 
   @override
   Future<void> deleteLesson(String userId, String lessonId) =>
       _box.delete(buildUserLessonKey(userId, lessonId));
 
-  Map<String, dynamic> _normalizeMap(Map<dynamic, dynamic> source) {
-    final normalized = <String, dynamic>{};
-    source.forEach((key, value) {
-      normalized[key.toString()] = value;
-    });
-    return normalized;
+  OfflineLessonSnapshot? _snapshotFromValue(Map<dynamic, dynamic> value) {
+    try {
+      return OfflineLessonSnapshot.fromCacheMap(value);
+    } catch (_) {
+      return null;
+    }
   }
 }
