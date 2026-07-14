@@ -44,6 +44,7 @@ class AppState extends ChangeNotifier {
   // `AppState`/`FakeAppState` without opening any Hive box.
   final OfflineRepository _offlineRepository = OfflineService();
   StreamSubscription<bool>? _connectivitySub;
+  bool _disposed = false;
 
   GoRouter? router;
   XUser? user;
@@ -123,16 +124,17 @@ class AppState extends ChangeNotifier {
   /// never throw.
   void _listenConnectivity() {
     try {
-      _connectivitySub = _connectivityService.onStatusChange.listen((
-        online,
-      ) {
+      _connectivitySub = _connectivityService.onStatusChange.listen((online) {
+        if (_disposed) {
+          return;
+        }
         final backOnline = isOffline && online;
         isOffline = !online;
         notifyListeners();
         if (backOnline) {
           unawaited(_progressSyncService.syncPending().then((_) {}));
         }
-      }, onError: (Object _, StackTrace __) {});
+      }, onError: (Object error, StackTrace stackTrace) {});
     } catch (_) {
       // No connectivity platform channel available — keep isOffline at its
       // default value and skip live updates.
@@ -148,6 +150,9 @@ class AppState extends ChangeNotifier {
     String lessonId,
     int progressPercent,
   ) async {
+    if (lessonId.trim().isEmpty) {
+      return;
+    }
     final clamped = progressPercent < 0
         ? 0
         : (progressPercent > 100 ? 100 : progressPercent);
@@ -188,6 +193,7 @@ class AppState extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _connectivitySub?.cancel();
     super.dispose();
   }
@@ -425,7 +431,7 @@ class AppState extends ChangeNotifier {
       return;
     }
     final synced = await _progressSyncService.syncPending();
-    if (synced > 0) {
+    if (synced > 0 && !_disposed) {
       notifyListeners();
     }
   }

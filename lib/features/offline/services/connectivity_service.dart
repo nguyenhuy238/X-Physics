@@ -34,7 +34,7 @@ class ConnectivityService {
   /// instead of crashing listeners.
   Stream<bool> get onStatusChange => _connectivity.onConnectivityChanged
       .map(_hasConnection)
-      .handleError((Object _, StackTrace __) {});
+      .handleError((Object error, StackTrace stackTrace) {});
 
   bool _hasConnection(List<ConnectivityResult> results) =>
       results.any((result) => result != ConnectivityResult.none);

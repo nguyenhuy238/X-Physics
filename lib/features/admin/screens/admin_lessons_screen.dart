@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/x_models.dart';
-import '../../../shared/widgets/empty_view.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../progress/application/app_state.dart';
@@ -538,7 +537,7 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                                   ),
                                   child: DropdownButtonHideUnderline(
                                     child: DropdownButtonFormField<String>(
-                                      value: chapterId,
+                                      initialValue: chapterId,
                                       items: [
                                         for (final chapter in state.chapters)
                                           DropdownMenuItem(
@@ -767,7 +766,7 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                                       ),
                                       Switch(
                                         value: isPublished,
-                                        activeColor: const Color(0xFF2563EB),
+                                        activeThumbColor: const Color(0xFF2563EB),
                                         onChanged: (value) =>
                                             setDialogState(() => isPublished = value),
                                       ),
@@ -803,7 +802,9 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                           const SizedBox(width: 12),
                           FilledButton(
                             onPressed: () {
-                              if (formKey.currentState?.validate() != true) return;
+                              if (formKey.currentState?.validate() != true) {
+                                return;
+                              }
                               Navigator.pop(
                                 dialogContext,
                                 Lesson(

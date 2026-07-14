@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
@@ -28,25 +30,35 @@ class _LessonScreenState extends State<LessonScreen> {
   void initState() {
     super.initState();
     Future.microtask(_loadLesson);
-    scroll.addListener(() {
-      if (!scroll.hasClients || scroll.position.maxScrollExtent == 0) {
-        return;
-      }
-      setState(
-        () => progress = (scroll.offset / scroll.position.maxScrollExtent)
-            .clamp(0, 1),
-      );
-      // Report reading progress once the student has effectively reached
-      // the end of the lesson. Queued locally when offline and synced
-      // later — see AppState.updateReadingProgress / docs/OFFLINE_FLOW.md.
-      if (progress >= 0.9 && !_readingProgressReported) {
-        _readingProgressReported = true;
+    scroll.addListener(_handleScroll);
+  }
+
+  void _handleScroll() {
+    if (!mounted ||
+        !scroll.hasClients ||
+        scroll.position.maxScrollExtent == 0) {
+      return;
+    }
+
+    final nextProgress = (scroll.offset / scroll.position.maxScrollExtent)
+        .clamp(0, 1)
+        .toDouble();
+    setState(() => progress = nextProgress);
+
+    // Report reading progress once the student has effectively reached
+    // the end of the lesson. Queued locally when offline and synced
+    // later — see AppState.updateReadingProgress / docs/OFFLINE_FLOW.md.
+    if (nextProgress >= 0.9 &&
+        !_readingProgressReported &&
+        widget.lessonId.trim().isNotEmpty) {
+      _readingProgressReported = true;
+      unawaited(
         context.read<AppState>().updateReadingProgress(
           widget.lessonId,
-          (progress * 100).round(),
-        );
-      }
-    });
+          (nextProgress * 100).round(),
+        ),
+      );
+    }
   }
 
   Future<void> _loadLesson() async {
@@ -56,6 +68,13 @@ class _LessonScreenState extends State<LessonScreen> {
     if (mounted) {
       setState(() => lesson = loaded);
     }
+  }
+
+  @override
+  void dispose() {
+    scroll.removeListener(_handleScroll);
+    scroll.dispose();
+    super.dispose();
   }
 
   @override
@@ -72,7 +91,8 @@ class _LessonScreenState extends State<LessonScreen> {
       return XScaffold(
         title: state.effectiveOffline ? 'Không có dữ liệu offline' : 'Bài học',
         child: ErrorView(
-          message: state.errorMessage ??
+          message:
+              state.errorMessage ??
               'Bài học này chưa có dữ liệu. Hãy kiểm tra kết nối hoặc tải bài offline trước.',
           onRetry: _loadLesson,
         ),

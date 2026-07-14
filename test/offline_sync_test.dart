@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -146,5 +147,65 @@ void main() {
       expect(syncedCount, 0);
       expect(callCount, 0);
     });
+
+    test('does not run two sync requests concurrently', () async {
+      await storage.queuePendingProgress({
+        'lessonId': 'motion-1',
+        'progressPercent': 100,
+        'clientUpdatedAt': '2026-07-14T00:00:00.000Z',
+      });
+
+      var callCount = 0;
+      final releasePost = Completer<void>();
+      final service = ProgressSyncService(
+        localStorage: storage,
+        post: (path, data) async {
+          callCount++;
+          await releasePost.future;
+          return {'success': true};
+        },
+      );
+
+      final first = service.syncPending();
+      final second = service.syncPending();
+      releasePost.complete();
+
+      expect(await Future.wait([first, second]), [1, 1]);
+      expect(callCount, 1);
+      expect(storage.hasPendingProgress, isFalse);
+    });
+
+    test(
+      'keeps newer queued progress written while sync is in flight',
+      () async {
+        await storage.queuePendingProgress({
+          'lessonId': 'motion-1',
+          'progressPercent': 40,
+          'clientUpdatedAt': '2026-07-14T00:00:00.000Z',
+        });
+
+        final releasePost = Completer<void>();
+        final service = ProgressSyncService(
+          localStorage: storage,
+          post: (path, data) async {
+            await storage.queuePendingProgress({
+              'lessonId': 'motion-1',
+              'progressPercent': 100,
+              'clientUpdatedAt': '2026-07-14T00:05:00.000Z',
+            });
+            releasePost.complete();
+            return {'success': true};
+          },
+        );
+
+        final syncedCount = await service.syncPending();
+        await releasePost.future;
+
+        expect(syncedCount, 1);
+        final items = storage.pendingProgressItems();
+        expect(items, hasLength(1));
+        expect(items.first['progressPercent'], 100);
+      },
+    );
   });
 }

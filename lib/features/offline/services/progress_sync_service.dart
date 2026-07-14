@@ -27,12 +27,30 @@ class ProgressSyncService {
   final SyncPost _post;
   final LocalStorageService _localStorage;
   final String _path;
+  Future<int>? _runningSync;
 
   /// Returns the number of items successfully synced (`0` if the queue was
   /// empty or the request failed — everything stays queued on failure so
   /// it is retried on the next reconnect).
-  Future<int> syncPending() async {
-    final items = _localStorage.pendingProgressItems();
+  Future<int> syncPending() {
+    final current = _runningSync;
+    if (current != null) {
+      return current;
+    }
+
+    final future = _syncPendingOnce();
+    _runningSync = future;
+    future.whenComplete(() {
+      if (identical(_runningSync, future)) {
+        _runningSync = null;
+      }
+    });
+    return future;
+  }
+
+  Future<int> _syncPendingOnce() async {
+    final snapshot = _localStorage.pendingProgressSnapshot();
+    final items = snapshot.values.toList(growable: false);
     if (items.isEmpty) {
       return 0;
     }
@@ -47,7 +65,7 @@ class ProgressSyncService {
       return 0;
     }
 
-    await _localStorage.pendingProgressBox().clear();
+    await _localStorage.removePendingProgressSnapshot(snapshot);
     return items.length;
   }
 }
