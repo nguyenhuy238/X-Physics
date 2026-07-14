@@ -6,52 +6,165 @@ import {
   Param,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 
-import { ApiResponseDto } from '../../common/api-response.dto';
-import { AuthGuard } from '../../common/auth.guard';
-import { Roles } from '../../common/roles.decorator';
-import { RolesGuard } from '../../common/roles.guard';
 import {
   AdminChapterDto,
   AdminLessonDto,
   AdminQuestionDto,
+  AdminUsersQueryDto,
 } from './dto/admin-content.dto';
+import {
+  AdminChapterItemDto,
+  AdminLessonItemDto,
+  AdminQuestionItemDto,
+  AdminStatisticsResponseDto,
+  AdminUserItemDto,
+  AdminUserListResponseDto,
+} from './dto/admin-response.dto';
+import { ApiResponseDto } from '../../common/api-response.dto';
+import { AuthGuard } from '../../common/auth.guard';
+import { Roles } from '../../common/roles.decorator';
+import { RolesGuard } from '../../common/roles.guard';
 import { AdminService } from './admin.service';
+import { ApiBearerAuth, ApiBody, ApiExtraModels, ApiOkResponse, ApiParam, ApiQuery, ApiTags, getSchemaPath } from '@nestjs/swagger';
 
+@ApiTags('Admin')
 @Controller('admin')
 @UseGuards(AuthGuard, RolesGuard)
 @Roles('ADMIN', 'TEACHER')
+@ApiBearerAuth()
+@ApiExtraModels(ApiResponseDto)
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
   @Get('users')
-  async users() {
-    return ApiResponseDto.ok(await this.adminService.users());
+  @ApiOkResponse({
+    description: 'Paginated admin user list with optional search and sorting.',
+    type: ApiResponseDto,
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(ApiResponseDto) },
+        {
+          properties: {
+            data: { $ref: getSchemaPath(AdminUserListResponseDto) },
+          },
+        },
+      ],
+    },
+  })
+  @ApiQuery({ name: 'search', required: false })
+  @ApiQuery({ name: 'sortBy', required: false, enum: ['createdAt', 'name', 'email'] })
+  @ApiQuery({ name: 'sortOrder', required: false, enum: ['ASC', 'DESC'] })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async users(@Query() query: AdminUsersQueryDto) {
+    return ApiResponseDto.ok(await this.adminService.users(query));
   }
 
   @Get('statistics')
+  @ApiOkResponse({
+    description: 'Admin statistics overview.',
+    type: ApiResponseDto,
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(ApiResponseDto) },
+        {
+          properties: {
+            data: { $ref: getSchemaPath(AdminStatisticsResponseDto) },
+          },
+        },
+      ],
+    },
+  })
   async statistics() {
     return ApiResponseDto.ok(await this.adminService.statistics());
   }
 
   @Get('chapters')
+  @ApiOkResponse({
+    description: 'Admin chapter list with aggregate lesson counts.',
+    type: ApiResponseDto,
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(ApiResponseDto) },
+        {
+          properties: {
+            data: {
+              type: 'array',
+              items: { $ref: getSchemaPath(AdminChapterItemDto) },
+            },
+          },
+        },
+      ],
+    },
+  })
   async chapters() {
     return ApiResponseDto.ok(await this.adminService.chapters());
   }
 
   @Get('lessons')
+  @ApiOkResponse({
+    description: 'Admin lesson list with question counts.',
+    type: ApiResponseDto,
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(ApiResponseDto) },
+        {
+          properties: {
+            data: {
+              type: 'array',
+              items: { $ref: getSchemaPath(AdminLessonItemDto) },
+            },
+          },
+        },
+      ],
+    },
+  })
   async lessons() {
     return ApiResponseDto.ok(await this.adminService.lessons());
   }
 
   @Get('questions')
+  @ApiOkResponse({
+    description: 'Admin question list with correct options.',
+    type: ApiResponseDto,
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(ApiResponseDto) },
+        {
+          properties: {
+            data: {
+              type: 'array',
+              items: { $ref: getSchemaPath(AdminQuestionItemDto) },
+            },
+          },
+        },
+      ],
+    },
+  })
   async questions() {
     return ApiResponseDto.ok(await this.adminService.questions());
   }
 
   @Post('chapters')
+  @ApiBody({ type: AdminChapterDto })
+  @ApiOkResponse({
+    description: 'Create or upsert a chapter.',
+    type: ApiResponseDto,
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(ApiResponseDto) },
+        {
+          properties: {
+            data: { $ref: getSchemaPath(AdminChapterItemDto) },
+          },
+        },
+      ],
+    },
+  })
   async createChapter(@Body() dto: AdminChapterDto) {
     return ApiResponseDto.ok(
       await this.adminService.createChapter(dto),
@@ -60,6 +173,8 @@ export class AdminController {
   }
 
   @Put('chapters/:id')
+  @ApiParam({ name: 'id', description: 'Chapter ID' })
+  @ApiBody({ type: AdminChapterDto })
   async updateChapter(
     @Param('id') id: string,
     @Body() dto: AdminChapterDto,
@@ -68,11 +183,27 @@ export class AdminController {
   }
 
   @Delete('chapters/:id')
+  @ApiParam({ name: 'id', description: 'Chapter ID' })
   async removeChapter(@Param('id') id: string) {
     return ApiResponseDto.ok(await this.adminService.removeChapter(id));
   }
 
   @Post('lessons')
+  @ApiBody({ type: AdminLessonDto })
+  @ApiOkResponse({
+    description: 'Create or upsert a lesson.',
+    type: ApiResponseDto,
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(ApiResponseDto) },
+        {
+          properties: {
+            data: { $ref: getSchemaPath(AdminLessonItemDto) },
+          },
+        },
+      ],
+    },
+  })
   async createLesson(@Body() dto: AdminLessonDto) {
     return ApiResponseDto.ok(
       await this.adminService.createLesson(dto),
@@ -81,16 +212,34 @@ export class AdminController {
   }
 
   @Put('lessons/:id')
+  @ApiParam({ name: 'id', description: 'Lesson ID' })
+  @ApiBody({ type: AdminLessonDto })
   async updateLesson(@Param('id') id: string, @Body() dto: AdminLessonDto) {
     return ApiResponseDto.ok(await this.adminService.updateLesson(id, dto));
   }
 
   @Delete('lessons/:id')
+  @ApiParam({ name: 'id', description: 'Lesson ID' })
   async removeLesson(@Param('id') id: string) {
     return ApiResponseDto.ok(await this.adminService.removeLesson(id));
   }
 
   @Post('questions')
+  @ApiBody({ type: AdminQuestionDto })
+  @ApiOkResponse({
+    description: 'Create or upsert a question.',
+    type: ApiResponseDto,
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(ApiResponseDto) },
+        {
+          properties: {
+            data: { $ref: getSchemaPath(AdminQuestionItemDto) },
+          },
+        },
+      ],
+    },
+  })
   async createQuestion(@Body() dto: AdminQuestionDto) {
     return ApiResponseDto.ok(
       await this.adminService.createQuestion(dto),
@@ -99,6 +248,8 @@ export class AdminController {
   }
 
   @Put('questions/:id')
+  @ApiParam({ name: 'id', description: 'Question ID' })
+  @ApiBody({ type: AdminQuestionDto })
   async updateQuestion(
     @Param('id') id: string,
     @Body() dto: AdminQuestionDto,
@@ -107,6 +258,7 @@ export class AdminController {
   }
 
   @Delete('questions/:id')
+  @ApiParam({ name: 'id', description: 'Question ID' })
   async removeQuestion(@Param('id') id: string) {
     return ApiResponseDto.ok(await this.adminService.removeQuestion(id));
   }

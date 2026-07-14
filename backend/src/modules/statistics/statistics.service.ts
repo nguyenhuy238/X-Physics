@@ -9,9 +9,15 @@ export class StatisticsService {
   async overview() {
     const statistics = await this.database.statistics();
     return {
-      activeStudents: statistics.totalUsers,
-      completedLessons: statistics.completionRate,
-      quizAttempts: statistics.totalAttempts,
+      activeStudents: statistics.activeStudents,
+      totalUsers: statistics.totalUsers,
+      totalAttempts: statistics.totalAttempts,
+      completionRate: statistics.completionRate,
+      totalBadgesAwarded: statistics.totalBadgesAwarded,
+      activeTrend: statistics.activeTrend,
+      completionByChapter: statistics.completionByChapter,
+      completionByLesson: statistics.completionByLesson,
+      difficultLessons: statistics.difficultLessons,
     };
   }
 }

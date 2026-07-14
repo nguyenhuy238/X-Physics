@@ -348,11 +348,12 @@ class AppState extends ChangeNotifier {
       final stats = await _getData<Map<String, dynamic>>(
         ApiEndpoints.adminStatistics,
       );
-      final users = await _getData<List<dynamic>>(ApiEndpoints.adminUsers);
+      final usersData = await _getData<Map<String, dynamic>>(ApiEndpoints.adminUsers);
+      final usersList = usersData['items'] as List<dynamic>;
       adminStatistics = stats;
       adminUsers
         ..clear()
-        ..addAll(users.map((item) => XUser.fromJson(item as Map)));
+        ..addAll(usersList.map((item) => XUser.fromJson(item as Map)));
     } catch (error) {
       errorMessage = _readableError(error);
     } finally {

@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Pool, PoolClient } from 'pg';
 
 import { DATABASE_POOL } from './database.constants';
@@ -12,6 +12,7 @@ interface UserRow {
   password_hash: string;
   role: 'STUDENT' | 'TEACHER' | 'ADMIN';
   coins: number;
+  created_at: Date;
 }
 
 interface ChapterRow {
@@ -21,6 +22,7 @@ interface ChapterRow {
   order_index: number;
   is_published: boolean;
   lesson_count?: string;
+  lesson_published_count?: string;
 }
 
 interface LessonRow {
@@ -32,6 +34,7 @@ interface LessonRow {
   estimated_minutes: number;
   order_index: number;
   is_published: boolean;
+  question_count?: string;
 }
 
 interface SimulationRow {
@@ -51,6 +54,7 @@ interface QuestionRow {
   options_json: unknown;
   correct_option: number;
   explanation: string;
+  difficulty: 'EASY' | 'MEDIUM' | 'HARD';
   order_index: number;
 }
 
@@ -334,6 +338,28 @@ export class DatabaseRepository {
       throw new NotFoundException('Chapter not found');
     }
     return { id, deleted: true, mode: 'soft' };
+  }
+
+  async removeChapterWithLessonCheck(id: string) {
+    const lessonCountResult = await this.pool.query<{ count: string }>(
+      `select count(*) as count from lessons where chapter_id = $1`,
+      [id],
+    );
+    const lessonCount = Number(lessonCountResult.rows[0]?.count ?? 0);
+    if (lessonCount > 0) {
+      throw new BadRequestException(
+        `Cannot delete chapter because it still has ${lessonCount} lesson(s).`,
+      );
+    }
+
+    const result = await this.pool.query<ChapterRow>(
+      `delete from chapters where id = $1 returning *`,
+      [id],
+    );
+    if (!result.rows[0]) {
+      throw new NotFoundException('Chapter not found');
+    }
+    return { id, deleted: true, mode: 'hard' };
   }
 
   async upsertLesson(input: {
@@ -645,30 +671,318 @@ export class DatabaseRepository {
     return Number(result.rows[0]?.count ?? 0);
   }
 
-  async adminUsers() {
-    const result = await this.pool.query<UserRow>(
-      'select * from users order by created_at desc',
-    );
-    return result.rows.map((row) => this.toPublicUser(this.mapUser(row)));
-  }
+  async adminUsers(query: { search?: string; sortBy?: string; sortOrder?: string; page?: number; limit?: number }) {
+    const whereClauses: string[] = [];
+    const params: unknown[] = [];
+    if (query.search) {
+      whereClauses.push('(u.name ilike $1 or u.email ilike $1)');
+      params.push(`%${query.search}%`);
+    }
 
-  async statistics() {
-    const [users, attempts, completed, lessons] = await Promise.all([
-      this.pool.query<{ count: string }>('select count(*) from users'),
-      this.pool.query<{ count: string }>('select count(*) from quiz_attempts'),
-      this.pool.query<{ count: string }>(
-        "select count(*) from progress where status = 'COMPLETED'",
+    const orderBy = {
+      createdAt: 'u.created_at',
+      name: 'u.name',
+      email: 'u.email',
+    }[query.sortBy ?? 'createdAt'];
+
+    const sortOrder = query.sortOrder ?? 'DESC';
+    const whereSql = whereClauses.length ? `where ${whereClauses.join(' and ')}` : '';
+
+    const limit = query.limit ?? 20;
+    const page = query.page ?? 1;
+    const offset = (page - 1) * limit;
+
+    const [usersResult, countResult] = await Promise.all([
+      this.pool.query<UserRow>(
+        `select u.*
+         from users u
+         ${whereSql}
+         order by ${orderBy} ${sortOrder}
+         limit $${params.length + 1} offset $${params.length + 2}`,
+        [...params, limit, offset],
       ),
       this.pool.query<{ count: string }>(
-        'select count(*) from lessons where is_published = true',
+        `select count(*) as count
+         from users u
+         ${whereSql}`,
+        params,
       ),
     ]);
-    const completedCount = Number(completed.rows[0]?.count ?? 0);
-    const lessonCount = Number(lessons.rows[0]?.count ?? 0);
+
     return {
-      totalUsers: Number(users.rows[0]?.count ?? 0),
-      totalAttempts: Number(attempts.rows[0]?.count ?? 0),
-      completionRate: lessonCount === 0 ? 0 : completedCount / lessonCount,
+      items: usersResult.rows.map((row) => this.toPublicUser(this.mapUser(row))),
+      total: Number(countResult.rows[0]?.count ?? 0),
+      page,
+      limit,
+    };
+  }
+
+  async adminLessons() {
+    const result = await this.pool.query<LessonRow>(
+      `select l.*, count(q.id) as question_count
+       from lessons l
+       left join questions q on q.lesson_id = l.id
+       group by l.id
+       order by l.chapter_id asc, l.order_index asc`,
+    );
+    return result.rows.map((row) => ({
+      ...this.mapLesson(row),
+      questionCount: Number(row.question_count ?? 0),
+    }));
+  }
+
+  async adminQuestions() {
+    const result = await this.pool.query<QuestionRow>(
+      'select * from questions order by lesson_id asc, order_index asc',
+    );
+    return result.rows.map((row) => this.mapQuestion(row));
+  }
+
+  async adminChapters() {
+    const result = await this.pool.query<ChapterRow>(
+      `select c.*, count(l.id) as lesson_count
+       from chapters c
+       left join lessons l on l.chapter_id = c.id
+       group by c.id
+       order by c.order_index asc`,
+    );
+    return result.rows.map((row) => ({
+      ...this.mapChapter(row),
+      lessonCount: Number(row.lesson_count ?? 0),
+    }));
+  }
+
+  async createChapter(input: {
+    id: string;
+    title: string;
+    description: string;
+    orderIndex: number;
+    isPublished?: boolean;
+  }) {
+    const result = await this.pool.query<ChapterRow>(
+      `insert into chapters (id, title, description, order_index, is_published)
+       values ($1, $2, $3, $4, $5)
+       on conflict (id) do update set
+         title = excluded.title,
+         description = excluded.description,
+         order_index = excluded.order_index,
+         is_published = excluded.is_published,
+         updated_at = now()
+       returning *`,
+      [
+        input.id,
+        input.title,
+        input.description,
+        input.orderIndex,
+        input.isPublished ?? true,
+      ],
+    );
+    return this.mapChapter(result.rows[0]);
+  }
+
+
+
+  async createLesson(input: {
+    id: string;
+    chapterId: string;
+    title: string;
+    contentMarkdown: string;
+    formulaLatex?: string | null;
+    estimatedMinutes: number;
+    orderIndex: number;
+    isPublished?: boolean;
+  }) {
+    const result = await this.pool.query<LessonRow>(
+      `insert into lessons
+        (id, chapter_id, title, content_markdown, formula_latex, estimated_minutes, order_index, is_published)
+       values ($1, $2, $3, $4, $5, $6, $7, $8)
+       on conflict (id) do update set
+         chapter_id = excluded.chapter_id,
+         title = excluded.title,
+         content_markdown = excluded.content_markdown,
+         formula_latex = excluded.formula_latex,
+         estimated_minutes = excluded.estimated_minutes,
+         order_index = excluded.order_index,
+         is_published = excluded.is_published,
+         updated_at = now()
+       returning *`,
+      [
+        input.id,
+        input.chapterId,
+        input.title,
+        input.contentMarkdown,
+        input.formulaLatex ?? null,
+        input.estimatedMinutes,
+        input.orderIndex,
+        input.isPublished ?? true,
+      ],
+    );
+    return this.mapLesson(result.rows[0]);
+  }
+
+
+
+  async createQuestion(input: {
+    id: string;
+    lessonId: string;
+    questionText: string;
+    options: string[];
+    correctOption: number;
+    explanation: string;
+    difficulty?: 'EASY' | 'MEDIUM' | 'HARD';
+    orderIndex: number;
+  }) {
+    const result = await this.pool.query<QuestionRow>(
+      `insert into questions
+        (id, lesson_id, question_text, options_json, correct_option, explanation, difficulty, order_index)
+       values ($1, $2, $3, $4::jsonb, $5, $6, $7, $8)
+       on conflict (id) do update set
+         lesson_id = excluded.lesson_id,
+         question_text = excluded.question_text,
+         options_json = excluded.options_json,
+         correct_option = excluded.correct_option,
+         explanation = excluded.explanation,
+         difficulty = excluded.difficulty,
+         order_index = excluded.order_index
+       returning *`,
+      [
+        input.id,
+        input.lessonId,
+        input.questionText,
+        JSON.stringify(input.options),
+        input.correctOption,
+        input.explanation,
+        input.difficulty ?? 'MEDIUM',
+        input.orderIndex,
+      ],
+    );
+    return this.mapQuestion(result.rows[0]);
+  }
+
+
+
+  async statistics() {
+    const [overview, difficultLessons] = await Promise.all([
+      this.pool.query<{
+        active_students: string;
+        total_users: string;
+        total_attempts: string;
+        completed_lessons: string;
+        total_lessons: string;
+        total_badges: string;
+      }>(`
+        select
+          (select count(*) from users where role = 'STUDENT') as active_students,
+          (select count(*) from users) as total_users,
+          (select count(*) from quiz_attempts) as total_attempts,
+          (select count(*) from progress where status = 'COMPLETED') as completed_lessons,
+          (select count(*) from lessons where is_published = true) as total_lessons,
+          (select count(*) from user_badges) as total_badges
+      `),
+      this.pool.query<{ lesson_id: string; chapter_id: string; title: string; wrong_count: string }>(
+        `select l.id as lesson_id,
+                l.chapter_id,
+                l.title,
+                count(qa.id) as wrong_count
+         from lessons l
+         join quiz_attempts qa on qa.lesson_id = l.id
+         group by l.id
+         order by wrong_count desc
+         limit 5`,
+      ),
+    ]);
+
+    const overviewRow = overview.rows[0] ?? {};
+    const activeStudents = Number(overviewRow.active_students ?? 0);
+    const totalUsers = Number(overviewRow.total_users ?? 0);
+    const totalAttempts = Number(overviewRow.total_attempts ?? 0);
+    const completedLessons = Number(overviewRow.completed_lessons ?? 0);
+    const totalLessons = Number(overviewRow.total_lessons ?? 0);
+    const totalBadges = Number(overviewRow.total_badges ?? 0);
+
+    const activeTrend = await this.pool.query<{ day: string; active_students: string }>(`
+      select to_char(day, 'YYYY-MM-DD') as day, coalesce(stats.active_students, 0) as active_students
+      from (
+        select (current_date - val)::date as day
+        from generate_series(0, 6) as val
+      ) days
+      left join (
+        select date_trunc('day', created_at)::date as day, count(distinct user_id) as active_students
+        from quiz_attempts
+        where created_at >= current_date - interval '7 days'
+        group by 1
+      ) stats using (day)
+      order by day asc
+    `);
+
+    const completionByChapter = await this.pool.query<{
+      chapter_id: string;
+      title: string;
+      completed_count: string;
+      total_lessons: string;
+    }>(`
+      select c.id as chapter_id,
+             c.title,
+             count(p.id) as completed_count,
+             count(l.id) as total_lessons
+      from chapters c
+      left join lessons l on l.chapter_id = c.id and l.is_published = true
+      left join progress p on p.lesson_id = l.id and p.status = 'COMPLETED'
+      group by c.id, c.title
+      order by c.order_index asc
+    `);
+
+    const completionByLesson = await this.pool.query<{
+      lesson_id: string;
+      chapter_id: string;
+      title: string;
+      completed_count: string;
+    }>(`
+      select l.id as lesson_id,
+             l.chapter_id,
+             l.title,
+             count(p.id) as completed_count
+      from lessons l
+      left join progress p on p.lesson_id = l.id and p.status = 'COMPLETED'
+      where l.is_published = true
+      group by l.id, l.chapter_id, l.title
+      order by l.chapter_id asc, l.order_index asc
+      limit 50
+    `);
+
+    return {
+      activeStudents,
+      totalUsers,
+      totalAttempts,
+      completionRate: totalLessons === 0 ? 0 : completedLessons / totalLessons,
+      totalBadgesAwarded: totalBadges,
+      activeTrend: activeTrend.rows.map((row) => ({
+        date: row.day,
+        activeStudents: Number(row.active_students ?? 0),
+      })),
+      completionByChapter: completionByChapter.rows.map((row) => ({
+        chapterId: row.chapter_id,
+        title: row.title,
+        completedCount: Number(row.completed_count ?? 0),
+        totalLessons: Number(row.total_lessons ?? 0),
+        completionRate:
+          Number(row.total_lessons ?? 0) === 0
+            ? 0
+            : Number(row.completed_count ?? 0) / Number(row.total_lessons ?? 0),
+      })),
+      completionByLesson: completionByLesson.rows.map((row) => ({
+        lessonId: row.lesson_id,
+        chapterId: row.chapter_id,
+        title: row.title,
+        completedCount: Number(row.completed_count ?? 0),
+        completionRate: totalLessons === 0 ? 0 : Number(row.completed_count ?? 0) / totalLessons,
+      })),
+      difficultLessons: difficultLessons.rows.map((row) => ({
+        lessonId: row.lesson_id,
+        chapterId: row.chapter_id,
+        title: row.title,
+        wrongCount: Number(row.wrong_count),
+      })),
     };
   }
 

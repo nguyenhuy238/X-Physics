@@ -341,7 +341,22 @@ Admin endpoints require `ADMIN` or `TEACHER` role.
 
 List endpoints with many rows accept:
 
-- `pageNumber`, default `1`.
-- `pageSize`, default `10`, max `100`.
+- `page`, default `1`.
+- `limit`, default `20`, max `100`.
+
+Paginated list responses return:
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "items": [],
+    "total": 0,
+    "page": 1,
+    "limit": 20
+  }
+}
+```
 
 Do not change response field names without team agreement.

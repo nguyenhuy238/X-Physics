@@ -55,6 +55,7 @@ create table if not exists questions (
   options_json jsonb not null,
   correct_option integer not null,
   explanation text not null,
+  difficulty varchar(30) not null default 'MEDIUM' check (difficulty in ('EASY', 'MEDIUM', 'HARD')),
   order_index integer not null
 );
 

@@ -1,0 +1,278 @@
+{
+  "info": {
+    "name": "X-Physics Admin API",
+    "description": "Postman collection for X-Physics admin endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"123456\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Statistics",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/admin/statistics",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "statistics"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Users",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/admin/users?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "users"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "search", "value": "" },
+                { "key": "sortBy", "value": "createdAt" },
+                { "key": "sortOrder", "value": "DESC" }
+              ]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Chapters",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/admin/chapters",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "chapters"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Create Chapter",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/admin/chapters",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "chapters"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"chapter_001\",\n  \"title\": \"Chuong moi\",\n  \"description\": \"Mo ta chuong\",\n  \"orderIndex\": 1,\n  \"isPublished\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Update Chapter",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{baseUrl}}/admin/chapters/chapter_001",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "chapters", "chapter_001"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Chuong moi\",\n  \"description\": \"Mo ta chuong\",\n  \"orderIndex\": 1,\n  \"isPublished\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Delete Chapter",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/admin/chapters/chapter_001",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "chapters", "chapter_001"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Lessons",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/admin/lessons",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "lessons"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Create Lesson",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/admin/lessons",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "lessons"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"lesson_001\",\n  \"chapterId\": \"chapter_001\",\n  \"title\": \"Bai hoc moi\",\n  \"contentMarkdown\": \"Noi dung\",\n  \"formulaLatex\": \"s = v t\",\n  \"estimatedMinutes\": 10,\n  \"orderIndex\": 1,\n  \"isPublished\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Update Lesson",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{baseUrl}}/admin/lessons/lesson_001",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "lessons", "lesson_001"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"chapterId\": \"chapter_001\",\n  \"title\": \"Bai hoc moi\",\n  \"contentMarkdown\": \"Noi dung\",\n  \"formulaLatex\": \"s = v t\",\n  \"estimatedMinutes\": 10,\n  \"orderIndex\": 1,\n  \"isPublished\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Delete Lesson",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/admin/lessons/lesson_001",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "lessons", "lesson_001"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Questions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/admin/questions",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "questions"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Create Question",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/admin/questions",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "questions"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"question_001\",\n  \"lessonId\": \"lesson_001\",\n  \"questionText\": \"Cau hoi\",\n  \"options\": [\"A\",\"B\",\"C\",\"D\"],\n  \"correctOption\": 0,\n  \"explanation\": \"Giai thich\",\n  \"difficulty\": \"MEDIUM\",\n  \"orderIndex\": 1\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Update Question",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{baseUrl}}/admin/questions/question_001",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "questions", "question_001"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lessonId\": \"lesson_001\",\n  \"questionText\": \"Cau hoi\",\n  \"options\": [\"A\",\"B\",\"C\",\"D\"],\n  \"correctOption\": 0,\n  \"explanation\": \"Giai thich\",\n  \"difficulty\": \"MEDIUM\",\n  \"orderIndex\": 1\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Delete Question",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/admin/questions/question_001",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "questions", "question_001"]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

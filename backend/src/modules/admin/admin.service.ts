@@ -11,8 +11,14 @@ import {
 export class AdminService {
   constructor(private readonly database: DatabaseRepository) {}
 
-  users() {
-    return this.database.adminUsers();
+  users(query: {
+    search?: string;
+    sortBy?: string;
+    sortOrder?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    return this.database.adminUsers(query);
   }
 
   statistics() {
@@ -20,19 +26,19 @@ export class AdminService {
   }
 
   chapters() {
-    return this.database.listChapters();
+    return this.database.adminChapters();
   }
 
   lessons() {
-    return this.database.adminListLessons();
+    return this.database.adminLessons();
   }
 
   questions() {
-    return this.database.adminListQuestions();
+    return this.database.adminQuestions();
   }
 
   createChapter(dto: AdminChapterDto) {
-    return this.database.upsertChapter(dto);
+    return this.database.createChapter(dto);
   }
 
   updateChapter(id: string, dto: AdminChapterDto) {
@@ -40,11 +46,11 @@ export class AdminService {
   }
 
   removeChapter(id: string) {
-    return this.database.softDeleteChapter(id);
+    return this.database.removeChapterWithLessonCheck(id);
   }
 
   createLesson(dto: AdminLessonDto) {
-    return this.database.upsertLesson(dto);
+    return this.database.createLesson(dto);
   }
 
   updateLesson(id: string, dto: AdminLessonDto) {
@@ -56,7 +62,7 @@ export class AdminService {
   }
 
   createQuestion(dto: AdminQuestionDto) {
-    return this.database.upsertQuestion(dto);
+    return this.database.createQuestion(dto);
   }
 
   updateQuestion(id: string, dto: AdminQuestionDto) {

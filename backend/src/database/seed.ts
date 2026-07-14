@@ -69,6 +69,7 @@ async function main() {
         options: string[];
         correctOption: number;
         explanation: string;
+        difficulty?: string;
       }>
     >('questions.json');
     const badges = await readJson<
@@ -161,14 +162,15 @@ async function main() {
     for (const [index, question] of questions.entries()) {
       await client.query(
         `insert into questions
-          (id, lesson_id, question_text, options_json, correct_option, explanation, order_index)
-         values ($1, $2, $3, $4::jsonb, $5, $6, $7)
+          (id, lesson_id, question_text, options_json, correct_option, explanation, difficulty, order_index)
+         values ($1, $2, $3, $4::jsonb, $5, $6, $7, $8)
          on conflict (id) do update set
            lesson_id = excluded.lesson_id,
            question_text = excluded.question_text,
            options_json = excluded.options_json,
            correct_option = excluded.correct_option,
            explanation = excluded.explanation,
+           difficulty = excluded.difficulty,
            order_index = excluded.order_index`,
         [
           question.id,
@@ -177,6 +179,7 @@ async function main() {
           JSON.stringify(question.options),
           question.correctOption,
           question.explanation,
+          question.difficulty ?? 'MEDIUM',
           (index % 5) + 1,
         ],
       );

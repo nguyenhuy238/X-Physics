@@ -66,11 +66,15 @@ GoRouter buildRouter(AppState appState) {
       ),
       GoRoute(
         path: '/admin/lessons',
-        builder: (_, _) => const AdminLessonsScreen(),
+        builder: (_, state) => AdminLessonsScreen(
+          chapterId: state.uri.queryParameters['chapterId'],
+        ),
       ),
       GoRoute(
         path: '/admin/questions',
-        builder: (_, _) => const AdminQuestionsScreen(),
+        builder: (_, state) => AdminQuestionsScreen(
+          lessonId: state.uri.queryParameters['lessonId'],
+        ),
       ),
     ],
   );
