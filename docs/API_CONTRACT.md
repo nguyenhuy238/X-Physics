@@ -450,6 +450,25 @@ Request:
 }
 ```
 
+### POST /api/sync/downloads
+
+Auth: required. Records a "lesson downloaded for offline" event (owned by
+TV3, `backend/src/modules/offline-sync`). Best-effort from the client: the
+Flutter app calls this after a successful local download but does not fail
+the download if this call errors.
+
+Request:
+
+```json
+{
+  "lessonId": "motion-1",
+  "clientDeviceId": "device-abc123"
+}
+```
+
+`clientDeviceId` is optional. Response data: `{ "recorded": true }`.
+`lessonId` must reference a published lesson (`404` otherwise).
+
 ## Admin
 
 Admin content-management endpoints require an authenticated `ADMIN` or

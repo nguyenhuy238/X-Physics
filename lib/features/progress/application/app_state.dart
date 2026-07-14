@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -377,6 +378,56 @@ class AppState extends ChangeNotifier {
     await _offlineRepository.saveLesson(lesson);
     downloadedLessons.add(lesson.id);
     notifyListeners();
+    // Best-effort: record the download server-side for Admin statistics.
+    // Never blocks or fails the (already-successful) local download.
+    unawaited(_recordDownloadEvent(lesson.id));
+  }
+
+  Future<void> _recordDownloadEvent(String lessonId) async {
+    try {
+      await _syncPost(ApiEndpoints.syncDownloads, {'lessonId': lessonId});
+    } catch (_) {
+      // Ignored on purpose — see docs/OFFLINE_FLOW.md.
+    }
+  }
+
+  /// Downloads every lesson in a chapter for offline reading, loading the
+  /// chapter's lesson list first if it isn't already cached.
+  Future<void> downloadChapter(String chapterId) async {
+    if ((lessonsByChapter[chapterId] ?? const <Lesson>[]).isEmpty) {
+      await loadChapterDetail(chapterId);
+    }
+    for (final lesson in lessonsByChapter[chapterId] ?? const <Lesson>[]) {
+      await downloadLesson(lesson.id);
+    }
+  }
+
+  /// Rough size (in bytes) of a downloaded lesson's cached JSON, for
+  /// display in the Offline Downloads screen. Approximate on purpose — Hive
+  /// does not expose per-entry disk size directly.
+  int? estimatedOfflineSizeBytes(String lessonId) {
+    final lesson = loadOfflineLesson(lessonId);
+    if (lesson == null) {
+      return null;
+    }
+    return utf8.encode(jsonEncode(lesson.toJson())).length;
+  }
+
+  /// Number of reading-progress updates queued locally, waiting to be sent
+  /// to `POST /api/sync/progress`. Drives the sync-status banner in the
+  /// Offline Downloads screen.
+  int get pendingSyncCount => _localStorage.pendingProgressItems().length;
+
+  /// Manually flushes the pending-progress queue (the "Đồng bộ ngay"
+  /// button). No-ops while offline.
+  Future<void> syncNow() async {
+    if (effectiveOffline) {
+      return;
+    }
+    final synced = await _progressSyncService.syncPending();
+    if (synced > 0) {
+      notifyListeners();
+    }
   }
 
   Future<List<Question>> loadQuestions(

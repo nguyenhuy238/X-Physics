@@ -76,10 +76,15 @@ connectivity transition.
 - `simulateOffline` (the manual toggle in the app bar) is kept as-is for
   demo purposes; it is OR-ed with the real `isOffline` flag rather than
   replaced by it.
-- No server-side record is created when a lesson is downloaded (the
-  `downloaded_lessons` table exists in `schema.sql` but nothing currently
-  writes to it from real usage) — out of scope for this flow, tracked
-  separately.
+- Downloading a lesson now also calls `POST /api/sync/downloads`
+  (best-effort, does not block or fail the local download) so
+  `downloaded_lessons` reflects real usage for Admin statistics. Downloading
+  a whole chapter (`AppState.downloadChapter`) simply calls
+  `downloadLesson` once per lesson in the chapter.
+- The Offline Downloads screen shows a sync-status banner
+  (`pendingSyncCount` / "Đồng bộ ngay" button) and an approximate cached
+  size per lesson (`estimatedOfflineSizeBytes`, based on re-encoding the
+  cached JSON — not the actual bytes on disk).
 
 ## Manual test steps ("test mất mạng")
 

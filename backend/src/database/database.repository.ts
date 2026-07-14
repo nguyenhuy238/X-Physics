@@ -847,6 +847,29 @@ export class DatabaseRepository {
     return result.rows[0] ? this.mapProgress(result.rows[0]) : null;
   }
 
+  // Records a real download event for the `downloaded_lessons` stats table
+  // (see schema.sql). Intentionally not deduplicated when clientDeviceId is
+  // omitted: Postgres treats each NULL as distinct for the unique
+  // constraint, so repeated downloads without a device id simply add more
+  // event rows, which matches how this table is consumed as an activity
+  // stream (see the "recent activities" union query in getAdminStatistics)
+  // rather than as a single "has this lesson" flag.
+  async recordLessonDownload(
+    input: {
+      userId: string;
+      lessonId: string;
+      clientDeviceId?: string | null;
+    },
+    db: Db = this.pool,
+  ) {
+    await db.query(
+      `insert into downloaded_lessons (user_id, lesson_id, client_device_id)
+       values ($1, $2, $3)
+       on conflict (user_id, lesson_id, client_device_id) do nothing`,
+      [input.userId, input.lessonId, input.clientDeviceId ?? null],
+    );
+  }
+
   async listProgress(userId: string) {
     const result = await this.pool.query<ProgressRow>(
       `select * from progress
