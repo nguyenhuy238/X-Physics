@@ -16,6 +16,7 @@ import '../../features/progress/application/app_state.dart';
 import '../../features/progress/screens/progress_screen.dart';
 import '../../features/quiz/screens/quiz_result_screen.dart';
 import '../../features/quiz/screens/quiz_screen.dart';
+import '../../shared/models/x_models.dart';
 
 GoRouter buildRouter(AppState appState) {
   return GoRouter(
@@ -23,6 +24,18 @@ GoRouter buildRouter(AppState appState) {
     refreshListenable: appState,
     redirect: (_, state) {
       final location = state.uri.path;
+      final isPublicRoute =
+          location == '/login' ||
+          location == '/register' ||
+          location == '/splash';
+      if (!appState.loading && appState.user == null && !isPublicRoute) {
+        return '/login';
+      }
+      if (!appState.loading &&
+          appState.user != null &&
+          (location == '/login' || location == '/register')) {
+        return '/';
+      }
       if (location.startsWith('/admin') && !appState.canAccessAdmin) {
         return appState.user == null ? '/login' : '/';
       }
@@ -50,8 +63,12 @@ GoRouter buildRouter(AppState appState) {
       ),
       GoRoute(
         path: '/quiz/:id/result',
-        builder: (_, state) =>
-            QuizResultScreen(lessonId: state.pathParameters['id']!),
+        builder: (_, state) => QuizResultScreen(
+          lessonId: state.pathParameters['id']!,
+          initialAttempt: state.extra is QuizAttempt
+              ? state.extra! as QuizAttempt
+              : null,
+        ),
       ),
       GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
       GoRoute(path: '/progress', builder: (_, _) => const ProgressScreen()),

@@ -12,6 +12,9 @@ class ApiEndpoints {
   static const logout = '/api/auth/logout';
   static const me = '/api/users/me';
   static const dashboard = '/api/dashboard/me';
+  static const progressDashboard = '/api/progress/dashboard/me';
+  static const profileMe = '/api/profile/me';
+  static const profileAchievements = '/api/profile/achievements';
   static const chapters = '/api/chapters';
   static const quizSubmit = '/api/quiz/submit';
   static const progressMe = '/api/progress/me';
@@ -22,6 +25,7 @@ class ApiEndpoints {
   static const adminChapters = '/api/admin/chapters';
   static const adminLessons = '/api/admin/lessons';
   static const adminQuestions = '/api/admin/questions';
+  static const adminQuestionsReorder = '/api/admin/questions/reorder';
 
   static String chapter(String id) => '/api/chapters/$id';
   static String chapterLessons(String id) => '/api/chapters/$id/lessons';

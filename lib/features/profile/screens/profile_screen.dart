@@ -1,68 +1,448 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../shared/models/x_models.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_view.dart';
+import '../../../shared/widgets/error_view.dart';
 import '../../progress/application/app_state.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final state = context.read<AppState>();
+      if (state.profileSummary == null && !state.isProfileLoading) {
+        state.loadProfile();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
+    final profile = state.profileSummary;
+    final error = state.profileError;
+
     return XScaffold(
-      title: 'Hồ sơ',
-      child: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          Card(
-            child: ListTile(
-              contentPadding: const EdgeInsets.all(18),
-              leading: const CircleAvatar(
-                radius: 30,
-                child: Icon(Icons.person_rounded),
-              ),
-              title: Text(
-                state.user?.name ?? 'Học sinh',
-                style: const TextStyle(fontWeight: FontWeight.w900),
-              ),
-              subtitle: Text('${state.user?.email ?? ''} • ${state.coins} xu'),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Huy hiệu',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 10),
-          if (state.badges.isEmpty)
-            const EmptyView(message: 'Chưa có huy hiệu nào.')
-          else
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                for (final badge in state.badges)
-                  Chip(
-                    avatar: const Icon(Icons.workspace_premium_rounded),
-                    label: Text(badge),
+      title: 'Ho so',
+      actions: [
+        IconButton(
+          tooltip: 'Lam moi',
+          onPressed: state.isProfileLoading ? null : _refresh,
+          icon: const Icon(Icons.refresh_rounded),
+        ),
+      ],
+      child: RefreshIndicator(
+        onRefresh: _refresh,
+        child: Builder(
+          builder: (context) {
+            if (state.isProfileLoading && profile == null) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (error != null && profile == null) {
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  SizedBox(
+                    height: MediaQuery.sizeOf(context).height * 0.7,
+                    child: ErrorView(
+                      message: error,
+                      onRetry: context.read<AppState>().refreshProfile,
+                    ),
                   ),
-              ],
-            ),
-          const SizedBox(height: 16),
-          Text(
-            'Bài offline: ${state.downloadedLessons.length}',
-            style: const TextStyle(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: () => context.read<AppState>().logout(),
-            icon: const Icon(Icons.logout_rounded),
-            label: const Text('Đăng xuất'),
-          ),
-        ],
+                ],
+              );
+            }
+            if (profile == null) {
+              return const _ProfileEmptyState();
+            }
+            return _ProfileContent(profile: profile);
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _refresh() async {
+    final state = context.read<AppState>();
+    final hadData = state.profileSummary != null;
+    await state.refreshProfile();
+    if (!mounted || !hadData || state.profileError == null) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(state.profileError!)));
+  }
+}
+
+class _ProfileEmptyState extends StatelessWidget {
+  const _ProfileEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.7,
+          child: const EmptyView(message: 'Chua co du lieu ho so.'),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileContent extends StatelessWidget {
+  const _ProfileContent({required this.profile});
+
+  final ProfileSummary profile;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(20),
+      children: [
+        _ProfileHeader(profile: profile),
+        const SizedBox(height: 16),
+        _StatsRow(profile: profile),
+        const SizedBox(height: 16),
+        _RecentScoreChart(attempts: profile.recentAttempts),
+        const SizedBox(height: 16),
+        _BadgeGrid(badges: [...profile.earnedBadges, ...profile.lockedBadges]),
+        const SizedBox(height: 16),
+        OutlinedButton.icon(
+          onPressed: () => context.read<AppState>().logout(),
+          icon: const Icon(Icons.logout_rounded),
+          label: const Text('Dang xuat'),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({required this.profile});
+
+  final ProfileSummary profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final user = profile.user;
+    final initial = user.name.isNotEmpty ? user.name.characters.first : '?';
+    return Card(
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(18),
+        leading: CircleAvatar(
+          radius: 30,
+          backgroundImage: user.avatarUrl == null || user.avatarUrl!.isEmpty
+              ? null
+              : NetworkImage(user.avatarUrl!),
+          child: user.avatarUrl == null || user.avatarUrl!.isEmpty
+              ? Text(
+                  initial,
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                )
+              : null,
+        ),
+        title: Text(
+          user.name.isEmpty ? 'Hoc sinh' : user.name,
+          style: const TextStyle(fontWeight: FontWeight.w900),
+        ),
+        subtitle: Text(user.email),
       ),
     );
   }
 }
+
+class _StatsRow extends StatelessWidget {
+  const _StatsRow({required this.profile});
+
+  final ProfileSummary profile;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        _StatCard(label: 'Xu', value: '${profile.totalCoins}'),
+        _StatCard(label: 'Bai da xong', value: '${profile.completedLessons}'),
+        _StatCard(
+          label: 'Diem TB',
+          value: profile.averageScore.toStringAsFixed(2),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  const _StatCard({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 130,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: Theme.of(context).textTheme.labelMedium),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecentScoreChart extends StatelessWidget {
+  const _RecentScoreChart({required this.attempts});
+
+  final List<RecentQuizAttempt> attempts;
+
+  @override
+  Widget build(BuildContext context) {
+    final chronological = attempts.reversed.toList();
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Diem gan day',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 210,
+              child: chronological.isEmpty
+                  ? const Center(child: Text('Chua co diem quiz nao.'))
+                  : LineChart(
+                      LineChartData(
+                        minY: 0,
+                        maxY: 10,
+                        gridData: const FlGridData(show: true),
+                        borderData: FlBorderData(show: false),
+                        lineBarsData: [
+                          LineChartBarData(
+                            spots: [
+                              for (var i = 0; i < chronological.length; i++)
+                                FlSpot(i.toDouble(), chronological[i].score),
+                            ],
+                            isCurved: chronological.length > 2,
+                            barWidth: 3,
+                            dotData: const FlDotData(show: true),
+                          ),
+                        ],
+                        titlesData: FlTitlesData(
+                          topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          leftTitles: const AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 28,
+                              interval: 2,
+                            ),
+                          ),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 42,
+                              getTitlesWidget: (value, meta) {
+                                final index = value.toInt();
+                                if (index < 0 ||
+                                    index >= chronological.length) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: SizedBox(
+                                    width: 48,
+                                    child: Text(
+                                      chronological[index].lessonTitle.isEmpty
+                                          ? 'Quiz ${index + 1}'
+                                          : chronological[index].lessonTitle,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(fontSize: 10),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BadgeGrid extends StatelessWidget {
+  const _BadgeGrid({required this.badges});
+
+  final List<AchievementBadge> badges;
+
+  @override
+  Widget build(BuildContext context) {
+    if (badges.isEmpty) {
+      return const EmptyView(message: 'Chua co huy hieu nao.');
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 560 ? 3 : 2;
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: badges.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: columns == 3 ? 1.15 : 1.05,
+          ),
+          itemBuilder: (context, index) => _BadgeTile(badge: badges[index]),
+        );
+      },
+    );
+  }
+}
+
+class _BadgeTile extends StatelessWidget {
+  const _BadgeTile({required this.badge});
+
+  final AchievementBadge badge;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final foreground = badge.isEarned
+        ? colorScheme.primary
+        : colorScheme.onSurfaceVariant;
+    return Card(
+      color: badge.isEarned
+          ? colorScheme.primaryContainer
+          : colorScheme.surfaceContainerHighest,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => _showBadgeDetail(context, badge),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                badge.isEarned
+                    ? Icons.workspace_premium_rounded
+                    : Icons.lock_rounded,
+                color: foreground,
+                size: 30,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                badge.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              if (!badge.isEarned && badge.progressTarget > 0) ...[
+                const SizedBox(height: 8),
+                LinearProgressIndicator(value: badge.progressValue),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+void _showBadgeDetail(BuildContext context, AchievementBadge badge) {
+  showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    builder: (context) => Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                badge.isEarned
+                    ? Icons.workspace_premium_rounded
+                    : Icons.lock_rounded,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  badge.name,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(badge.description),
+          const SizedBox(height: 12),
+          if (badge.isEarned)
+            Text(
+              badge.achievedAt == null
+                  ? 'Da dat'
+                  : 'Da dat: ${_formatDate(badge.achievedAt!)}',
+            )
+          else ...[
+            Text('Tien do: ${badge.progressCurrent}/${badge.progressTarget}'),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(value: badge.progressValue),
+          ],
+        ],
+      ),
+    ),
+  );
+}
+
+String _formatDate(DateTime date) =>
+    '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';

@@ -18,14 +18,32 @@
     "name": "Bac thay chuyen dong",
     "description": "Hoan thanh tat ca bai trong chuong Chuyen dong.",
     "icon": "rocket_launch",
-    "ruleKey": "complete_motion_chapter"
+    "ruleKey": "complete_chapter",
+    "conditionValue": "motion"
+  },
+  {
+    "id": "force-master",
+    "name": "Bac thay luc",
+    "description": "Hoan thanh tat ca bai trong chuong Luc va ap suat.",
+    "icon": "fitness_center",
+    "ruleKey": "complete_chapter",
+    "conditionValue": "force"
   },
   {
     "id": "electric-master",
     "name": "Dien than",
     "description": "Hoan thanh tat ca bai trong chuong Dien hoc.",
     "icon": "bolt",
-    "ruleKey": "complete_electric_chapter"
+    "ruleKey": "complete_chapter",
+    "conditionValue": "electric"
+  },
+  {
+    "id": "streak-3",
+    "name": "Ba ngay ben bi",
+    "description": "Co hoat dong hoc tap trong 3 ngay lien tiep.",
+    "icon": "local_fire_department",
+    "ruleKey": "streak_days",
+    "conditionValue": "3"
   },
   {
     "id": "scientist",

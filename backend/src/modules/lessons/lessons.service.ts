@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable } from "@nestjs/common";
 
-import { DatabaseRepository } from '../../database/database.repository';
+import { DatabaseRepository } from "../../database/database.repository";
 
 @Injectable()
 export class LessonsService {
@@ -14,9 +14,15 @@ export class LessonsService {
     return this.database.listSimulationsByLesson(lessonId);
   }
 
-  questions(lessonId: string) {
-    return this.database.listQuestionsByLesson(lessonId).then((questions) =>
-      questions.map(({ correctOption: _correctOption, ...question }) => question),
+  async questions(lessonId: string) {
+    await this.database.findLesson(lessonId);
+    const questions = await this.database.listQuestionsByLesson(lessonId);
+    return questions.map(
+      ({
+        correctOption: _correctOption,
+        explanation: _explanation,
+        ...question
+      }) => question,
     );
   }
 }

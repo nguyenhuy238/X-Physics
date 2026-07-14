@@ -1,9 +1,9 @@
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 
-import * as bcrypt from 'bcrypt';
-import { config } from 'dotenv';
-import { Pool } from 'pg';
+import * as bcrypt from "bcrypt";
+import { config } from "dotenv";
+import { Pool } from "pg";
 
 config();
 
@@ -12,34 +12,42 @@ type SeedUser = {
   name: string;
   email: string;
   password: string;
-  role: 'STUDENT' | 'TEACHER' | 'ADMIN';
+  role: "STUDENT" | "TEACHER" | "ADMIN";
   coins: number;
 };
 
 async function readJson<T>(fileName: string): Promise<T> {
-  const file = await readFile(join(__dirname, '..', '..', '..', 'seed-data', fileName), 'utf8');
+  const file = await readFile(
+    join(__dirname, "..", "..", "..", "seed-data", fileName),
+    "utf8",
+  );
   return JSON.parse(file) as T;
 }
 
 async function main() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
-    throw new Error('DATABASE_URL is required');
+    throw new Error("DATABASE_URL is required");
   }
 
   const pool = new Pool({ connectionString });
-  const schema = await readFile(join(__dirname, 'schema.sql'), 'utf8');
+  const schema = await readFile(join(__dirname, "schema.sql"), "utf8");
   const client = await pool.connect();
 
   try {
-    await client.query('BEGIN');
+    await client.query("BEGIN");
     await client.query(schema);
     await client.query('alter table chapters drop constraint if exists chapters_order_index_key');
 
-    const users = await readJson<SeedUser[]>('users.json');
+    const users = await readJson<SeedUser[]>("users.json");
     const chapters = await readJson<
-      Array<{ id: string; title: string; description: string; orderIndex: number }>
-    >('chapters.json');
+      Array<{
+        id: string;
+        title: string;
+        description: string;
+        orderIndex: number;
+      }>
+    >("chapters.json");
     const lessons = await readJson<
       Array<{
         id: string;
@@ -50,7 +58,7 @@ async function main() {
         estimatedMinutes: number;
         orderIndex: number;
       }>
-    >('lessons.json');
+    >("lessons.json");
     const simulations = await readJson<
       Array<{
         id: string;
@@ -61,7 +69,7 @@ async function main() {
         variables: unknown;
         result: unknown;
       }>
-    >('simulations.json');
+    >("simulations.json");
     const questions = await readJson<
       Array<{
         id: string;
@@ -70,8 +78,9 @@ async function main() {
         options: string[];
         correctOption: number;
         explanation: string;
+        difficulty?: "EASY" | "MEDIUM" | "HARD";
       }>
-    >('questions.json');
+    >("questions.json");
     const badges = await readJson<
       Array<{
         id: string;
@@ -79,8 +88,10 @@ async function main() {
         description: string;
         icon: string;
         ruleKey: string;
+        conditionValue?: string | null;
+        metadata?: unknown;
       }>
-    >('badges.json');
+    >("badges.json");
 
     for (const user of users) {
       const passwordHash = await bcrypt.hash(user.password, 10);
@@ -162,14 +173,15 @@ async function main() {
     for (const [index, question] of questions.entries()) {
       await client.query(
         `insert into questions
-          (id, lesson_id, question_text, options_json, correct_option, explanation, order_index)
-         values ($1, $2, $3, $4::jsonb, $5, $6, $7)
+          (id, lesson_id, question_text, options_json, correct_option, explanation, difficulty, order_index)
+         values ($1, $2, $3, $4::jsonb, $5, $6, $7, $8)
          on conflict (id) do update set
            lesson_id = excluded.lesson_id,
            question_text = excluded.question_text,
            options_json = excluded.options_json,
            correct_option = excluded.correct_option,
            explanation = excluded.explanation,
+           difficulty = excluded.difficulty,
            order_index = excluded.order_index`,
         [
           question.id,
@@ -178,6 +190,7 @@ async function main() {
           JSON.stringify(question.options),
           question.correctOption,
           question.explanation,
+          question.difficulty ?? "MEDIUM",
           (index % 5) + 1,
         ],
       );
@@ -185,14 +198,24 @@ async function main() {
 
     for (const badge of badges) {
       await client.query(
-        `insert into badges (id, name, description, icon, rule_key)
-         values ($1, $2, $3, $4, $5)
+        `insert into badges (id, name, description, icon, rule_key, condition_value, metadata_json)
+         values ($1, $2, $3, $4, $5, $6, $7::jsonb)
          on conflict (id) do update set
            name = excluded.name,
            description = excluded.description,
            icon = excluded.icon,
-           rule_key = excluded.rule_key`,
-        [badge.id, badge.name, badge.description, badge.icon, badge.ruleKey],
+           rule_key = excluded.rule_key,
+           condition_value = excluded.condition_value,
+           metadata_json = excluded.metadata_json`,
+        [
+          badge.id,
+          badge.name,
+          badge.description,
+          badge.icon,
+          badge.ruleKey,
+          badge.conditionValue ?? null,
+          JSON.stringify(badge.metadata ?? {}),
+        ],
       );
     }
 
@@ -240,7 +263,7 @@ async function main() {
       { userId: maiId, lessonId: 'electric-1', score: 8.0, correct: 8, total: 10, daysAgo: 2 },
       { userId: hungId, lessonId: 'electric-1', score: 6.0, correct: 6, total: 10, daysAgo: 2 },
       { userId: lanId, lessonId: 'electric-2', score: 7.0, correct: 7, total: 10, daysAgo: 2 },
-      { userId: ducId, lessonId: 'electric-2', score: 8.0, correct: 8, total: 10, daysAgo: 2 },
+      { userId: ducId, lessonId: 'electric-2', score: 8.5, correct: 8, total: 10, daysAgo: 2 },
       { userId: namId, lessonId: 'motion-1', score: 9.0, correct: 9, total: 10, daysAgo: 2 },
       // 1 day ago (Saturday)
       { userId: maiId, lessonId: 'motion-2', score: 10.0, correct: 10, total: 10, daysAgo: 1 },
@@ -283,7 +306,7 @@ async function main() {
     await client.query('COMMIT');
     console.log('Database schema and seed data are ready.');
   } catch (error) {
-    await client.query('ROLLBACK');
+    await client.query("ROLLBACK");
     throw error;
   } finally {
     client.release();
