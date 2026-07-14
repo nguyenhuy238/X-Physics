@@ -29,7 +29,7 @@ export class AdminService {
   }
 
   chapters() {
-    return this.database.listChapters();
+    return this.database.adminListChapters();
   }
 
   lessons() {

@@ -9,7 +9,7 @@ import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../progress/application/app_state.dart';
 import '../widgets/admin_design.dart';
-import '../widgets/admin_shell.dart';
+import '../widgets/admin_layout.dart';
 
 class AdminQuestionsScreen extends StatefulWidget {
   const AdminQuestionsScreen({super.key});
@@ -141,11 +141,10 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
       );
     }
 
-    return AdminShell(
+    return AdminLayout(
       activeRoute: '/admin/questions',
       title: 'Quản lý Câu hỏi',
       subtitle: 'Ngân hàng câu hỏi trắc nghiệm',
-      searchController: _search,
       onSearchChanged: _onSearchChanged,
       child: RefreshIndicator(
         onRefresh: () => _loadQuestions(refresh: true),
