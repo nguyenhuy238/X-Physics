@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
@@ -22,20 +24,41 @@ class _LessonScreenState extends State<LessonScreen> {
   final scroll = ScrollController();
   double progress = 0;
   Lesson? lesson;
+  bool _readingProgressReported = false;
 
   @override
   void initState() {
     super.initState();
     Future.microtask(_loadLesson);
-    scroll.addListener(() {
-      if (!scroll.hasClients || scroll.position.maxScrollExtent == 0) {
-        return;
-      }
-      setState(
-        () => progress = (scroll.offset / scroll.position.maxScrollExtent)
-            .clamp(0, 1),
+    scroll.addListener(_handleScroll);
+  }
+
+  void _handleScroll() {
+    if (!mounted ||
+        !scroll.hasClients ||
+        scroll.position.maxScrollExtent == 0) {
+      return;
+    }
+
+    final nextProgress = (scroll.offset / scroll.position.maxScrollExtent)
+        .clamp(0, 1)
+        .toDouble();
+    setState(() => progress = nextProgress);
+
+    // Report reading progress once the student has effectively reached
+    // the end of the lesson. Queued locally when offline and synced
+    // later — see AppState.updateReadingProgress / docs/OFFLINE_FLOW.md.
+    if (nextProgress >= 0.9 &&
+        !_readingProgressReported &&
+        widget.lessonId.trim().isNotEmpty) {
+      _readingProgressReported = true;
+      unawaited(
+        context.read<AppState>().updateReadingProgress(
+          widget.lessonId,
+          (nextProgress * 100).round(),
+        ),
       );
-    });
+    }
   }
 
   Future<void> _loadLesson() async {
@@ -45,6 +68,13 @@ class _LessonScreenState extends State<LessonScreen> {
     if (mounted) {
       setState(() => lesson = loaded);
     }
+  }
+
+  @override
+  void dispose() {
+    scroll.removeListener(_handleScroll);
+    scroll.dispose();
+    super.dispose();
   }
 
   @override
@@ -59,9 +89,10 @@ class _LessonScreenState extends State<LessonScreen> {
     }
     if (currentLesson == null) {
       return XScaffold(
-        title: state.simulateOffline ? 'Không có dữ liệu offline' : 'Bài học',
+        title: state.effectiveOffline ? 'Không có dữ liệu offline' : 'Bài học',
         child: ErrorView(
-          message: state.errorMessage ??
+          message:
+              state.errorMessage ??
               'Bài học này chưa có dữ liệu. Hãy kiểm tra kết nối hoặc tải bài offline trước.',
           onRetry: _loadLesson,
         ),
@@ -95,6 +126,11 @@ class _LessonScreenState extends State<LessonScreen> {
       child: Column(
         children: [
           LinearProgressIndicator(value: progress, minHeight: 5),
+          if (state.offlineLessonUpdateAvailable(currentLesson.id))
+            _OfflineUpdateBanner(
+              lessonId: currentLesson.id,
+              onUpdated: _loadLesson,
+            ),
           Expanded(
             child: ListView(
               controller: scroll,
@@ -127,6 +163,77 @@ class _LessonScreenState extends State<LessonScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _OfflineUpdateBanner extends StatefulWidget {
+  const _OfflineUpdateBanner({required this.lessonId, required this.onUpdated});
+
+  final String lessonId;
+  final Future<void> Function() onUpdated;
+
+  @override
+  State<_OfflineUpdateBanner> createState() => _OfflineUpdateBannerState();
+}
+
+class _OfflineUpdateBannerState extends State<_OfflineUpdateBanner> {
+  bool _updating = false;
+
+  Future<void> _update() async {
+    setState(() => _updating = true);
+    try {
+      await context.read<AppState>().updateOfflineLesson(widget.lessonId);
+      await widget.onUpdated();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã cập nhật bản offline.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _updating = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final offline = context.select<AppState, bool>(
+      (state) => state.effectiveOffline,
+    );
+    return Material(
+      color: const Color(0xFFFFF7E6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.system_update_alt_rounded,
+              color: Color(0xFFB8860B),
+            ),
+            const SizedBox(width: 10),
+            const Expanded(child: Text('Có bản cập nhật cho bản offline.')),
+            TextButton.icon(
+              onPressed: offline || _updating ? null : _update,
+              icon: _updating
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.update_rounded),
+              label: const Text('Cập nhật'),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -125,8 +125,8 @@ class AdminLayout extends StatelessWidget {
           Expanded(
             child: ListView.separated(
               itemCount: menuItems.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (_, index) {
+              separatorBuilder: (context, index) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
                 final item = menuItems[index];
                 return InkWell(
                   onTap: () {
@@ -246,7 +246,7 @@ class AdminLayout extends StatelessWidget {
                     color: Color(0xFFF87171),
                     size: 18,
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Text(
                     'Thoát Admin',
                     style: TextStyle(

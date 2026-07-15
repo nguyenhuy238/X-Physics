@@ -22,6 +22,7 @@ class ApiEndpoints {
   static const progressMe = '/api/progress/me';
   static const badgesMe = '/api/badges/me';
   static const syncProgress = '/api/sync/progress';
+  static const syncDownloads = '/api/sync/downloads';
   static const adminUsers = '/api/admin/users';
   static const adminStatistics = '/api/admin/statistics';
   static const adminChapters = '/api/admin/chapters';

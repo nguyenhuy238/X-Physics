@@ -162,7 +162,8 @@ Response:
     "contentMarkdown": "# Chuyen dong deu",
     "formulaLatex": "s = v \\times t",
     "estimatedMinutes": 12,
-    "orderIndex": 1
+    "orderIndex": 1,
+    "updatedAt": "2026-07-14T08:00:00.000Z"
   }
 }
 ```
@@ -449,6 +450,25 @@ Request:
   ]
 }
 ```
+
+### POST /api/sync/downloads
+
+Auth: required. Records a "lesson downloaded for offline" event (owned by
+TV3, `backend/src/modules/offline-sync`). Best-effort from the client: the
+Flutter app calls this after a successful local download but does not fail
+the download if this call errors.
+
+Request:
+
+```json
+{
+  "lessonId": "motion-1",
+  "clientDeviceId": "device-abc123"
+}
+```
+
+`clientDeviceId` is optional. Response data: `{ "recorded": true }`.
+`lessonId` must reference a published lesson (`404` otherwise).
 
 ## Admin
 
