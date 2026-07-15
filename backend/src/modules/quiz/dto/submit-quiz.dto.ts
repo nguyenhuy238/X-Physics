@@ -1,5 +1,13 @@
-import { IsArray, IsInt, IsString, Min, ValidateNested } from 'class-validator';
-import { Type } from 'class-transformer';
+import {
+  ArrayNotEmpty,
+  IsArray,
+  IsInt,
+  IsString,
+  Max,
+  Min,
+  ValidateNested,
+} from "class-validator";
+import { Type } from "class-transformer";
 
 class QuizAnswerDto {
   @IsString()
@@ -14,7 +22,13 @@ export class SubmitQuizDto {
   @IsString()
   lessonId!: string;
 
+  @IsInt()
+  @Min(0)
+  @Max(3600)
+  durationSeconds!: number;
+
   @IsArray()
+  @ArrayNotEmpty()
   @ValidateNested({ each: true })
   @Type(() => QuizAnswerDto)
   answers!: QuizAnswerDto[];

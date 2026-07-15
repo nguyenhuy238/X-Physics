@@ -3,34 +3,54 @@
     "id": "motion-1-q1",
     "lessonId": "motion-1",
     "question": "Cong thuc tinh quang duong trong chuyen dong deu la gi?",
-    "options": ["s = v * t", "v = s * t", "t = s * v", "s = v / t"],
+    "options": [
+      "s = v * t",
+      "v = s * t",
+      "t = s * v",
+      "s = v / t"
+    ],
     "correctOption": 0,
     "explanation": "Quang duong bang van toc nhan voi thoi gian.",
-    "difficulty": "EASY"
+    "difficulty": "MEDIUM"
   },
   {
     "id": "motion-1-q2",
     "lessonId": "motion-1",
     "question": "Neu v tang va t giu nguyen thi s thay doi the nao?",
-    "options": ["Tang", "Giam", "Khong doi", "Bang 0"],
+    "options": [
+      "Tang",
+      "Giam",
+      "Khong doi",
+      "Bang 0"
+    ],
     "correctOption": 0,
     "explanation": "Trong s = v * t, s ty le thuan voi v khi t khong doi.",
-    "difficulty": "EASY"
+    "difficulty": "MEDIUM"
   },
   {
     "id": "motion-1-q3",
     "lessonId": "motion-1",
     "question": "Don vi SI cua quang duong la gi?",
-    "options": ["m", "s", "m/s", "N"],
+    "options": [
+      "m",
+      "s",
+      "m/s",
+      "N"
+    ],
     "correctOption": 0,
     "explanation": "Quang duong trong he SI co don vi met.",
-    "difficulty": "EASY"
+    "difficulty": "MEDIUM"
   },
   {
     "id": "motion-1-q4",
     "lessonId": "motion-1",
     "question": "Vat di voi v = 5 m/s trong 10 s thi di duoc bao xa?",
-    "options": ["50 m", "2 m", "15 m", "0.5 m"],
+    "options": [
+      "50 m",
+      "2 m",
+      "15 m",
+      "0.5 m"
+    ],
     "correctOption": 0,
     "explanation": "s = 5 * 10 = 50 m.",
     "difficulty": "MEDIUM"
@@ -39,7 +59,12 @@
     "id": "motion-1-q5",
     "lessonId": "motion-1",
     "question": "Khi giai bai tap dinh luong, buoc nao nen lam truoc?",
-    "options": ["Xac dinh du kien va doi don vi", "Chon dap an ngau nhien", "Bo qua cong thuc", "Chi nhin hinh"],
+    "options": [
+      "Xac dinh du kien va doi don vi",
+      "Chon dap an ngau nhien",
+      "Bo qua cong thuc",
+      "Chi nhin hinh"
+    ],
     "correctOption": 0,
     "explanation": "Can doc de, xac dinh dai luong va doi don vi truoc khi thay so.",
     "difficulty": "MEDIUM"
@@ -48,25 +73,40 @@
     "id": "motion-2-q1",
     "lessonId": "motion-2",
     "question": "Cong thuc van toc trung binh la gi?",
-    "options": ["v = s / t", "v = s * t", "s = v / t", "t = v / s"],
+    "options": [
+      "v = s / t",
+      "v = s * t",
+      "s = v / t",
+      "t = v / s"
+    ],
     "correctOption": 0,
     "explanation": "Van toc trung binh bang tong quang duong chia tong thoi gian.",
-    "difficulty": "EASY"
+    "difficulty": "MEDIUM"
   },
   {
     "id": "motion-2-q2",
     "lessonId": "motion-2",
     "question": "Don vi thuong dung cua van toc la gi?",
-    "options": ["m/s", "m", "s", "Pa"],
+    "options": [
+      "m/s",
+      "m",
+      "s",
+      "Pa"
+    ],
     "correctOption": 0,
     "explanation": "Van toc co don vi quang duong chia thoi gian, vi du m/s.",
-    "difficulty": "EASY"
+    "difficulty": "MEDIUM"
   },
   {
     "id": "motion-2-q3",
     "lessonId": "motion-2",
     "question": "Di 100 m trong 20 s thi van toc trung binh la bao nhieu?",
-    "options": ["5 m/s", "120 m/s", "80 m/s", "0.2 m/s"],
+    "options": [
+      "5 m/s",
+      "120 m/s",
+      "80 m/s",
+      "0.2 m/s"
+    ],
     "correctOption": 0,
     "explanation": "v = 100 / 20 = 5 m/s.",
     "difficulty": "MEDIUM"
@@ -75,7 +115,12 @@
     "id": "motion-2-q4",
     "lessonId": "motion-2",
     "question": "Neu cung quang duong nhung thoi gian lon hon thi v trung binh the nao?",
-    "options": ["Giam", "Tang", "Khong doi", "Bang quang duong"],
+    "options": [
+      "Giam",
+      "Tang",
+      "Khong doi",
+      "Bang quang duong"
+    ],
     "correctOption": 0,
     "explanation": "v = s / t nen khi t tang va s khong doi thi v giam.",
     "difficulty": "MEDIUM"
@@ -84,34 +129,54 @@
     "id": "motion-2-q5",
     "lessonId": "motion-2",
     "question": "Dai luong nao can biet de tinh v = s / t?",
-    "options": ["Quang duong va thoi gian", "Luc va dien tich", "Hieu dien the va dien tro", "Khoi luong va nhiet do"],
+    "options": [
+      "Quang duong va thoi gian",
+      "Luc va dien tich",
+      "Hieu dien the va dien tro",
+      "Khoi luong va nhiet do"
+    ],
     "correctOption": 0,
     "explanation": "Cong thuc can quang duong s va thoi gian t.",
-    "difficulty": "EASY"
+    "difficulty": "MEDIUM"
   },
   {
     "id": "force-1-q1",
     "lessonId": "force-1",
     "question": "Cong thuc tinh ap suat la gi?",
-    "options": ["p = F / S", "p = F * S", "F = p / S", "S = p * F"],
+    "options": [
+      "p = F / S",
+      "p = F * S",
+      "F = p / S",
+      "S = p * F"
+    ],
     "correctOption": 0,
     "explanation": "Ap suat bang ap luc chia dien tich bi ep.",
-    "difficulty": "EASY"
+    "difficulty": "MEDIUM"
   },
   {
     "id": "force-1-q2",
     "lessonId": "force-1",
     "question": "Don vi cua ap suat la gi?",
-    "options": ["Pa", "N", "m2", "A"],
+    "options": [
+      "Pa",
+      "N",
+      "m2",
+      "A"
+    ],
     "correctOption": 0,
     "explanation": "Don vi ap suat la Pascal, ky hieu Pa.",
-    "difficulty": "EASY"
+    "difficulty": "MEDIUM"
   },
   {
     "id": "force-1-q3",
     "lessonId": "force-1",
     "question": "Neu F tang va S giu nguyen thi p the nao?",
-    "options": ["Tang", "Giam", "Khong doi", "Bang 0"],
+    "options": [
+      "Tang",
+      "Giam",
+      "Khong doi",
+      "Bang 0"
+    ],
     "correctOption": 0,
     "explanation": "p ty le thuan voi F khi dien tich S khong doi.",
     "difficulty": "MEDIUM"
@@ -120,7 +185,12 @@
     "id": "force-1-q4",
     "lessonId": "force-1",
     "question": "F = 100 N, S = 2 m2 thi p bang bao nhieu?",
-    "options": ["50 Pa", "200 Pa", "102 Pa", "0.02 Pa"],
+    "options": [
+      "50 Pa",
+      "200 Pa",
+      "102 Pa",
+      "0.02 Pa"
+    ],
     "correctOption": 0,
     "explanation": "p = 100 / 2 = 50 Pa.",
     "difficulty": "MEDIUM"
@@ -129,7 +199,12 @@
     "id": "force-1-q5",
     "lessonId": "force-1",
     "question": "Muon giam ap suat khi F khong doi thi nen lam gi?",
-    "options": ["Tang dien tich bi ep", "Giam dien tich bi ep", "Tang luc", "Bo qua don vi"],
+    "options": [
+      "Tang dien tich bi ep",
+      "Giam dien tich bi ep",
+      "Tang luc",
+      "Bo qua don vi"
+    ],
     "correctOption": 0,
     "explanation": "p = F / S nen tang S se lam p giam.",
     "difficulty": "MEDIUM"
@@ -138,34 +213,54 @@
     "id": "force-2-q1",
     "lessonId": "force-2",
     "question": "Cong thuc luc day Ac-si-met la gi?",
-    "options": ["FA = d * V", "FA = d / V", "FA = V / d", "FA = d + V"],
+    "options": [
+      "FA = d * V",
+      "FA = d / V",
+      "FA = V / d",
+      "FA = d + V"
+    ],
     "correctOption": 0,
     "explanation": "Luc day Ac-si-met bang trong luong rieng chat long nhan the tich phan chat long bi vat chiem cho.",
-    "difficulty": "EASY"
+    "difficulty": "MEDIUM"
   },
   {
     "id": "force-2-q2",
     "lessonId": "force-2",
     "question": "Trong cong thuc FA = d * V, V la gi?",
-    "options": ["The tich phan chat long bi chiem cho", "Van toc", "Hieu dien the", "Dien tich"],
+    "options": [
+      "The tich phan chat long bi chiem cho",
+      "Van toc",
+      "Hieu dien the",
+      "Dien tich"
+    ],
     "correctOption": 0,
     "explanation": "V la the tich phan chat long bi vat chiem cho.",
-    "difficulty": "EASY"
+    "difficulty": "MEDIUM"
   },
   {
     "id": "force-2-q3",
     "lessonId": "force-2",
     "question": "Don vi cua luc day Ac-si-met la gi?",
-    "options": ["N", "Pa", "m/s", "Ohm"],
+    "options": [
+      "N",
+      "Pa",
+      "m/s",
+      "Ohm"
+    ],
     "correctOption": 0,
     "explanation": "Luc co don vi Newton.",
-    "difficulty": "EASY"
+    "difficulty": "MEDIUM"
   },
   {
     "id": "force-2-q4",
     "lessonId": "force-2",
     "question": "d = 10000 N/m3, V = 0.05 m3 thi FA bang bao nhieu?",
-    "options": ["500 N", "200000 N", "50 N", "0.000005 N"],
+    "options": [
+      "500 N",
+      "200000 N",
+      "50 N",
+      "0.000005 N"
+    ],
     "correctOption": 0,
     "explanation": "FA = 10000 * 0.05 = 500 N.",
     "difficulty": "MEDIUM"
@@ -174,7 +269,12 @@
     "id": "force-2-q5",
     "lessonId": "force-2",
     "question": "Neu V tang va d giu nguyen thi FA the nao?",
-    "options": ["Tang", "Giam", "Khong doi", "Bang 0"],
+    "options": [
+      "Tang",
+      "Giam",
+      "Khong doi",
+      "Bang 0"
+    ],
     "correctOption": 0,
     "explanation": "FA ty le thuan voi V khi d khong doi.",
     "difficulty": "MEDIUM"
@@ -183,25 +283,40 @@
     "id": "electric-1-q1",
     "lessonId": "electric-1",
     "question": "Dinh luat Ohm co cong thuc nao?",
-    "options": ["I = U / R", "I = U * R", "R = I / U", "U = I / R"],
+    "options": [
+      "I = U / R",
+      "I = U * R",
+      "R = I / U",
+      "U = I / R"
+    ],
     "correctOption": 0,
     "explanation": "Cuong do dong dien bang hieu dien the chia dien tro.",
-    "difficulty": "EASY"
+    "difficulty": "MEDIUM"
   },
   {
     "id": "electric-1-q2",
     "lessonId": "electric-1",
     "question": "Don vi cua cuong do dong dien la gi?",
-    "options": ["A", "V", "Ohm", "W"],
+    "options": [
+      "A",
+      "V",
+      "Ohm",
+      "W"
+    ],
     "correctOption": 0,
     "explanation": "Cuong do dong dien co don vi ampe, ky hieu A.",
-    "difficulty": "EASY"
+    "difficulty": "MEDIUM"
   },
   {
     "id": "electric-1-q3",
     "lessonId": "electric-1",
     "question": "U = 12 V, R = 4 ohm thi I bang bao nhieu?",
-    "options": ["3 A", "48 A", "16 A", "0.33 A"],
+    "options": [
+      "3 A",
+      "48 A",
+      "16 A",
+      "0.33 A"
+    ],
     "correctOption": 0,
     "explanation": "I = 12 / 4 = 3 A.",
     "difficulty": "MEDIUM"
@@ -210,7 +325,12 @@
     "id": "electric-1-q4",
     "lessonId": "electric-1",
     "question": "Neu R tang va U giu nguyen thi I the nao?",
-    "options": ["Giam", "Tang", "Khong doi", "Bang U"],
+    "options": [
+      "Giam",
+      "Tang",
+      "Khong doi",
+      "Bang U"
+    ],
     "correctOption": 0,
     "explanation": "I ty le nghich voi R khi U khong doi.",
     "difficulty": "MEDIUM"
@@ -219,34 +339,54 @@
     "id": "electric-1-q5",
     "lessonId": "electric-1",
     "question": "Trong cong thuc I = U / R, U la gi?",
-    "options": ["Hieu dien the", "Cuong do dong dien", "Dien tro", "Cong suat"],
+    "options": [
+      "Hieu dien the",
+      "Cuong do dong dien",
+      "Dien tro",
+      "Cong suat"
+    ],
     "correctOption": 0,
     "explanation": "U la hieu dien the, don vi V.",
-    "difficulty": "EASY"
+    "difficulty": "MEDIUM"
   },
   {
     "id": "electric-2-q1",
     "lessonId": "electric-2",
     "question": "Cong thuc tinh cong suat dien la gi?",
-    "options": ["P = U * I", "P = U / I", "P = I / U", "P = U + I"],
+    "options": [
+      "P = U * I",
+      "P = U / I",
+      "P = I / U",
+      "P = U + I"
+    ],
     "correctOption": 0,
     "explanation": "Cong suat dien bang hieu dien the nhan cuong do dong dien.",
-    "difficulty": "EASY"
+    "difficulty": "MEDIUM"
   },
   {
     "id": "electric-2-q2",
     "lessonId": "electric-2",
     "question": "Don vi cua cong suat dien la gi?",
-    "options": ["W", "V", "A", "Ohm"],
+    "options": [
+      "W",
+      "V",
+      "A",
+      "Ohm"
+    ],
     "correctOption": 0,
     "explanation": "Cong suat co don vi watt, ky hieu W.",
-    "difficulty": "EASY"
+    "difficulty": "MEDIUM"
   },
   {
     "id": "electric-2-q3",
     "lessonId": "electric-2",
     "question": "U = 12 V, I = 2 A thi P bang bao nhieu?",
-    "options": ["24 W", "6 W", "14 W", "0.17 W"],
+    "options": [
+      "24 W",
+      "6 W",
+      "14 W",
+      "0.17 W"
+    ],
     "correctOption": 0,
     "explanation": "P = 12 * 2 = 24 W.",
     "difficulty": "MEDIUM"
@@ -255,7 +395,12 @@
     "id": "electric-2-q4",
     "lessonId": "electric-2",
     "question": "Neu U tang va I giu nguyen thi P the nao?",
-    "options": ["Tang", "Giam", "Khong doi", "Bang 0"],
+    "options": [
+      "Tang",
+      "Giam",
+      "Khong doi",
+      "Bang 0"
+    ],
     "correctOption": 0,
     "explanation": "P ty le thuan voi U khi I khong doi.",
     "difficulty": "MEDIUM"
@@ -264,7 +409,12 @@
     "id": "electric-2-q5",
     "lessonId": "electric-2",
     "question": "P = U * I dung de mo ta dieu gi?",
-    "options": ["Muc tieu thu dien nang theo thoi gian", "Quang duong vat di", "Ap suat cua vat", "Luc day cua chat long"],
+    "options": [
+      "Muc tieu thu dien nang theo thoi gian",
+      "Quang duong vat di",
+      "Ap suat cua vat",
+      "Luc day cua chat long"
+    ],
     "correctOption": 0,
     "explanation": "Cong suat dien cho biet muc do tieu thu dien nang trong mot don vi thoi gian.",
     "difficulty": "MEDIUM"

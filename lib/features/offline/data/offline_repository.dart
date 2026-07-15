@@ -1,9 +1,30 @@
 import '../../../shared/models/x_models.dart';
+import '../models/offline_lesson_model.dart';
 
+/// Local data source for the offline lesson cache. Reads are synchronous on
+/// purpose: they are backed by a regular (non-lazy) Hive box, which is
+/// itself synchronous — matching `LocalStorageService`'s existing sync
+/// `Box<Map>` getters instead of wrapping a sync call in an unnecessary
+/// `Future`. Only `saveLesson` is async, matching Hive's real `Box.put`
+/// signature.
 abstract class OfflineRepository {
-  Future<void> saveLesson(Lesson lesson);
+  Future<void> saveLesson(String userId, Lesson lesson);
 
-  Future<Lesson?> getLesson(String lessonId);
+  Lesson? getLesson(String userId, String lessonId);
 
-  Future<List<String>> getDownloadedLessonIds();
+  OfflineLessonSnapshot? getSnapshot(String userId, String lessonId);
+
+  List<String> getDownloadedLessonIds(String userId);
+
+  List<OfflineLessonSnapshot> getDownloadedLessons(String userId);
+
+  Future<void> saveSnapshot(OfflineLessonSnapshot snapshot);
+
+  Future<void> updateMetadata(
+    String userId,
+    String lessonId,
+    OfflineLessonMetadata metadata,
+  );
+
+  Future<void> deleteLesson(String userId, String lessonId);
 }

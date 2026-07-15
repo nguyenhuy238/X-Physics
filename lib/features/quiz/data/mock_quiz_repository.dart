@@ -26,8 +26,18 @@ class MockQuizRepository implements QuizRepository {
       lessonId: lessonId,
       answers: answers,
       score: score,
-      coins: score >= 8 ? 30 : 10,
-      newBadges: score == 10 ? const ['Diem tuyet doi'] : const [],
+      earnedCoins: score >= 8 ? 30 : 10,
+      newBadges: score == 10
+          ? const [
+              XBadge(
+                id: 'perfect-score',
+                name: 'Điểm tuyệt đối',
+                description: '',
+                iconUrl: '',
+                ruleKey: 'quiz_score_10',
+              ),
+            ]
+          : const [],
     );
   }
 }

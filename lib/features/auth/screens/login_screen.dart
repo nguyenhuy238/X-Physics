@@ -6,6 +6,7 @@ import '../../progress/application/app_state.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
@@ -93,6 +94,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 8),
                   TextField(
                     controller: email,
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
                     decoration: InputDecoration(
                       prefixIcon: const Icon(
                         Icons.email_outlined,
@@ -135,6 +138,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextField(
                     controller: password,
                     obscureText: _obscureText,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _submit(context),
                     decoration: InputDecoration(
                       prefixIcon: const Icon(
                         Icons.lock_outline_rounded,
@@ -225,20 +230,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   // Login Button
                   FilledButton(
-                    onPressed: state.isBusy
-                        ? null
-                        : () async {
-                            final ok = await context.read<AppState>().login(
-                              email.text.trim(),
-                              password.text,
-                            );
-                            if (ok && context.mounted) {
-                              final appState = context.read<AppState>();
-                              context.go(
-                                appState.canAccessAdmin ? '/admin' : '/',
-                              );
-                            }
-                          },
+                    onPressed: state.isBusy ? null : () => _submit(context),
                     style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xFF2563EB),
                       foregroundColor: Colors.white,
@@ -347,6 +339,18 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 16),
+                  TextButton.icon(
+                    onPressed: () {
+                      email.text = 'admin@example.com';
+                      password.text = '123456';
+                    },
+                    icon: const Icon(Icons.admin_panel_settings_rounded, size: 18),
+                    label: const Text('Dùng tài khoản Admin demo'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF64748B),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -354,5 +358,26 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _submit(BuildContext context) async {
+    if (context.read<AppState>().isBusy) {
+      return;
+    }
+    final ok = await context.read<AppState>().login(
+      email.text.trim(),
+      password.text,
+    );
+    if (ok && context.mounted) {
+      final appState = context.read<AppState>();
+      context.go(appState.canAccessAdmin ? '/admin' : '/');
+    }
+  }
+
+  @override
+  void dispose() {
+    email.dispose();
+    password.dispose();
+    super.dispose();
   }
 }

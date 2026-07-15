@@ -1,3 +1,5 @@
+import '../../../shared/models/x_models.dart';
+
 class QuizResultModel {
   const QuizResultModel({
     required this.lessonId,
@@ -13,5 +15,5 @@ class QuizResultModel {
   final int correctCount;
   final int totalQuestions;
   final int coinsEarned;
-  final List<String> newBadges;
+  final List<XBadge> newBadges;
 }

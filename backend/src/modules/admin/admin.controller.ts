@@ -13,8 +13,11 @@ import {
 import {
   AdminChapterDto,
   AdminLessonDto,
-  AdminQuestionDto,
   AdminUsersQueryDto,
+  AdminQuestionQueryDto,
+  CreateAdminQuestionDto,
+  ReorderAdminQuestionsDto,
+  UpdateAdminQuestionDto,
 } from './dto/admin-content.dto';
 import {
   AdminChapterItemDto,
@@ -127,7 +130,6 @@ export class AdminController {
     return ApiResponseDto.ok(await this.adminService.lessons());
   }
 
-  @Get('questions')
   @ApiOkResponse({
     description: 'Admin question list with correct options.',
     type: ApiResponseDto,
@@ -145,8 +147,18 @@ export class AdminController {
       ],
     },
   })
-  async questions() {
-    return ApiResponseDto.ok(await this.adminService.questions());
+  async questions(@Query() query: AdminQuestionQueryDto) {
+    return ApiResponseDto.ok(await this.adminService.questions(query));
+  }
+
+  @Get('questions/:id')
+  async question(@Param('id') id: string) {
+    return ApiResponseDto.ok(await this.adminService.question(id));
+  }
+
+  @Put('questions/reorder')
+  async reorderQuestions(@Body() dto: ReorderAdminQuestionsDto) {
+    return ApiResponseDto.ok(await this.adminService.reorderQuestions(dto));
   }
 
   @Post('chapters')
@@ -224,8 +236,7 @@ export class AdminController {
     return ApiResponseDto.ok(await this.adminService.removeLesson(id));
   }
 
-  @Post('questions')
-  @ApiBody({ type: AdminQuestionDto })
+  @ApiBody({ type: CreateAdminQuestionDto })
   @ApiOkResponse({
     description: 'Create or upsert a question.',
     type: ApiResponseDto,
@@ -240,7 +251,7 @@ export class AdminController {
       ],
     },
   })
-  async createQuestion(@Body() dto: AdminQuestionDto) {
+  async createQuestion(@Body() dto: CreateAdminQuestionDto) {
     return ApiResponseDto.ok(
       await this.adminService.createQuestion(dto),
       'Created',
@@ -249,10 +260,10 @@ export class AdminController {
 
   @Put('questions/:id')
   @ApiParam({ name: 'id', description: 'Question ID' })
-  @ApiBody({ type: AdminQuestionDto })
+  @ApiBody({ type: UpdateAdminQuestionDto })
   async updateQuestion(
     @Param('id') id: string,
-    @Body() dto: AdminQuestionDto,
+    @Body() dto: UpdateAdminQuestionDto,
   ) {
     return ApiResponseDto.ok(await this.adminService.updateQuestion(id, dto));
   }

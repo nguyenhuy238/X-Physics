@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 
 import { ApiResponseDto } from '../../common/api-response.dto';
 import { AuthGuard } from '../../common/auth.guard';
+import { AuthenticatedUser } from '../../common/current-user';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -26,10 +27,21 @@ export class AuthController {
     return ApiResponseDto.ok(await this.authService.refresh(dto));
   }
 
+  @Post('refresh-token')
+  async refreshToken(@Body() dto: RefreshTokenDto) {
+    return ApiResponseDto.ok(await this.authService.refresh(dto));
+  }
+
   @Post('logout')
   @UseGuards(AuthGuard)
-  logout() {
-    return ApiResponseDto.ok(this.authService.logout());
+  async logout(@Req() request: { user: AuthenticatedUser }) {
+    return ApiResponseDto.ok(await this.authService.logout(request.user.id));
+  }
+
+  @Get('me')
+  @UseGuards(AuthGuard)
+  async me(@Req() request: { user: AuthenticatedUser }) {
+    return ApiResponseDto.ok(await this.authService.me(request.user.id));
   }
 
   @Get('health')

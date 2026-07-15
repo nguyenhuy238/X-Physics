@@ -8,7 +8,7 @@ class BadgeGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (badges.isEmpty) {
-      return const Text('Chua co huy hieu.');
+      return const Text('Chưa có huy hiệu.');
     }
     return Wrap(
       spacing: 8,
