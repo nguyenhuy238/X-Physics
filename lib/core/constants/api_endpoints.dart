@@ -9,8 +9,10 @@ class ApiEndpoints {
   static const register = '/api/auth/register';
   static const login = '/api/auth/login';
   static const refresh = '/api/auth/refresh';
+  static const refreshToken = '/api/auth/refresh-token';
   static const logout = '/api/auth/logout';
   static const me = '/api/users/me';
+  static const changePassword = '/api/users/me/change-password';
   static const dashboard = '/api/dashboard/me';
   static const progressDashboard = '/api/progress/dashboard/me';
   static const profileMe = '/api/profile/me';

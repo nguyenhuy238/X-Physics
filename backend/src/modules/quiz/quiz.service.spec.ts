@@ -301,7 +301,7 @@ describe("QuizService submit", () => {
     const answers = answersFor("lesson-1", 5);
     answers[0] = { questionId: "lesson-2-q1", selectedOption: 0 };
     await expect(submit(service, "lesson-1", answers)).rejects.toThrow(
-      "Bộ câu hỏi đã được cập nhật",
+      "B? c�u h?i d� du?c c?p nh?t",
     );
   });
 

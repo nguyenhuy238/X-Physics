@@ -1,47 +1,47 @@
-# Seed Data Spec
+# Quy chuẩn Seed Data
 
-Seed data lives in `seed-data/`.
+Seed data nằm trong thư mục `seed-data/`.
 
-## Demo users
+## Tài khoản demo
 
-- Student: Nguyen Van Nam, `nam@example.com`, password `123456`, role `STUDENT`.
-- Admin: Admin User, `admin@example.com`, password `123456`, role `ADMIN`.
+- Student: Nguyễn Văn Nam, `nam@example.com`, mật khẩu `123456`, role `STUDENT`.
+- Admin: Admin User, `admin@example.com`, mật khẩu `123456`, role `ADMIN`.
 
-Passwords in JSON are demo-only. Backend seed script must hash with bcrypt before insert.
+Mật khẩu trong JSON chỉ dùng cho môi trường demo. Script seed của backend phải hash bằng bcrypt trước khi insert vào database.
 
-## Chapters
+## Chương học
 
-1. Chuyen dong co hoc.
-2. Luc va ap suat.
-3. Dien hoc.
+1. Chuyển động cơ học.
+2. Lực và áp suất.
+3. Điện học.
 
-## Lessons
+## Bài học
 
-1. Chuyen dong deu - `s = v * t`.
-2. Van toc trung binh - `v = s / t`.
-3. Ap suat - `p = F / S`.
-4. Luc day Ac-si-met - `FA = d * V`.
-5. Dinh luat Ohm - `I = U / R`.
-6. Cong suat dien - `P = U * I`.
+1. Chuyển động đều - `s = v * t`.
+2. Vận tốc trung bình - `v = s / t`.
+3. Áp suất - `p = F / S`.
+4. Lực đẩy Ác-si-mét - `FA = d * V`.
+5. Định luật Ohm - `I = U / R`.
+6. Công suất điện - `P = U * I`.
 
-## Questions
+## Câu hỏi
 
-- Moi lesson co 5 cau.
-- Moi cau co 4 options.
-- Co `correctOption` index 0-based.
-- Co `explanation` tieng Viet.
+- Mỗi bài học có 5 câu.
+- Mỗi câu có 4 đáp án.
+- Có `correctOption` theo index bắt đầu từ 0.
+- Có `explanation` bằng tiếng Việt.
 
-## Simulation config
+## Cấu hình mô phỏng
 
-- `s = v * t`: variables `v`, `t`, result `s`.
-- `p = F / S`: variables `F`, `S`, result `p`.
-- `I = U / R`: variables `U`, `R`, result `I`.
-- Optional: `P = U * I`.
+- `s = v * t`: biến `v`, `t`, kết quả `s`.
+- `p = F / S`: biến `F`, `S`, kết quả `p`.
+- `I = U / R`: biến `U`, `R`, kết quả `I`.
+- Tùy chọn: `P = U * I`.
 
-## Badges
+## Huy hiệu
 
-- Khoi dau Vat Li.
-- Diem tuyet doi.
-- Bac thay chuyen dong.
-- Dien than.
-- Nha bac hoc.
+- Khởi đầu Vật Lí.
+- Điểm tuyệt đối.
+- Bậc thầy chuyển động.
+- Điện thần.
+- Nhà bác học.
