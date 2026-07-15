@@ -7,9 +7,15 @@ create table if not exists users (
   password_hash text not null,
   role varchar(30) not null check (role in ('STUDENT', 'TEACHER', 'ADMIN')),
   coins integer not null default 0,
+  refresh_token_hash text,
+  refresh_token_expires_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table users
+  add column if not exists refresh_token_hash text,
+  add column if not exists refresh_token_expires_at timestamptz;
 
 create table if not exists chapters (
   id varchar(80) primary key,

@@ -1,109 +1,109 @@
-# Báo cáo Deliverables của Thành viên 2 (TV2) - Learning Content
+# B�o c�o Deliverables c?a Th�nh vi�n 2 (TV2) - Learning Content
 
-Tài liệu này tổng hợp toàn bộ các phần việc đã được code và triển khai thành công cho **Thành viên 2 (TV2)** phụ trách module **Learning Content (Chapters, Lessons, Simulations)** bao gồm ERD, cơ sở dữ liệu, API Backend (NestJS), dữ liệu mẫu (Seed Data) và Giao diện Frontend (Flutter).
+T�i li?u n�y t?ng h?p to�n b? c�c ph?n vi?c d� du?c code v� tri?n khai th�nh c�ng cho **Th�nh vi�n 2 (TV2)** ph? tr�ch module **Learning Content (Chapters, Lessons, Simulations)** bao g?m ERD, co s? d? li?u, API Backend (NestJS), d? li?u m?u (Seed Data) v� Giao di?n Frontend (Flutter).
 
 ---
 
-## 1. Sơ đồ thực thể quan hệ (ERD) - Phần Content
+## 1. So d? th?c th? quan h? (ERD) - Ph?n Content
 
-Dưới đây là sơ đồ quan hệ giữa các bảng thuộc phạm vi quản lý của TV2:
+Du?i d�y l� so d? quan h? gi?a c�c b?ng thu?c ph?m vi qu?n l� c?a TV2:
 
 ```mermaid
 erDiagram
     CHAPTERS {
-        varchar id PK "Mã chương học"
-        varchar title "Tiêu đề chương"
-        text description "Mô tả chương"
-        integer order_index "Thứ tự hiển thị (Unique)"
-        boolean is_published "Trạng thái công khai"
-        timestamptz created_at "Ngày tạo"
-        timestamptz updated_at "Ngày cập nhật"
+        varchar id PK "M� chuong h?c"
+        varchar title "Ti�u d? chuong"
+        text description "M� t? chuong"
+        integer order_index "Th? t? hi?n th? (Unique)"
+        boolean is_published "Tr?ng th�i c�ng khai"
+        timestamptz created_at "Ng�y t?o"
+        timestamptz updated_at "Ng�y c?p nh?t"
     }
 
     LESSONS {
-        varchar id PK "Mã bài học"
-        varchar chapter_id FK "Liên kết với Chapters"
-        varchar title "Tiêu đề bài học"
-        text content_markdown "Nội dung bài học bằng Markdown"
-        text formula_latex "Công thức dạng LaTeX"
-        integer estimated_minutes "Thời gian học dự kiến"
-        integer order_index "Thứ tự hiển thị trong chương"
-        boolean is_published "Trạng thái công khai"
-        timestamptz created_at "Ngày tạo"
-        timestamptz updated_at "Ngày cập nhật"
+        varchar id PK "M� b�i h?c"
+        varchar chapter_id FK "Li�n k?t v?i Chapters"
+        varchar title "Ti�u d? b�i h?c"
+        text content_markdown "N?i dung b�i h?c b?ng Markdown"
+        text formula_latex "C�ng th?c d?ng LaTeX"
+        integer estimated_minutes "Th?i gian h?c d? ki?n"
+        integer order_index "Th? t? hi?n th? trong chuong"
+        boolean is_published "Tr?ng th�i c�ng khai"
+        timestamptz created_at "Ng�y t?o"
+        timestamptz updated_at "Ng�y c?p nh?t"
     }
 
     SIMULATIONS {
-        varchar id PK "Mã mô phỏng"
-        varchar lesson_id FK "Liên kết với Lessons"
-        varchar title "Tiêu đề mô phỏng"
-        text formula "Công thức hiển thị (LaTeX)"
-        varchar expression "Biểu thức tính toán (ví dụ: v*t)"
-        jsonb variables_json "Mảng biến số và giới hạn kéo"
-        jsonb result_json "Kết quả đầu ra"
+        varchar id PK "M� m� ph?ng"
+        varchar lesson_id FK "Li�n k?t v?i Lessons"
+        varchar title "Ti�u d? m� ph?ng"
+        text formula "C�ng th?c hi?n th? (LaTeX)"
+        varchar expression "Bi?u th?c t�nh to�n (v� d?: v*t)"
+        jsonb variables_json "M?ng bi?n s? v� gi?i h?n k�o"
+        jsonb result_json "K?t qu? d?u ra"
     }
 
-    CHAPTERS ||--o{ LESSONS : "chứa (chapter_id)"
-    LESSONS ||--o| SIMULATIONS : "mô phỏng (lesson_id)"
+    CHAPTERS ||--o{ LESSONS : "ch?a (chapter_id)"
+    LESSONS ||--o| SIMULATIONS : "m� ph?ng (lesson_id)"
 ```
 
 ---
 
-## 2. Phần Cơ sở dữ liệu & Dữ liệu mẫu (Database & Seed)
+## 2. Ph?n Co s? d? li?u & D? li?u m?u (Database & Seed)
 
-### A. SQL Schema (Bảng dữ liệu)
-Định nghĩa bảng trong [schema.sql](file:///c:/Users/MSILap/Desktop/New%20folder/X-Physics/backend/src/database/schema.sql):
-* **Bảng Chapters:** Lưu trữ các chương lớn (ví dụ: Chuyển động cơ học, Lực và áp suất, Điện học).
-* **Bảng Lessons:** Lưu trữ chi tiết bài học dưới dạng Markdown hỗ trợ công thức LaTeX.
-* **Bảng Simulations:** Lưu cấu hình mô phỏng công thức động (dải trượt slider).
+### A. SQL Schema (B?ng d? li?u)
+�?nh nghia b?ng trong [schema.sql](file:///c:/Users/MSILap/Desktop/New%20folder/X-Physics/backend/src/database/schema.sql):
+* **B?ng Chapters:** Luu tr? c�c chuong l?n (v� d?: Chuy?n d?ng co h?c, L?c v� �p su?t, �i?n h?c).
+* **B?ng Lessons:** Luu tr? chi ti?t b�i h?c du?i d?ng Markdown h? tr? c�ng th?c LaTeX.
+* **B?ng Simulations:** Luu c?u h�nh m� ph?ng c�ng th?c d?ng (d?i tru?t slider).
 
-### B. Dữ liệu mẫu (Seed Data)
-Dữ liệu mẫu nằm trong thư mục [seed-data/](file:///c:/Users/MSILap/Desktop/New%20folder/X-Physics/seed-data) và được tự động nạp qua [seed.ts](file:///c:/Users/MSILap/Desktop/New%20folder/X-Physics/backend/src/database/seed.ts):
-* **Chương học:** [chapters.json](file:///c:/Users/MSILap/Desktop/New%20folder/X-Physics/seed-data/chapters.json)
-* **Bài học:** [lessons.json](file:///c:/Users/MSILap/Desktop/New%20folder/X-Physics/seed-data/lessons.json)
-* **Mô phỏng:** [simulations.json](file:///c:/Users/MSILap/Desktop/New%20folder/X-Physics/seed-data/simulations.json)
+### B. D? li?u m?u (Seed Data)
+D? li?u m?u n?m trong thu m?c [seed-data/](file:///c:/Users/MSILap/Desktop/New%20folder/X-Physics/seed-data) v� du?c t? d?ng n?p qua [seed.ts](file:///c:/Users/MSILap/Desktop/New%20folder/X-Physics/backend/src/database/seed.ts):
+* **Chuong h?c:** [chapters.json](file:///c:/Users/MSILap/Desktop/New%20folder/X-Physics/seed-data/chapters.json)
+* **B�i h?c:** [lessons.json](file:///c:/Users/MSILap/Desktop/New%20folder/X-Physics/seed-data/lessons.json)
+* **M� ph?ng:** [simulations.json](file:///c:/Users/MSILap/Desktop/New%20folder/X-Physics/seed-data/simulations.json)
 
 ---
 
 ## 3. API Backend (NestJS)
 
-Module Backend của TV2 đã được hoàn thiện cấu trúc gồm:
+Module Backend c?a TV2 d� du?c ho�n thi?n c?u tr�c g?m:
 
-### A. Cấu trúc thư mục
+### A. C?u tr�c thu m?c
 * Chapters Module: [backend/src/modules/chapters/](file:///c:/Users/MSILap/Desktop/New%20folder/X-Physics/backend/src/modules/chapters)
 * Lessons Module: [backend/src/modules/lessons/](file:///c:/Users/MSILap/Desktop/New%20folder/X-Physics/backend/src/modules/lessons)
 * Simulations Module: [backend/src/modules/simulations/](file:///c:/Users/MSILap/Desktop/New%20folder/X-Physics/backend/src/modules/simulations)
 
 ### B. Endpoints API
-Các Controller định nghĩa các API sau:
-1. **Lấy danh sách chương:** `GET /api/chapters`
-2. **Lấy chi tiết chương:** `GET /api/chapters/:id`
-3. **Lấy danh sách bài học thuộc chương:** `GET /api/chapters/:id/lessons`
-4. **Lấy chi tiết bài học:** `GET /api/lessons/:id`
-5. **Lấy mô phỏng của bài học:** `GET /api/lessons/:id/simulations`
+C�c Controller d?nh nghia c�c API sau:
+1. **L?y danh s�ch chuong:** `GET /api/chapters`
+2. **L?y chi ti?t chuong:** `GET /api/chapters/:id`
+3. **L?y danh s�ch b�i h?c thu?c chuong:** `GET /api/chapters/:id/lessons`
+4. **L?y chi ti?t b�i h?c:** `GET /api/lessons/:id`
+5. **L?y m� ph?ng c?a b�i h?c:** `GET /api/lessons/:id/simulations`
 
 ---
 
-## 4. Giao diện Frontend (Flutter)
+## 4. Giao di?n Frontend (Flutter)
 
-Giao diện học tập (UX/UI) của TV2 được triển khai qua các màn hình và widget sau:
+Giao di?n h?c t?p (UX/UI) c?a TV2 du?c tri?n khai qua c�c m�n h�nh v� widget sau:
 
-### A. Home Dashboard (Danh sách chương học)
+### A. Home Dashboard (Danh s�ch chuong h?c)
 * **File:** [home_screen.dart](file:///c:/Users/MSILap/Desktop/New%20folder/X-Physics/lib/features/home/screens/home_screen.dart)
-* **Chức năng:** Hiển thị lời chào cá nhân hóa, tổng số xu đang có, danh sách các chương học dưới dạng thẻ Card với màu sắc đặc trưng, hiển thị thanh phần trăm tiến trình hoàn thành của từng chương.
+* **Ch?c nang:** Hi?n th? l?i ch�o c� nh�n h�a, t?ng s? xu dang c�, danh s�ch c�c chuong h?c du?i d?ng th? Card v?i m�u s?c d?c trung, hi?n th? thanh ph?n tram ti?n tr�nh ho�n th�nh c?a t?ng chuong.
 
-### B. Chapter Detail (Danh sách bài học)
+### B. Chapter Detail (Danh s�ch b�i h?c)
 * **File:** [chapter_detail_screen.dart](file:///c:/Users/MSILap/Desktop/New%20folder/X-Physics/lib/features/chapters/screens/chapter_detail_screen.dart)
-* **Chức năng:** Hiển thị danh sách các bài học tương ứng với chương đã chọn. Các bài học đã hoàn thành sẽ hiển thị dấu check màu xanh.
+* **Ch?c nang:** Hi?n th? danh s�ch c�c b�i h?c tuong ?ng v?i chuong d� ch?n. C�c b�i h?c d� ho�n th�nh s? hi?n th? d?u check m�u xanh.
 
-### C. Lesson Detail Shell (Chi tiết bài học)
+### C. Lesson Detail Shell (Chi ti?t b�i h?c)
 * **File:** [lesson_screen.dart](file:///c:/Users/MSILap/Desktop/New%20folder/X-Physics/lib/features/lessons/screens/lesson_screen.dart)
-* **Chức năng:**
-  * Hiển thị thanh tiến trình đọc bài (progress bar ở đầu trang).
-  * Render nội dung bài học bằng định dạng Markdown thông qua widget `MarkdownBody`.
-  * Hiển thị các công thức vật lí chính bằng LaTeX thông qua thư viện `flutter_math_fork`.
-  * Nhúng widget mô phỏng công thức và nút chuyển sang làm bài tập trắc nghiệm (Quiz).
+* **Ch?c nang:**
+  * Hi?n th? thanh ti?n tr�nh d?c b�i (progress bar ? d?u trang).
+  * Render n?i dung b�i h?c b?ng d?nh d?ng Markdown th�ng qua widget `MarkdownBody`.
+  * Hi?n th? c�c c�ng th?c v?t l� ch�nh b?ng LaTeX th�ng qua thu vi?n `flutter_math_fork`.
+  * Nh�ng widget m� ph?ng c�ng th?c v� n�t chuy?n sang l�m b�i t?p tr?c nghi?m (Quiz).
 
-### D. Interactive Formula Simulation Widget (Mô phỏng công thức)
+### D. Interactive Formula Simulation Widget (M� ph?ng c�ng th?c)
 * **File:** [formula_simulation_widget.dart](file:///c:/Users/MSILap/Desktop/New%20folder/X-Physics/lib/features/lessons/widgets/formula_simulation_widget.dart)
-* **Chức năng:** Cho phép học sinh tương tác trực tiếp với công thức bằng cách thay đổi giá trị của các biến qua thanh trượt `Slider` (ví dụ: kéo thay đổi vận tốc $v$, thời gian $t$) và kết quả tính toán (quãng đường $s = v \times t$) sẽ lập tức thay đổi động trên màn hình.
+* **Ch?c nang:** Cho ph�p h?c sinh tuong t�c tr?c ti?p v?i c�ng th?c b?ng c�ch thay d?i gi� tr? c?a c�c bi?n qua thanh tru?t `Slider` (v� d?: k�o thay d?i v?n t?c $v$, th?i gian $t$) v� k?t qu? t�nh to�n (qu�ng du?ng $s = v \times t$) s? l?p t?c thay d?i d?ng tr�n m�n h�nh.

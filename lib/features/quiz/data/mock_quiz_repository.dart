@@ -31,7 +31,7 @@ class MockQuizRepository implements QuizRepository {
           ? const [
               XBadge(
                 id: 'perfect-score',
-                name: 'Diem tuyet doi',
+                name: 'Điểm tuyệt đối',
                 description: '',
                 iconUrl: '',
                 ruleKey: 'quiz_score_10',

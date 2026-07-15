@@ -35,10 +35,10 @@ class _ProgressScreenState extends State<ProgressScreen> {
     final error = state.progressDashboardError;
 
     return XScaffold(
-      title: 'Tien do hoc tap',
+      title: 'Tiến độ học tập',
       actions: [
         IconButton(
-          tooltip: 'Lam moi',
+          tooltip: 'Làm mới',
           onPressed: state.isProgressDashboardLoading ? null : _refresh,
           icon: const Icon(Icons.refresh_rounded),
         ),
@@ -101,7 +101,7 @@ class _RefreshableEmptyState extends StatelessWidget {
           height: MediaQuery.sizeOf(context).height * 0.7,
           child: const EmptyView(
             message:
-                'Chua co tien do hoc tap. Hay hoan thanh mot bai quiz dau tien.',
+                'Chưa có tiến độ học tập. Hãy hoàn thành một bài quiz đầu tiên.',
           ),
         ),
       ],
@@ -125,7 +125,7 @@ class _DashboardView extends StatelessWidget {
         _RecentAttemptsChart(attempts: dashboard.recentAttempts),
         const SizedBox(height: 16),
         Text(
-          'Tien do tung chuong',
+          'Tiến độ từng chương',
           style: Theme.of(
             context,
           ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
@@ -163,12 +163,12 @@ class _OverallCard extends StatelessWidget {
               runSpacing: 12,
               children: [
                 _MetricChip(
-                  label: 'Bai da xong',
+                  label: 'Bài đã xong',
                   value:
                       '${dashboard.completedLessons}/${dashboard.totalLessons}',
                 ),
                 _MetricChip(
-                  label: 'Diem TB',
+                  label: 'Điểm TB',
                   value: dashboard.averageScore.toStringAsFixed(2),
                 ),
                 _MetricChip(label: 'Xu', value: '${dashboard.totalCoins}'),
@@ -273,7 +273,7 @@ class _RecentAttemptsChart extends StatelessWidget {
             SizedBox(
               height: 220,
               child: chronological.isEmpty
-                  ? const Center(child: Text('Chua co lan lam quiz nao.'))
+                  ? const Center(child: Text('Chưa có lần làm quiz nào.'))
                   : BarChart(
                       BarChartData(
                         minY: 0,

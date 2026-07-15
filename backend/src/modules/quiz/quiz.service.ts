@@ -184,7 +184,7 @@ export class QuizService {
       const question = questionsById.get(answer.questionId);
       if (!question) {
         throw new ConflictException(
-          "Bộ câu hỏi đã được cập nhật. Vui lòng tải lại quiz.",
+          "B? c�u h?i d� du?c c?p nh?t. Vui l�ng t?i l?i quiz.",
         );
       }
       const options = Array.isArray(question.options) ? question.options : [];
@@ -196,13 +196,13 @@ export class QuizService {
     for (const question of questions) {
       if (!seenQuestionIds.has(question.id)) {
         throw new ConflictException(
-          "Bộ câu hỏi đã được cập nhật. Vui lòng tải lại quiz.",
+          "B? c�u h?i d� du?c c?p nh?t. Vui l�ng t?i l?i quiz.",
         );
       }
     }
     if (dto.answers.length !== questions.length) {
       throw new ConflictException(
-        "Bộ câu hỏi đã được cập nhật. Vui lòng tải lại quiz.",
+        "B? c�u h?i d� du?c c?p nh?t. Vui l�ng t?i l?i quiz.",
       );
     }
   }

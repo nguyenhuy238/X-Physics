@@ -1,18 +1,18 @@
-# Team Workflow
+# Quy trình làm việc nhóm
 
-## Quy trinh hang ngay
+## Quy trình hằng ngày
 
-1. Pull code moi nhat tu `main` hoac `develop`.
-2. Kiem tra `docs/MODULE_OWNERSHIP.md` de chac chan task dung scope.
-3. Tao branch theo module.
-4. Code trong folder module chinh.
-5. Commit nho theo tung thay doi co y nghia.
+1. Pull code mới nhất từ `main` hoặc `develop`.
+2. Kiểm tra `docs/MODULE_OWNERSHIP.md` để chắc chắn task đúng phạm vi.
+3. Tạo branch theo module.
+4. Code trong folder module chính.
+5. Commit nhỏ theo từng thay đổi có ý nghĩa.
 6. Push branch.
-7. Tao Pull Request.
-8. Cho review, sua feedback.
+7. Tạo Pull Request.
+8. Chờ review và sửa feedback.
 9. Merge sau khi pass checklist.
 
-## Truoc khi tao branch
+## Trước khi tạo branch
 
 ```powershell
 git checkout main
@@ -20,16 +20,16 @@ git pull origin main
 git checkout -b feature/auth-profile
 ```
 
-Neu team dung `develop`, tao branch tu `develop`.
+Nếu team dùng `develop`, tạo branch từ `develop`.
 
 ## Commit
 
-- Moi commit nen co mot muc dich ro.
-- Khong gom nhieu module khong lien quan trong mot commit.
-- Khong commit file generated/build/cache.
-- Khong commit `.env`.
+- Mỗi commit nên có một mục đích rõ.
+- Không gom nhiều module không liên quan trong một commit.
+- Không commit file generated/build/cache.
+- Không commit `.env`.
 
-Vi du:
+Ví dụ:
 
 ```text
 feat(auth): implement login screen
@@ -41,16 +41,16 @@ chore(project): update dependencies
 
 ## Pull Request
 
-- PR phai ghi module affected.
-- PR UI nen co screenshot/video ngan.
-- PR doi API/model phai cap nhat docs.
-- Khong push truc tiep vao `main`.
-- Khong merge PR cua minh khi chua co review.
+- PR phải ghi rõ module bị ảnh hưởng.
+- PR UI nên có screenshot hoặc video ngắn.
+- PR đổi API/model phải cập nhật docs.
+- Không push trực tiếp vào `main`.
+- Không tự merge PR của mình khi chưa có review.
 
 ## Resolve conflict
 
-1. Pull/rebase branch moi nhat.
-2. Doc conflict theo tung file.
-3. Giu logic cua ca hai ben neu khong mau thuan.
-4. Chay format/analyze/test lien quan.
-5. Bao nguoi owner file neu conflict o core, router, theme, API contract hoac schema.
+1. Pull hoặc rebase branch mới nhất.
+2. Đọc conflict theo từng file.
+3. Giữ logic của cả hai bên nếu không mâu thuẫn.
+4. Chạy format/analyze/test liên quan.
+5. Báo owner file nếu conflict ở core, router, theme, API contract hoặc schema.

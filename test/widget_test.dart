@@ -11,6 +11,7 @@ import 'package:x_physics/core/network/api_client.dart';
 import 'package:x_physics/core/router/app_router.dart';
 import 'package:x_physics/core/storage/token_storage.dart';
 import 'package:x_physics/features/admin/screens/admin_questions_screen.dart';
+import 'package:x_physics/features/auth/screens/login_screen.dart';
 import 'package:x_physics/features/progress/application/app_state.dart';
 import 'package:x_physics/features/progress/screens/progress_screen.dart';
 import 'package:x_physics/features/profile/screens/profile_screen.dart';
@@ -98,6 +99,11 @@ class FakeAppState extends AppState {
   int loadCount = 0;
   int dashboardLoadCount = 0;
   int profileLoadCount = 0;
+  int profileNameUpdateCount = 0;
+  int passwordChangeCount = 0;
+  int passwordChangeSignOutCount = 0;
+  int loginCount = 0;
+  String? updatedProfileName;
   int submitCount = 0;
   int? lastDurationSeconds;
   Map<String, int>? lastAnswers;
@@ -211,6 +217,51 @@ class FakeAppState extends AppState {
 
   @override
   Future<void> refreshProfile() => loadProfile();
+
+  @override
+  Future<bool> updateProfileName(String name) async {
+    profileNameUpdateCount++;
+    isProfileLoading = true;
+    notifyListeners();
+    await Future<void>.delayed(Duration.zero);
+    updatedProfileName = name.trim();
+    isProfileLoading = false;
+    notifyListeners();
+    return true;
+  }
+
+  @override
+  Future<bool> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmNewPassword,
+  }) async {
+    passwordChangeCount++;
+    isProfileLoading = true;
+    notifyListeners();
+    await Future<void>.delayed(Duration.zero);
+    isProfileLoading = false;
+    notifyListeners();
+    return true;
+  }
+
+  @override
+  Future<void> signOutAfterPasswordChange() async {
+    passwordChangeSignOutCount++;
+    await logout();
+  }
+
+  @override
+  Future<bool> login(String email, String password) async {
+    loginCount++;
+    isBusy = true;
+    notifyListeners();
+    await Future<void>.delayed(Duration.zero);
+    user = XUser(id: 'user-1', name: 'Nam', email: email, role: 'STUDENT');
+    isBusy = false;
+    notifyListeners();
+    return true;
+  }
 
   @override
   Future<void> loadAdminChapters() async {
@@ -523,6 +574,7 @@ Future<GoRouter> _pumpProfile(
   WidgetTester tester,
   FakeAppState state, {
   Size? surfaceSize,
+  bool useRealLogin = false,
 }) async {
   if (surfaceSize != null) {
     await tester.binding.setSurfaceSize(surfaceSize);
@@ -532,7 +584,13 @@ Future<GoRouter> _pumpProfile(
     routes: [
       GoRoute(
         path: '/login',
-        builder: (_, _) => const Scaffold(body: Text('Login route')),
+        builder: (_, _) => useRealLogin
+            ? const LoginScreen()
+            : const Scaffold(body: Text('Login route')),
+      ),
+      GoRoute(
+        path: '/',
+        builder: (_, _) => const Scaffold(body: Text('Home route')),
       ),
       GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
       GoRoute(
@@ -588,7 +646,7 @@ Future<void> _loadQuiz(WidgetTester tester, FakeAppState state) async {
 Future<void> _selectOnlyQuestionAndOpenConfirm(WidgetTester tester) async {
   await tester.tap(find.text('A1'));
   await tester.pump();
-  await tester.tap(find.text('Nop bai'));
+  await tester.tap(find.text('Nộp bài'));
   await tester.pumpAndSettle();
 }
 
@@ -728,7 +786,7 @@ void main() {
     await _pumpQuiz(tester, state);
     await tester.pump();
 
-    expect(find.text('Dang tai cau hoi...'), findsOneWidget);
+    expect(find.text('Đang tải câu hỏi...'), findsOneWidget);
   });
 
   testWidgets('shows load error and retries', (tester) async {
@@ -746,7 +804,7 @@ void main() {
     await _loadQuiz(tester, state);
 
     expect(find.text('Network down'), findsOneWidget);
-    await tester.tap(find.text('Thu lai'));
+    await tester.tap(find.text('Thử lại'));
     await tester.pump();
     await tester.pump();
 
@@ -794,7 +852,7 @@ void main() {
     await _loadQuiz(tester, state);
     await _selectOnlyQuestionAndOpenConfirm(tester);
 
-    final confirm = find.text('Nop bai').last;
+    final confirm = find.text('Nộp bài').last;
     await tester.tap(confirm);
     await tester.tap(confirm, warnIfMissed: false);
     await tester.pump();
@@ -822,7 +880,7 @@ void main() {
     await tester.pump();
 
     await tester.pump(const Duration(seconds: 299));
-    await tester.tap(find.text('Nop bai'));
+    await tester.tap(find.text('Nộp bài'));
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
 
@@ -847,17 +905,17 @@ void main() {
     state.failSubmit = true;
     await _loadQuiz(tester, state);
     await _selectOnlyQuestionAndOpenConfirm(tester);
-    await tester.tap(find.text('Nop bai').last);
+    await tester.tap(find.text('Nộp bài').last);
     await tester.pumpAndSettle();
 
     expect(find.text('Submit failed'), findsOneWidget);
     expect(find.byIcon(Icons.radio_button_checked_rounded), findsOneWidget);
 
     state.failSubmit = false;
-    await tester.tap(find.text('Thu lai'));
+    await tester.tap(find.text('Thử lại'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Ket qua'), findsOneWidget);
+    expect(find.text('Kết quả'), findsOneWidget);
   });
 
   testWidgets('disposing quiz cancels timer', (tester) async {
@@ -897,8 +955,8 @@ void main() {
     final state = FakeAppState();
     await _pumpResult(tester, state, makeAttempt(earnedCoins: 0));
 
-    expect(find.text('Khong nhan them xu'), findsOneWidget);
-    expect(find.text('Huy hieu moi'), findsNothing);
+    expect(find.text('Không nhận thêm xu'), findsOneWidget);
+    expect(find.text('Huy hiệu mới'), findsNothing);
   });
 
   testWidgets('result shows badge fallback icon when icon url is empty', (
@@ -963,7 +1021,7 @@ void main() {
       expect(find.text('Wrong review'), findsOneWidget);
       expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
       expect(find.byIcon(Icons.cancel_rounded), findsOneWidget);
-      expect(find.text('Ban chua chon dap an.'), findsOneWidget);
+      expect(find.text('Bạn chưa chọn đáp án.'), findsOneWidget);
     },
   );
 
@@ -974,7 +1032,7 @@ void main() {
     await _pumpResult(tester, state, null);
 
     expect(
-      find.text('Khong tim thay ket qua quiz cho lan lam nay.'),
+      find.text('Không tìm thấy kết quả quiz cho lần làm này.'),
       findsOneWidget,
     );
   });
@@ -983,7 +1041,7 @@ void main() {
     final state = FakeAppState();
     await _pumpResult(tester, state, makeAttempt());
 
-    await tester.tap(find.text('Ve trang chu').first);
+    await tester.tap(find.text('Về trang chủ').first);
     await tester.pumpAndSettle();
 
     expect(find.text('Home route'), findsOneWidget);
@@ -1018,7 +1076,7 @@ void main() {
     ];
 
     await _pumpResult(tester, state, makeAttempt());
-    await tester.tap(find.text('Hoc bai tiep theo'));
+    await tester.tap(find.text('Học bài tiếp theo'));
     await tester.pumpAndSettle();
 
     expect(find.text('Lesson lesson-2'), findsOneWidget);
@@ -1032,7 +1090,7 @@ void main() {
     await tester.pump();
 
     await _selectOnlyQuestionAndOpenConfirm(tester);
-    await tester.tap(find.text('Nop bai').last);
+    await tester.tap(find.text('Nộp bài').last);
     await tester.pumpAndSettle();
 
     expect(
@@ -1071,7 +1129,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Network down'), findsOneWidget);
-    await tester.tap(find.text('Thu lai'));
+    await tester.tap(find.text('Thử lại'));
     await tester.pump();
     await tester.pump();
 
@@ -1089,7 +1147,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.textContaining('Chua co tien do hoc tap'), findsOneWidget);
+    expect(find.textContaining('Chưa có tiến độ học tập'), findsOneWidget);
   });
 
   testWidgets('progress dashboard shows data and chapter progress', (
@@ -1120,7 +1178,7 @@ void main() {
     await _pumpProgress(tester, state);
     await tester.pump();
     await tester.pump();
-    expect(find.text('Chua co lan lam quiz nao.'), findsOneWidget);
+    expect(find.text('Chưa có lần làm quiz nào.'), findsOneWidget);
 
     state.progressDashboard = makeDashboard(
       completedLessons: 1,
@@ -1157,7 +1215,7 @@ void main() {
 
     await _pumpProgress(tester, state);
     await tester.pump();
-    await tester.tap(find.byTooltip('Lam moi'));
+    await tester.tap(find.byTooltip('Làm mới'));
     await tester.pump();
     await tester.pump();
 
@@ -1250,7 +1308,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Hoan thanh bai dau tien'), findsOneWidget);
-    expect(find.text('Da dat'), findsOneWidget);
+    expect(find.text('Đã đạt'), findsOneWidget);
   });
 
   testWidgets('profile locked badge detail shows backend progress', (
@@ -1270,7 +1328,7 @@ void main() {
     await tester.tap(find.text('Nha bac hoc'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Tien do: 1/3'), findsOneWidget);
+    expect(find.text('Tiến độ: 1/3'), findsOneWidget);
   });
 
   testWidgets('profile shows empty chart and empty badges safely', (
@@ -1283,10 +1341,10 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('Chua co diem quiz nao.'), findsOneWidget);
+    expect(find.text('Chưa có điểm quiz nào.'), findsOneWidget);
     await tester.drag(find.byType(ListView), const Offset(0, -500));
     await tester.pumpAndSettle();
-    expect(find.text('Chua co huy hieu nao.'), findsOneWidget);
+    expect(find.text('Chưa có huy hiệu nào.'), findsOneWidget);
   });
 
   testWidgets('profile error retries and refreshes coins', (tester) async {
@@ -1300,7 +1358,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Profile down'), findsOneWidget);
-    await tester.tap(find.text('Thu lai'));
+    await tester.tap(find.text('Thử lại'));
     await tester.pump();
     await tester.pump();
 
@@ -1319,12 +1377,76 @@ void main() {
 
     await _pumpProfile(tester, state);
     await tester.pump();
-    await tester.tap(find.byTooltip('Lam moi'));
+    await tester.tap(find.byTooltip('Làm mới'));
     await tester.pump();
     await tester.pump();
 
     expect(find.text('150'), findsOneWidget);
     expect(find.text('Profile stale'), findsOneWidget);
+  });
+
+  testWidgets(
+    'profile updates name without disposing dialog dependencies early',
+    (tester) async {
+      final state = FakeAppState()..profileSummary = makeProfile();
+
+      await _pumpProfile(tester, state);
+      await tester.drag(find.byType(ListView), const Offset(0, -700));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cập nhật họ tên'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField), 'Nguyễn Văn An');
+      await tester.tap(find.text('Lưu'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(state.profileNameUpdateCount, 1);
+      expect(state.updatedProfileName, 'Nguyễn Văn An');
+      expect(find.text('Đã cập nhật hồ sơ.'), findsOneWidget);
+    },
+  );
+
+  testWidgets('password change closes dialog before navigating to login', (
+    tester,
+  ) async {
+    final state = FakeAppState()
+      ..user = const XUser(
+        id: 'user-1',
+        name: 'Nam',
+        email: 'nam@example.com',
+        role: 'STUDENT',
+      )
+      ..profileSummary = makeProfile();
+
+    final router = await _pumpProfile(tester, state, useRealLogin: true);
+    await tester.drag(find.byType(ListView), const Offset(0, -700));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Đổi mật khẩu'));
+    await tester.pumpAndSettle();
+
+    final fields = find.byType(TextFormField);
+    await tester.enterText(fields.at(0), '123456');
+    await tester.enterText(fields.at(1), '654321');
+    await tester.enterText(fields.at(2), '654321');
+    await tester.tap(find.text('Lưu'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(state.passwordChangeCount, 1);
+    expect(state.passwordChangeSignOutCount, 1);
+    expect(router.routerDelegate.currentConfiguration.uri.path, '/login');
+    expect(find.text('Đăng nhập X-Physics'), findsOneWidget);
+
+    final loginFields = find.byType(TextField);
+    await tester.enterText(loginFields.at(0), 'nam@example.com');
+    await tester.enterText(loginFields.at(1), '654321');
+    await tester.tap(find.text('Đăng nhập'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(state.loginCount, 1);
+    expect(router.routerDelegate.currentConfiguration.uri.path, '/');
+    expect(find.text('Home route'), findsOneWidget);
   });
 
   testWidgets('logout clears sensitive state and goes to login', (
@@ -1344,7 +1466,7 @@ void main() {
     final router = await _pumpProfile(tester, state);
     await tester.drag(find.byType(ListView), const Offset(0, -700));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Dang xuat'));
+    await tester.tap(find.text('Đăng xuất'));
     await tester.pumpAndSettle();
 
     expect(find.text('Login route'), findsOneWidget);
@@ -1409,7 +1531,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(state.lastAdminDifficulty, 'HARD');
 
-    await tester.tap(find.text('Xóa bộ lọc').first);
+      await tester.tap(find.text('Xóa bộ lọc').first);
       await tester.pumpAndSettle();
       expect(state.lastAdminDifficulty, isNull);
     },
@@ -1566,9 +1688,9 @@ void main() {
 
     await tester.tap(find.text('A1'));
     await tester.pump();
-    await tester.tap(find.text('Nop bai'));
+    await tester.tap(find.text('Nộp bài'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Nop bai').last);
+    await tester.tap(find.text('Nộp bài').last);
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Bộ câu hỏi đã được cập nhật'), findsOneWidget);
@@ -1579,7 +1701,7 @@ void main() {
 
     expect(find.text('Reloaded question'), findsOneWidget);
     final submitButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Nop bai'),
+      find.widgetWithText(FilledButton, 'Nộp bài'),
     );
     expect(submitButton.onPressed, isNull);
   });

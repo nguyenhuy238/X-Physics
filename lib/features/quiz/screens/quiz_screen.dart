@@ -125,7 +125,7 @@ class _QuizScreenState extends State<QuizScreen> {
     setState(() {
       _isSubmitting = true;
       _submitErrorMessage = autoSubmitted
-          ? 'Het gio, dang tu nop bai...'
+          ? 'Hết giờ, đang tự nộp bài...'
           : null;
     });
 
@@ -145,7 +145,7 @@ class _QuizScreenState extends State<QuizScreen> {
     setState(() {
       _isSubmitting = false;
       _submitErrorMessage =
-          context.read<AppState>().quizSubmitError ?? 'Khong the nop bai quiz.';
+          context.read<AppState>().quizSubmitError ?? 'Không thể nộp bài quiz.';
     });
   }
 
@@ -157,16 +157,16 @@ class _QuizScreenState extends State<QuizScreen> {
         await showDialog<bool>(
           context: context,
           builder: (_) => AlertDialog(
-            title: const Text('Nop bai?'),
-            content: const Text('Ban chac chan muon nop bai quiz nay?'),
+            title: const Text('Nộp bài?'),
+            content: const Text('Bạn chắc chắn muốn nộp bài quiz này?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Xem lai'),
+                child: const Text('Xem lại'),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Nop bai'),
+                child: const Text('Nộp bài'),
               ),
             ],
           ),
@@ -185,8 +185,8 @@ class _QuizScreenState extends State<QuizScreen> {
         await showDialog<bool>(
           context: context,
           builder: (_) => AlertDialog(
-            title: const Text('Roi bai quiz?'),
-            content: const Text('Cac cau tra loi chua nop se khong duoc luu.'),
+            title: const Text('Rời bài quiz?'),
+            content: const Text('Các câu trả lời chưa nộp sẽ không được lưu.'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
@@ -194,7 +194,7 @@ class _QuizScreenState extends State<QuizScreen> {
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Roi bai'),
+                child: const Text('Rời bài'),
               ),
             ],
           ),
@@ -228,7 +228,7 @@ class _QuizScreenState extends State<QuizScreen> {
     if (_isLoading) {
       return const XScaffold(
         title: 'Quiz',
-        child: LoadingView(message: 'Dang tai cau hoi...'),
+        child: LoadingView(message: 'Đang tải câu hỏi...'),
       );
     }
     if (_errorMessage != null && _questions.isEmpty) {
@@ -240,7 +240,7 @@ class _QuizScreenState extends State<QuizScreen> {
     if (_questions.isEmpty) {
       return const XScaffold(
         title: 'Quiz',
-        child: EmptyView(message: 'Bai hoc nay chua co cau hoi.'),
+        child: EmptyView(message: 'Bài học này chưa có câu hỏi.'),
       );
     }
     if (index >= _questions.length) {
@@ -317,7 +317,7 @@ class _QuizScreenState extends State<QuizScreen> {
                             onPressed: _isSubmitting
                                 ? null
                                 : () => _submit(autoSubmitted: false),
-                            child: const Text('Thu lai'),
+                            child: const Text('Thử lại'),
                           ),
                         ],
                       ),
@@ -389,9 +389,9 @@ class _QuizScreenState extends State<QuizScreen> {
                           ),
                           label: Text(
                             _isSubmitting
-                                ? 'Dang nop...'
+                                ? 'Đang nộp...'
                                 : isLast
-                                ? 'Nop bai'
+                                ? 'Nộp bài'
                                 : 'Tiep tuc',
                           ),
                         ),
