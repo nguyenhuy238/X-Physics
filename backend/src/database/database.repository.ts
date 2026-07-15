@@ -123,6 +123,8 @@ interface ChapterProgressRow {
 @Injectable()
 export class DatabaseRepository {
   private learningActivitySchemaReady = false;
+  private quizAttemptsSchemaReady = false;
+  private rewardEventsSchemaReady = false;
 
   constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
 
@@ -731,6 +733,7 @@ export class DatabaseRepository {
     },
     db: Db,
   ) {
+    await this.ensureQuizAttemptsSchema(db);
     const result = await db.query<AttemptRow>(
       `insert into quiz_attempts
         (user_id, lesson_id, answers_json, review_json, score, correct_count, total_questions, duration_seconds, coins_earned)
@@ -966,6 +969,7 @@ export class DatabaseRepository {
     },
     db: Db = this.pool,
   ) {
+    await this.ensureRewardEventsSchema(db);
     const result = await db.query<RewardEventRow>(
       `insert into reward_events
         (user_id, reward_type, source_type, source_id, reward_level, coins, metadata_json)
@@ -1015,6 +1019,48 @@ export class DatabaseRepository {
       [userId, input.activityDate ?? null, input.sourceType, input.sourceId],
     );
     return result.rows[0].activity_date;
+  }
+
+  private async ensureQuizAttemptsSchema(db: Db = this.pool) {
+    if (this.quizAttemptsSchemaReady) return;
+
+    await db.query(`
+      alter table quiz_attempts
+        add column if not exists duration_seconds integer not null default 0,
+        add column if not exists review_json jsonb,
+        add column if not exists coins_earned integer not null default 0
+    `);
+
+    this.quizAttemptsSchemaReady = true;
+  }
+
+  private async ensureRewardEventsSchema(db: Db = this.pool) {
+    if (this.rewardEventsSchemaReady) return;
+
+    await db.query(`
+      create table if not exists reward_events (
+        id uuid primary key default gen_random_uuid(),
+        user_id uuid not null references users(id) on delete cascade,
+        reward_type varchar(60) not null,
+        source_type varchar(60) not null,
+        source_id varchar(120) not null,
+        reward_level integer not null default 0,
+        coins integer not null,
+        metadata_json jsonb not null default '{}'::jsonb,
+        created_at timestamptz not null default now()
+      )
+    `);
+    await db.query(`
+      alter table reward_events
+        add column if not exists reward_level integer not null default 0,
+        add column if not exists metadata_json jsonb not null default '{}'::jsonb
+    `);
+    await db.query(`
+      create unique index if not exists reward_events_user_reward_source_level_idx
+      on reward_events (user_id, reward_type, source_type, source_id, reward_level)
+    `);
+
+    this.rewardEventsSchemaReady = true;
   }
 
   async currentLearningStreak(userId: string, db: Db = this.pool) {
