@@ -1,7 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from "@nestjs/common";
+import * as bcrypt from "bcrypt";
 
-import { DatabaseRepository } from '../../database/database.repository';
-import { UpdateUserDto } from './dto/update-user.dto';
+import { DatabaseRepository } from "../../database/database.repository";
+import { ChangePasswordDto } from "./dto/change-password.dto";
+import { UpdateUserDto } from "./dto/update-user.dto";
 
 @Injectable()
 export class UsersService {
@@ -10,13 +17,41 @@ export class UsersService {
   async me(userId: string) {
     const user = await this.database.findUserById(userId);
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException("User not found");
     }
     return this.database.toPublicUser(user);
   }
 
   async updateMe(userId: string, dto: UpdateUserDto) {
-    const user = await this.database.updateUser(userId, dto);
+    const user = await this.database.updateUser(userId, {
+      name: dto.name?.trim(),
+    });
     return this.database.toPublicUser(user);
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    if (dto.newPassword !== dto.confirmNewPassword) {
+      throw new BadRequestException("New password confirmation does not match");
+    }
+    const user = await this.database.findUserById(userId);
+    if (!user) {
+      throw new NotFoundException("User not found");
+    }
+    const currentPasswordMatches = await bcrypt.compare(
+      dto.currentPassword,
+      user.passwordHash,
+    );
+    if (!currentPasswordMatches) {
+      throw new UnauthorizedException("Current password is incorrect");
+    }
+    const samePassword = await bcrypt.compare(dto.newPassword, user.passwordHash);
+    if (samePassword) {
+      throw new BadRequestException("New password must be different");
+    }
+    await this.database.updatePassword(
+      userId,
+      await bcrypt.hash(dto.newPassword, 10),
+    );
+    return { passwordChanged: true, requiresLogin: true };
   }
 }

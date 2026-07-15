@@ -3,6 +3,7 @@ import { Body, Controller, Get, Put, Req, UseGuards } from '@nestjs/common';
 import { ApiResponseDto } from '../../common/api-response.dto';
 import { AuthGuard } from '../../common/auth.guard';
 import { AuthenticatedUser } from '../../common/current-user';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersService } from './users.service';
 
@@ -23,6 +24,17 @@ export class UsersController {
   ) {
     return ApiResponseDto.ok(
       await this.usersService.updateMe(request.user.id, dto),
+    );
+  }
+
+  @Put('me/change-password')
+  async changePassword(
+    @Req() request: { user: AuthenticatedUser },
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return ApiResponseDto.ok(
+      await this.usersService.changePassword(request.user.id, dto),
+      'Password changed',
     );
   }
 }

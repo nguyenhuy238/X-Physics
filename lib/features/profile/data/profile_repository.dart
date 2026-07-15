@@ -17,4 +17,35 @@ class ProfileRepository {
     }
     return ProfileSummary.fromJson(body['data'] as Map);
   }
+
+  Future<XUser> updateName(String name) async {
+    final response = await _apiClient.dio.put<Map<String, dynamic>>(
+      ApiEndpoints.me,
+      data: {'name': name},
+    );
+    final body = response.data;
+    if (body == null || body['success'] != true) {
+      throw StateError(body?['message'] as String? ?? 'API error');
+    }
+    return XUser.fromJson(body['data'] as Map);
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmNewPassword,
+  }) async {
+    final response = await _apiClient.dio.put<Map<String, dynamic>>(
+      ApiEndpoints.changePassword,
+      data: {
+        'currentPassword': currentPassword,
+        'newPassword': newPassword,
+        'confirmNewPassword': confirmNewPassword,
+      },
+    );
+    final body = response.data;
+    if (body == null || body['success'] != true) {
+      throw StateError(body?['message'] as String? ?? 'API error');
+    }
+  }
 }

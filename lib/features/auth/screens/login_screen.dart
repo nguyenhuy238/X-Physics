@@ -6,6 +6,7 @@ import '../../progress/application/app_state.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
@@ -41,12 +42,16 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 24),
                 TextField(
                   controller: email,
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
                   decoration: const InputDecoration(labelText: 'Email'),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: password,
                   obscureText: true,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _submit(context),
                   decoration: const InputDecoration(labelText: 'Mật khẩu'),
                 ),
                 if (state.errorMessage != null)
@@ -59,18 +64,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 const SizedBox(height: 18),
                 FilledButton(
-                  onPressed: state.isBusy
-                      ? null
-                      : () async {
-                          final ok = await context.read<AppState>().login(
-                            email.text.trim(),
-                            password.text,
-                          );
-                          if (ok && context.mounted) {
-                            final appState = context.read<AppState>();
-                            context.go(appState.canAccessAdmin ? '/admin' : '/');
-                          }
-                        },
+                  onPressed: state.isBusy ? null : () => _submit(context),
                   child: state.isBusy
                       ? const SizedBox.square(
                           dimension: 18,
@@ -95,5 +89,26 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _submit(BuildContext context) async {
+    if (context.read<AppState>().isBusy) {
+      return;
+    }
+    final ok = await context.read<AppState>().login(
+      email.text.trim(),
+      password.text,
+    );
+    if (ok && context.mounted) {
+      final appState = context.read<AppState>();
+      context.go(appState.canAccessAdmin ? '/admin' : '/');
+    }
+  }
+
+  @override
+  void dispose() {
+    email.dispose();
+    password.dispose();
+    super.dispose();
   }
 }

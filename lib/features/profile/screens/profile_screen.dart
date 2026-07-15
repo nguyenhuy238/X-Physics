@@ -34,10 +34,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final error = state.profileError;
 
     return XScaffold(
-      title: 'Ho so',
+      title: 'Hồ sơ',
       actions: [
         IconButton(
-          tooltip: 'Lam moi',
+          tooltip: 'Làm mới',
           onPressed: state.isProfileLoading ? null : _refresh,
           icon: const Icon(Icons.refresh_rounded),
         ),
@@ -96,7 +96,7 @@ class _ProfileEmptyState extends StatelessWidget {
       children: [
         SizedBox(
           height: MediaQuery.sizeOf(context).height * 0.7,
-          child: const EmptyView(message: 'Chua co du lieu ho so.'),
+          child: const EmptyView(message: 'Chưa có dữ liệu hồ sơ.'),
         ),
       ],
     );
@@ -123,9 +123,21 @@ class _ProfileContent extends StatelessWidget {
         _BadgeGrid(badges: [...profile.earnedBadges, ...profile.lockedBadges]),
         const SizedBox(height: 16),
         OutlinedButton.icon(
+          onPressed: () => _showEditProfileDialog(context, profile.user.name),
+          icon: const Icon(Icons.edit_rounded),
+          label: const Text('Cập nhật họ tên'),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: () => _showChangePasswordDialog(context),
+          icon: const Icon(Icons.lock_reset_rounded),
+          label: const Text('Đổi mật khẩu'),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
           onPressed: () => context.read<AppState>().logout(),
           icon: const Icon(Icons.logout_rounded),
-          label: const Text('Dang xuat'),
+          label: const Text('Đăng xuất'),
         ),
       ],
     );
@@ -157,7 +169,7 @@ class _ProfileHeader extends StatelessWidget {
               : null,
         ),
         title: Text(
-          user.name.isEmpty ? 'Hoc sinh' : user.name,
+          user.name.isEmpty ? 'Học sinh' : user.name,
           style: const TextStyle(fontWeight: FontWeight.w900),
         ),
         subtitle: Text(user.email),
@@ -178,9 +190,9 @@ class _StatsRow extends StatelessWidget {
       runSpacing: 12,
       children: [
         _StatCard(label: 'Xu', value: '${profile.totalCoins}'),
-        _StatCard(label: 'Bai da xong', value: '${profile.completedLessons}'),
+        _StatCard(label: 'Bài đã xong', value: '${profile.completedLessons}'),
         _StatCard(
-          label: 'Diem TB',
+          label: 'Điểm TB',
           value: profile.averageScore.toStringAsFixed(2),
         ),
       ],
@@ -236,7 +248,7 @@ class _RecentScoreChart extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Diem gan day',
+              'Điểm gần đây',
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
@@ -245,7 +257,7 @@ class _RecentScoreChart extends StatelessWidget {
             SizedBox(
               height: 210,
               child: chronological.isEmpty
-                  ? const Center(child: Text('Chua co diem quiz nao.'))
+                  ? const Center(child: Text('Chưa có điểm quiz nào.'))
                   : LineChart(
                       LineChartData(
                         minY: 0,
@@ -324,7 +336,7 @@ class _BadgeGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (badges.isEmpty) {
-      return const EmptyView(message: 'Chua co huy hieu nao.');
+      return const EmptyView(message: 'Chưa có huy hiệu nào.');
     }
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -430,17 +442,207 @@ void _showBadgeDetail(BuildContext context, AchievementBadge badge) {
           if (badge.isEarned)
             Text(
               badge.achievedAt == null
-                  ? 'Da dat'
-                  : 'Da dat: ${_formatDate(badge.achievedAt!)}',
+                  ? 'Đã đạt'
+                  : 'Đã đạt: ${_formatDate(badge.achievedAt!)}',
             )
           else ...[
-            Text('Tien do: ${badge.progressCurrent}/${badge.progressTarget}'),
+            Text('Tiến độ: ${badge.progressCurrent}/${badge.progressTarget}'),
             const SizedBox(height: 8),
             LinearProgressIndicator(value: badge.progressValue),
           ],
         ],
       ),
     ),
+  );
+}
+
+Future<void> _showEditProfileDialog(
+  BuildContext context,
+  String currentName,
+) async {
+  final controller = TextEditingController(text: currentName);
+  final formKey = GlobalKey<FormState>();
+  try {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Cập nhật hồ sơ'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: controller,
+            autofocus: true,
+            maxLength: 120,
+            textInputAction: TextInputAction.done,
+            decoration: const InputDecoration(labelText: 'Họ tên'),
+            validator: (value) =>
+                value == null || value.trim().isEmpty ? 'Bắt buộc' : null,
+            onFieldSubmitted: (_) =>
+                _submitProfileName(context, dialogContext, formKey, controller),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                _submitProfileName(context, dialogContext, formKey, controller),
+            child: const Text('Lưu'),
+          ),
+        ],
+      ),
+    );
+  } finally {
+    controller.dispose();
+  }
+}
+
+Future<void> _submitProfileName(
+  BuildContext screenContext,
+  BuildContext dialogContext,
+  GlobalKey<FormState> formKey,
+  TextEditingController controller,
+) async {
+  if (!(formKey.currentState?.validate() ?? false)) {
+    return;
+  }
+  final appState = screenContext.read<AppState>();
+  final ok = await appState.updateProfileName(controller.text);
+  if (!screenContext.mounted || !dialogContext.mounted) {
+    return;
+  }
+  if (ok) {
+    Navigator.of(dialogContext).pop();
+    ScaffoldMessenger.of(
+      screenContext,
+    ).showSnackBar(const SnackBar(content: Text('Đã cập nhật hồ sơ.')));
+    return;
+  }
+  ScaffoldMessenger.of(screenContext).showSnackBar(
+    SnackBar(
+      content: Text(appState.profileError ?? 'Cập nhật hồ sơ thất bại.'),
+    ),
+  );
+}
+
+Future<void> _showChangePasswordDialog(BuildContext context) async {
+  final currentPassword = TextEditingController();
+  final newPassword = TextEditingController();
+  final confirmNewPassword = TextEditingController();
+  final formKey = GlobalKey<FormState>();
+  try {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Đổi mật khẩu'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: currentPassword,
+                obscureText: true,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                  labelText: 'Mật khẩu hiện tại',
+                ),
+                validator: _passwordValidator,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: newPassword,
+                obscureText: true,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(labelText: 'Mật khẩu mới'),
+                validator: _passwordValidator,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: confirmNewPassword,
+                obscureText: true,
+                textInputAction: TextInputAction.done,
+                decoration: const InputDecoration(
+                  labelText: 'Xác nhận mật khẩu mới',
+                ),
+                validator: (value) {
+                  final passwordError = _passwordValidator(value);
+                  if (passwordError != null) return passwordError;
+                  return value == newPassword.text
+                      ? null
+                      : 'Xác nhận mật khẩu không khớp';
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => _submitPasswordChange(
+              context,
+              dialogContext,
+              formKey,
+              currentPassword,
+              newPassword,
+              confirmNewPassword,
+            ),
+            child: const Text('Lưu'),
+          ),
+        ],
+      ),
+    );
+  } finally {
+    currentPassword.dispose();
+    newPassword.dispose();
+    confirmNewPassword.dispose();
+  }
+}
+
+String? _passwordValidator(String? value) {
+  if (value == null || value.isEmpty) {
+    return 'Bắt buộc';
+  }
+  if (value.length < 6) {
+    return 'Tối thiểu 6 ký tự';
+  }
+  return null;
+}
+
+Future<void> _submitPasswordChange(
+  BuildContext screenContext,
+  BuildContext dialogContext,
+  GlobalKey<FormState> formKey,
+  TextEditingController currentPassword,
+  TextEditingController newPassword,
+  TextEditingController confirmNewPassword,
+) async {
+  if (!(formKey.currentState?.validate() ?? false)) {
+    return;
+  }
+  final appState = screenContext.read<AppState>();
+  final ok = await appState.changePassword(
+    currentPassword: currentPassword.text,
+    newPassword: newPassword.text,
+    confirmNewPassword: confirmNewPassword.text,
+  );
+  if (!screenContext.mounted || !dialogContext.mounted) {
+    return;
+  }
+  if (ok) {
+    Navigator.of(dialogContext).pop();
+    ScaffoldMessenger.of(screenContext).showSnackBar(
+      const SnackBar(content: Text('Đã đổi mật khẩu. Vui lòng đăng nhập lại.')),
+    );
+    return;
+  }
+  ScaffoldMessenger.of(screenContext).showSnackBar(
+    SnackBar(content: Text(appState.profileError ?? 'Đổi mật khẩu thất bại.')),
   );
 }
 

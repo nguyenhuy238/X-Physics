@@ -103,6 +103,26 @@ class AppState extends ChangeNotifier {
     });
   }
 
+  Future<bool> registerWithConfirmation(
+    String name,
+    String email,
+    String password,
+    String confirmPassword,
+  ) async {
+    return _authenticate(() async {
+      final response = await _apiClient.dio.post<Map<String, dynamic>>(
+        ApiEndpoints.register,
+        data: {
+          'name': name,
+          'email': email,
+          'password': password,
+          'confirmPassword': confirmPassword,
+        },
+      );
+      return response.data?['data'] as Map<String, dynamic>;
+    });
+  }
+
   Future<void> logout() async {
     try {
       await _apiClient.dio.post<Map<String, dynamic>>(ApiEndpoints.logout);
@@ -171,6 +191,63 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> refreshProfile() => loadProfile();
+
+  Future<bool> updateProfileName(String name) async {
+    final trimmedName = name.trim();
+    if (trimmedName.isEmpty) {
+      profileError = 'Vui lòng nhập họ tên.';
+      notifyListeners();
+      return false;
+    }
+
+    isProfileLoading = true;
+    profileError = null;
+    notifyListeners();
+    try {
+      final updatedUser = await _profileRepository.updateName(trimmedName);
+      user = updatedUser;
+      coins = updatedUser.coins;
+      await loadProfile();
+      return true;
+    } catch (error) {
+      profileError = _readableError(error);
+      return false;
+    } finally {
+      isProfileLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmNewPassword,
+  }) async {
+    if (newPassword != confirmNewPassword) {
+      profileError = 'Xác nhận mật khẩu không khớp.';
+      notifyListeners();
+      return false;
+    }
+    isProfileLoading = true;
+    profileError = null;
+    notifyListeners();
+    try {
+      await _profileRepository.changePassword(
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+        confirmNewPassword: confirmNewPassword,
+      );
+      await _tokenStorage.clear();
+      _handleUnauthorized();
+      return true;
+    } catch (error) {
+      profileError = _readableError(error);
+      return false;
+    } finally {
+      isProfileLoading = false;
+      notifyListeners();
+    }
+  }
 
   Future<void> loadChapters() async {
     isBusy = true;
@@ -283,7 +360,7 @@ class AppState extends ChangeNotifier {
       final questions = lesson?.questions ?? const <Question>[];
       questionsByLesson[lessonId] = questions;
       quizLoadError = questions.isEmpty && lesson == null
-          ? 'Khong tim thay bai hoc offline.'
+          ? 'Không tìm thấy bài học offline.'
           : null;
       return questions;
     }

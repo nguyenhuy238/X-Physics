@@ -239,7 +239,7 @@ Validation:
 - Submitted question IDs must match the current question set for the lesson.
   If Admin changed the question set while a student was taking the quiz, the
   server returns `409` with message
-  `Bộ câu hỏi đã được cập nhật. Vui lòng tải lại quiz.`
+  `B? c�u h?i d� du?c c?p nh?t. Vui l�ng t?i l?i quiz.`
 
 Reward idempotency:
 

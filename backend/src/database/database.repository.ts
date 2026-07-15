@@ -12,6 +12,8 @@ interface UserRow {
   password_hash: string;
   role: "STUDENT" | "TEACHER" | "ADMIN";
   coins: number;
+  refresh_token_hash: string | null;
+  refresh_token_expires_at: Date | null;
 }
 
 interface ChapterRow {
@@ -181,6 +183,49 @@ export class DatabaseRepository {
       throw new NotFoundException("User not found");
     }
     return this.mapUser(result.rows[0]);
+  }
+
+  async updatePassword(id: string, passwordHash: string) {
+    const result = await this.pool.query<UserRow>(
+      `update users
+       set password_hash = $2,
+           refresh_token_hash = null,
+           refresh_token_expires_at = null,
+           updated_at = now()
+       where id = $1
+       returning *`,
+      [id, passwordHash],
+    );
+    if (!result.rows[0]) {
+      throw new NotFoundException("User not found");
+    }
+    return this.mapUser(result.rows[0]);
+  }
+
+  async saveRefreshToken(
+    userId: string,
+    refreshTokenHash: string,
+    refreshTokenExpiresAt: Date,
+  ) {
+    await this.pool.query(
+      `update users
+       set refresh_token_hash = $2,
+           refresh_token_expires_at = $3,
+           updated_at = now()
+       where id = $1`,
+      [userId, refreshTokenHash, refreshTokenExpiresAt],
+    );
+  }
+
+  async clearRefreshToken(userId: string) {
+    await this.pool.query(
+      `update users
+       set refresh_token_hash = null,
+           refresh_token_expires_at = null,
+           updated_at = now()
+       where id = $1`,
+      [userId],
+    );
   }
 
   async addCoins(userId: string, coins: number, db: Db = this.pool) {
@@ -1186,6 +1231,8 @@ export class DatabaseRepository {
       passwordHash: row.password_hash,
       role: row.role,
       coins: row.coins,
+      refreshTokenHash: row.refresh_token_hash,
+      refreshTokenExpiresAt: row.refresh_token_expires_at,
     };
   }
 

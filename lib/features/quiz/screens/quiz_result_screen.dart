@@ -23,14 +23,14 @@ class QuizResultScreen extends StatelessWidget {
     final attempt = _resolveAttempt(state);
     if (attempt == null) {
       return XScaffold(
-        title: 'Ket qua',
+        title: 'Kết quả',
         child: _MissingResultView(lessonId: lessonId),
       );
     }
 
     final nextLessonId = _nextLessonId(state, lessonId);
     return XScaffold(
-      title: 'Ket qua',
+      title: 'Kết quả',
       child: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -45,7 +45,7 @@ class QuizResultScreen extends StatelessWidget {
                 ],
                 const SizedBox(height: 16),
                 Text(
-                  'Review dap an',
+                  'Review đáp án',
                   style: Theme.of(
                     context,
                   ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
@@ -55,7 +55,7 @@ class QuizResultScreen extends StatelessWidget {
                   const Card(
                     child: Padding(
                       padding: EdgeInsets.all(16),
-                      child: Text('Chua co du lieu review cho lan lam nay.'),
+                      child: Text('Chưa có dữ liệu review cho lần làm này.'),
                     ),
                   )
                 else
@@ -68,7 +68,7 @@ class QuizResultScreen extends StatelessWidget {
                     FilledButton.icon(
                       onPressed: () => context.go('/'),
                       icon: const Icon(Icons.home_rounded),
-                      label: const Text('Ve trang chu'),
+                      label: const Text('Về trang chủ'),
                     ),
                     OutlinedButton.icon(
                       onPressed: nextLessonId == null
@@ -81,8 +81,8 @@ class QuizResultScreen extends StatelessWidget {
                       ),
                       label: Text(
                         nextLessonId == null
-                            ? 'On lai bai hoc'
-                            : 'Hoc bai tiep theo',
+                            ? 'Ôn lại bài học'
+                            : 'Học bài tiếp theo',
                       ),
                     ),
                   ],
@@ -156,7 +156,7 @@ class _ResultHeader extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              '${attempt.correctCount}/${attempt.totalQuestions} cau dung',
+              '${attempt.correctCount}/${attempt.totalQuestions} câu đúng',
               style: const TextStyle(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 12),
@@ -173,14 +173,14 @@ class _ResultHeader extends StatelessWidget {
                   avatar: const Icon(Icons.monetization_on_rounded),
                   label: Text(
                     attempt.earnedCoins == 0
-                        ? 'Khong nhan them xu'
+                        ? 'Không nhận thêm xu'
                         : '+${attempt.earnedCoins} xu',
                   ),
                 ),
                 if (attempt.totalCoins > 0)
                   Chip(
                     avatar: const Icon(Icons.account_balance_wallet_rounded),
-                    label: Text('Tong ${attempt.totalCoins} xu'),
+                    label: Text('Tổng ${attempt.totalCoins} xu'),
                   ),
               ],
             ),
@@ -220,7 +220,7 @@ class _NewBadgesView extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Huy hieu moi',
+              'Hủy hieu moi',
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
@@ -304,12 +304,12 @@ class _ReviewCard extends StatelessWidget {
             if (item.selectedOption == null)
               const Padding(
                 padding: EdgeInsets.only(top: 8),
-                child: Text('Ban chua chon dap an.'),
+                child: Text('Bạn chưa chọn đáp án.'),
               ),
             if (item.explanation.isNotEmpty) ...[
               const SizedBox(height: 12),
               Text(
-                'Giai thich',
+                'Giải thích',
                 style: Theme.of(
                   context,
                 ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
@@ -418,7 +418,7 @@ class _MissingResultView extends StatelessWidget {
             const Icon(Icons.info_outline_rounded, size: 42),
             const SizedBox(height: 12),
             const Text(
-              'Khong tim thay ket qua quiz cho lan lam nay.',
+              'Không tìm thấy kết quả quiz cho lần làm này.',
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
@@ -429,11 +429,11 @@ class _MissingResultView extends StatelessWidget {
               children: [
                 FilledButton(
                   onPressed: () => context.go('/'),
-                  child: const Text('Ve trang chu'),
+                  child: const Text('Về trang chủ'),
                 ),
                 OutlinedButton(
                   onPressed: () => context.go('/lessons/$lessonId'),
-                  child: const Text('Quay lai bai hoc'),
+                  child: const Text('Quay lại bài học'),
                 ),
               ],
             ),
