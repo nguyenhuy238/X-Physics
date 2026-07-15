@@ -88,7 +88,7 @@ export class AdminService {
         {
           id,
           ...input,
-          orderIndex: 0,
+          orderIndex: this.temporaryOrderIndex(existing),
         },
         client,
       );
@@ -105,11 +105,15 @@ export class AdminService {
       const input = await this.validateQuestionInput(dto, id, client);
       const oldLessonId = current.lessonId;
       const newLessonId = input.lessonId;
+      const targetQuestions = (await this.database.listAdminQuestionsByLesson(
+        newLessonId,
+        client,
+      )).filter((question) => question.id !== id);
       await this.database.updateQuestion(
         id,
         {
           ...input,
-          orderIndex: 0,
+          orderIndex: this.temporaryOrderIndex(targetQuestions),
         },
         client,
       );
@@ -124,12 +128,11 @@ export class AdminService {
         await this.database.setQuestionOrder(oldLessonId, oldIds, client);
       }
 
-      const newQuestions = (await this.database.listAdminQuestionsByLesson(
-        newLessonId,
-        client,
-      )).filter((question) => question.id !== id);
-      const moveTo = this.clampInsertPosition(input.orderIndex, newQuestions.length);
-      const newIds = newQuestions.map((question) => question.id);
+      const moveTo = this.clampInsertPosition(
+        input.orderIndex,
+        targetQuestions.length,
+      );
+      const newIds = targetQuestions.map((question) => question.id);
       newIds.splice(moveTo - 1, 0, id);
       await this.database.setQuestionOrder(newLessonId, newIds, client);
       return this.database.findAdminQuestion(id, client);
@@ -240,5 +243,13 @@ export class AdminService {
   private clampInsertPosition(orderIndex: number, existingLength: number) {
     if (orderIndex < 1) return 1;
     return Math.min(orderIndex, existingLength + 1);
+  }
+
+  private temporaryOrderIndex(questions: Array<{ orderIndex: number }>) {
+    const minOrder = questions.reduce(
+      (min, question) => Math.min(min, question.orderIndex),
+      0,
+    );
+    return minOrder - 1;
   }
 }

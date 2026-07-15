@@ -123,6 +123,7 @@ interface ChapterProgressRow {
 @Injectable()
 export class DatabaseRepository {
   private learningActivitySchemaReady = false;
+  private questionsSchemaReady = false;
   private quizAttemptsSchemaReady = false;
   private rewardEventsSchemaReady = false;
 
@@ -278,6 +279,7 @@ export class DatabaseRepository {
   }
 
   async listQuestionsByLesson(lessonId: string, db: Db = this.pool) {
+    await this.ensureQuestionsSchema(db);
     const result = await db.query<QuestionRow>(
       "select * from questions where lesson_id = $1 order by order_index asc",
       [lessonId],
@@ -286,6 +288,7 @@ export class DatabaseRepository {
   }
 
   async listAdminQuestionsByLesson(lessonId: string, db: Db = this.pool) {
+    await this.ensureQuestionsSchema(db);
     const result = await db.query<QuestionRow>(
       "select * from questions where lesson_id = $1 order by order_index asc, id asc",
       [lessonId],
@@ -294,6 +297,7 @@ export class DatabaseRepository {
   }
 
   async listQuestionsWithoutCorrectOptions() {
+    await this.ensureQuestionsSchema();
     const result = await this.pool.query<QuestionRow>(
       "select * from questions order by lesson_id asc, order_index asc",
     );
@@ -356,6 +360,7 @@ export class DatabaseRepository {
     page?: number;
     limit?: number;
   }) {
+    await this.ensureQuestionsSchema();
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const offset = (page - 1) * limit;
@@ -413,6 +418,7 @@ export class DatabaseRepository {
   }
 
   async findAdminQuestion(id: string, db: Db = this.pool) {
+    await this.ensureQuestionsSchema(db);
     const result = await db.query<AdminQuestionRow>(
       `select q.*,
               l.title as lesson_title,
@@ -612,6 +618,7 @@ export class DatabaseRepository {
     },
     db: Db = this.pool,
   ) {
+    await this.ensureQuestionsSchema(db);
     const result = await db.query<QuestionRow>(
       `insert into questions
         (id, lesson_id, question_text, options_json, correct_option, explanation, difficulty, order_index)
@@ -644,6 +651,7 @@ export class DatabaseRepository {
     input: Omit<Parameters<DatabaseRepository["upsertQuestion"]>[0], "id">,
     db: Db = this.pool,
   ) {
+    await this.ensureQuestionsSchema(db);
     const result = await db.query<QuestionRow>(
       `update questions
        set lesson_id = $2,
@@ -690,7 +698,22 @@ export class DatabaseRepository {
   ) {
     if (questionIds.length === 0) return [];
     await db.query(
-      "update questions set order_index = -order_index where lesson_id = $1",
+      `with numbered as (
+         select
+           id,
+           (
+             coalesce(
+               min(order_index) over (partition by lesson_id),
+               0
+             ) - row_number() over (order by order_index asc, id asc)
+           )::integer as temporary_order
+         from questions
+         where lesson_id = $1
+       )
+       update questions q
+       set order_index = numbered.temporary_order
+       from numbered
+       where q.id = numbered.id`,
       [lessonId],
     );
     const values = questionIds
@@ -1032,6 +1055,31 @@ export class DatabaseRepository {
     `);
 
     this.quizAttemptsSchemaReady = true;
+  }
+
+  private async ensureQuestionsSchema(db: Db = this.pool) {
+    if (this.questionsSchemaReady) return;
+
+    await db.query(`
+      alter table questions
+        add column if not exists difficulty varchar(20) not null default 'MEDIUM'
+    `);
+    await db.query(`
+      do $$
+      begin
+        if not exists (
+          select 1
+          from pg_constraint
+          where conname = 'questions_difficulty_check'
+        ) then
+          alter table questions
+            add constraint questions_difficulty_check
+            check (difficulty in ('EASY', 'MEDIUM', 'HARD'));
+        end if;
+      end $$
+    `);
+
+    this.questionsSchemaReady = true;
   }
 
   private async ensureRewardEventsSchema(db: Db = this.pool) {
