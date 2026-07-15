@@ -382,8 +382,6 @@ class AppState extends ChangeNotifier {
         newPassword: newPassword,
         confirmNewPassword: confirmNewPassword,
       );
-      await _tokenStorage.clear();
-      _handleUnauthorized();
       return true;
     } catch (error) {
       profileError = _readableError(error);
@@ -392,6 +390,11 @@ class AppState extends ChangeNotifier {
       isProfileLoading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> signOutAfterPasswordChange() async {
+    await _tokenStorage.clear();
+    _handleUnauthorized();
   }
 
   Future<void> loadChapters() async {

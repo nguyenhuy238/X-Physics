@@ -11,6 +11,7 @@ import 'package:x_physics/core/network/api_client.dart';
 import 'package:x_physics/core/router/app_router.dart';
 import 'package:x_physics/core/storage/token_storage.dart';
 import 'package:x_physics/features/admin/screens/admin_questions_screen.dart';
+import 'package:x_physics/features/auth/screens/login_screen.dart';
 import 'package:x_physics/features/progress/application/app_state.dart';
 import 'package:x_physics/features/progress/screens/progress_screen.dart';
 import 'package:x_physics/features/profile/screens/profile_screen.dart';
@@ -98,6 +99,11 @@ class FakeAppState extends AppState {
   int loadCount = 0;
   int dashboardLoadCount = 0;
   int profileLoadCount = 0;
+  int profileNameUpdateCount = 0;
+  int passwordChangeCount = 0;
+  int passwordChangeSignOutCount = 0;
+  int loginCount = 0;
+  String? updatedProfileName;
   int submitCount = 0;
   int? lastDurationSeconds;
   Map<String, int>? lastAnswers;
@@ -211,6 +217,51 @@ class FakeAppState extends AppState {
 
   @override
   Future<void> refreshProfile() => loadProfile();
+
+  @override
+  Future<bool> updateProfileName(String name) async {
+    profileNameUpdateCount++;
+    isProfileLoading = true;
+    notifyListeners();
+    await Future<void>.delayed(Duration.zero);
+    updatedProfileName = name.trim();
+    isProfileLoading = false;
+    notifyListeners();
+    return true;
+  }
+
+  @override
+  Future<bool> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmNewPassword,
+  }) async {
+    passwordChangeCount++;
+    isProfileLoading = true;
+    notifyListeners();
+    await Future<void>.delayed(Duration.zero);
+    isProfileLoading = false;
+    notifyListeners();
+    return true;
+  }
+
+  @override
+  Future<void> signOutAfterPasswordChange() async {
+    passwordChangeSignOutCount++;
+    await logout();
+  }
+
+  @override
+  Future<bool> login(String email, String password) async {
+    loginCount++;
+    isBusy = true;
+    notifyListeners();
+    await Future<void>.delayed(Duration.zero);
+    user = XUser(id: 'user-1', name: 'Nam', email: email, role: 'STUDENT');
+    isBusy = false;
+    notifyListeners();
+    return true;
+  }
 
   @override
   Future<void> loadAdminChapters() async {
@@ -523,6 +574,7 @@ Future<GoRouter> _pumpProfile(
   WidgetTester tester,
   FakeAppState state, {
   Size? surfaceSize,
+  bool useRealLogin = false,
 }) async {
   if (surfaceSize != null) {
     await tester.binding.setSurfaceSize(surfaceSize);
@@ -532,7 +584,13 @@ Future<GoRouter> _pumpProfile(
     routes: [
       GoRoute(
         path: '/login',
-        builder: (_, _) => const Scaffold(body: Text('Login route')),
+        builder: (_, _) => useRealLogin
+            ? const LoginScreen()
+            : const Scaffold(body: Text('Login route')),
+      ),
+      GoRoute(
+        path: '/',
+        builder: (_, _) => const Scaffold(body: Text('Home route')),
       ),
       GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
       GoRoute(
@@ -1325,6 +1383,70 @@ void main() {
 
     expect(find.text('150'), findsOneWidget);
     expect(find.text('Profile stale'), findsOneWidget);
+  });
+
+  testWidgets(
+    'profile updates name without disposing dialog dependencies early',
+    (tester) async {
+      final state = FakeAppState()..profileSummary = makeProfile();
+
+      await _pumpProfile(tester, state);
+      await tester.drag(find.byType(ListView), const Offset(0, -700));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cập nhật họ tên'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField), 'Nguyễn Văn An');
+      await tester.tap(find.text('Lưu'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(state.profileNameUpdateCount, 1);
+      expect(state.updatedProfileName, 'Nguyễn Văn An');
+      expect(find.text('Đã cập nhật hồ sơ.'), findsOneWidget);
+    },
+  );
+
+  testWidgets('password change closes dialog before navigating to login', (
+    tester,
+  ) async {
+    final state = FakeAppState()
+      ..user = const XUser(
+        id: 'user-1',
+        name: 'Nam',
+        email: 'nam@example.com',
+        role: 'STUDENT',
+      )
+      ..profileSummary = makeProfile();
+
+    final router = await _pumpProfile(tester, state, useRealLogin: true);
+    await tester.drag(find.byType(ListView), const Offset(0, -700));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Đổi mật khẩu'));
+    await tester.pumpAndSettle();
+
+    final fields = find.byType(TextFormField);
+    await tester.enterText(fields.at(0), '123456');
+    await tester.enterText(fields.at(1), '654321');
+    await tester.enterText(fields.at(2), '654321');
+    await tester.tap(find.text('Lưu'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(state.passwordChangeCount, 1);
+    expect(state.passwordChangeSignOutCount, 1);
+    expect(router.routerDelegate.currentConfiguration.uri.path, '/login');
+    expect(find.text('Đăng nhập X-Physics'), findsOneWidget);
+
+    final loginFields = find.byType(TextField);
+    await tester.enterText(loginFields.at(0), 'nam@example.com');
+    await tester.enterText(loginFields.at(1), '654321');
+    await tester.tap(find.text('Đăng nhập'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(state.loginCount, 1);
+    expect(router.routerDelegate.currentConfiguration.uri.path, '/');
+    expect(find.text('Home route'), findsOneWidget);
   });
 
   testWidgets('logout clears sensitive state and goes to login', (
