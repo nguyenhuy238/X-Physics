@@ -1,10 +1,19 @@
+import 'package:flutter/foundation.dart';
+import 'dart:io' show Platform;
+
 class ApiEndpoints {
   const ApiEndpoints._();
 
-  static const baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://localhost:3000',
-  );
+  static String get baseUrl {
+    const defineUrl = String.fromEnvironment('API_BASE_URL');
+    if (defineUrl.isNotEmpty) {
+      return defineUrl;
+    }
+    if (!kIsWeb && Platform.isAndroid) {
+      return 'http://10.0.2.2:3000';
+    }
+    return 'http://localhost:3000';
+  }
 
   static const register = '/api/auth/register';
   static const login = '/api/auth/login';

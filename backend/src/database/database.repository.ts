@@ -862,127 +862,285 @@ export class DatabaseRepository {
 
 
   async statistics() {
-    const [overview, difficultLessons] = await Promise.all([
+    // 1. Basic numbers
+    const [overview, totalStudentsResult] = await Promise.all([
       this.pool.query<{
-        active_students: string;
         total_users: string;
         total_attempts: string;
-        completed_lessons: string;
         total_lessons: string;
         total_badges: string;
       }>(`
         select
-          (select count(*) from users where role = 'STUDENT') as active_students,
           (select count(*) from users) as total_users,
           (select count(*) from quiz_attempts) as total_attempts,
-          (select count(*) from progress where status = 'COMPLETED') as completed_lessons,
           (select count(*) from lessons where is_published = true) as total_lessons,
           (select count(*) from user_badges) as total_badges
       `),
-      this.pool.query<{ lesson_id: string; chapter_id: string; title: string; wrong_count: string }>(
-        `select l.id as lesson_id,
-                l.chapter_id,
-                l.title,
-                count(qa.id) as wrong_count
-         from lessons l
-         join quiz_attempts qa on qa.lesson_id = l.id
-         group by l.id
-         order by wrong_count desc
-         limit 5`,
+      this.pool.query<{ count: string }>(
+        `select count(*)::int as count from users where role = 'STUDENT'`
       ),
     ]);
 
     const overviewRow = overview.rows[0] ?? {};
-    const activeStudents = Number(overviewRow.active_students ?? 0);
     const totalUsers = Number(overviewRow.total_users ?? 0);
     const totalAttempts = Number(overviewRow.total_attempts ?? 0);
-    const completedLessons = Number(overviewRow.completed_lessons ?? 0);
     const totalLessons = Number(overviewRow.total_lessons ?? 0);
     const totalBadges = Number(overviewRow.total_badges ?? 0);
+    const totalStudents = Number(totalStudentsResult.rows[0]?.count ?? 0);
 
-    const activeTrend = await this.pool.query<{ day: string; active_students: string }>(`
-      select to_char(day, 'YYYY-MM-DD') as day, coalesce(stats.active_students, 0) as active_students
-      from (
-        select (current_date - val)::date as day
-        from generate_series(0, 6) as val
-      ) days
-      left join (
-        select date_trunc('day', created_at)::date as day, count(distinct user_id) as active_students
-        from quiz_attempts
-        where created_at >= current_date - interval '7 days'
-        group by 1
-      ) stats using (day)
-      order by day asc
+    // 2. Active users (7 Days / 30 Days)
+    const [active7DaysResult, active30DaysResult] = await Promise.all([
+      this.pool.query<{ count: string }>(`
+        select count(distinct user_id)::int as count
+        from (
+          select user_id, created_at as activity_time from quiz_attempts
+          where created_at >= now() - interval '7 days'
+          union all
+          select user_id, updated_at as activity_time from progress
+          where updated_at >= now() - interval '7 days'
+        ) all_activities
+        join users u on u.id = all_activities.user_id
+        where u.role = 'STUDENT'
+      `),
+      this.pool.query<{ count: string }>(`
+        select count(distinct user_id)::int as count
+        from (
+          select user_id, created_at as activity_time from quiz_attempts
+          where created_at >= now() - interval '30 days'
+          union all
+          select user_id, updated_at as activity_time from progress
+          where updated_at >= now() - interval '30 days'
+        ) all_activities
+        join users u on u.id = all_activities.user_id
+        where u.role = 'STUDENT'
+      `),
+    ]);
+    const activeUsers7Days = Number(active7DaysResult.rows[0]?.count ?? 0);
+    const activeUsers30Days = Number(active30DaysResult.rows[0]?.count ?? 0);
+
+    // 3. Growth data (This week vs Last week)
+    const [
+      newUsersThisWeekResult,
+      newUsersLastWeekResult,
+      attemptsThisWeekResult,
+      attemptsLastWeekResult,
+      completionsThisWeekResult,
+      completionsLastWeekResult,
+    ] = await Promise.all([
+      this.pool.query<{ count: string }>(`select count(*)::int as count from users where role = 'STUDENT' and created_at >= now() - interval '7 days'`),
+      this.pool.query<{ count: string }>(`select count(*)::int as count from users where role = 'STUDENT' and created_at >= now() - interval '14 days' and created_at < now() - interval '7 days'`),
+      this.pool.query<{ count: string }>(`select count(*)::int as count from quiz_attempts where created_at >= now() - interval '7 days'`),
+      this.pool.query<{ count: string }>(`select count(*)::int as count from quiz_attempts where created_at >= now() - interval '14 days' and created_at < now() - interval '7 days'`),
+      this.pool.query<{ count: string }>(`select count(*)::int as count from progress p join users u on p.user_id = u.id where p.status = 'COMPLETED' and u.role = 'STUDENT' and p.updated_at >= now() - interval '7 days'`),
+      this.pool.query<{ count: string }>(`select count(*)::int as count from progress p join users u on p.user_id = u.id where p.status = 'COMPLETED' and u.role = 'STUDENT' and p.updated_at >= now() - interval '14 days' and p.updated_at < now() - interval '7 days'`),
+    ]);
+
+    const newUsersThisWeek = Number(newUsersThisWeekResult.rows[0]?.count ?? 0);
+    const newUsersLastWeek = Number(newUsersLastWeekResult.rows[0]?.count ?? 0);
+    const attemptsThisWeek = Number(attemptsThisWeekResult.rows[0]?.count ?? 0);
+    const attemptsLastWeek = Number(attemptsLastWeekResult.rows[0]?.count ?? 0);
+    const completionsThisWeek = Number(completionsThisWeekResult.rows[0]?.count ?? 0);
+    const completionsLastWeek = Number(completionsLastWeekResult.rows[0]?.count ?? 0);
+
+    const calculateGrowth = (current: number, previous: number) => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return Number((((current - previous) / previous) * 100).toFixed(1));
+    };
+
+    const newUsersGrowth = calculateGrowth(newUsersThisWeek, newUsersLastWeek);
+    const attemptsGrowth = calculateGrowth(attemptsThisWeek, attemptsLastWeek);
+    const completionsGrowth = calculateGrowth(completionsThisWeek, completionsLastWeek);
+
+    // 4. Retention rate
+    const retentionResult = await this.pool.query<{ total_active: string; retained: string }>(`
+      with student_active_days as (
+        select user_id, count(distinct date_trunc('day', activity_time)) as active_days
+        from (
+          select user_id, created_at as activity_time from quiz_attempts
+          where created_at >= now() - interval '7 days'
+          union all
+          select user_id, updated_at as activity_time from progress
+          where updated_at >= now() - interval '7 days'
+        ) all_activities
+        join users u on u.id = all_activities.user_id
+        where u.role = 'STUDENT'
+        group by user_id
+      )
+      select
+        count(*)::int as total_active,
+        sum(case when active_days > 1 then 1 else 0 end)::int as retained
+      from student_active_days
     `);
+    const totalActiveStudents = Number(retentionResult.rows[0]?.total_active ?? 0);
+    const retainedStudents = Number(retentionResult.rows[0]?.retained ?? 0);
+    const retentionRate = totalActiveStudents === 0 ? 0 : Number(((retainedStudents / totalActiveStudents) * 100).toFixed(1));
 
-    const completionByChapter = await this.pool.query<{
+    // 5. Average study time
+    const studyTimeResult = await this.pool.query<{ total_minutes: string }>(`
+      select coalesce(sum(l.estimated_minutes), 0)::int as total_minutes
+      from progress p
+      join lessons l on p.lesson_id = l.id
+      join users u on u.id = p.user_id
+      where p.status = 'COMPLETED' and u.role = 'STUDENT'
+    `);
+    const totalMinutes = Number(studyTimeResult.rows[0]?.total_minutes ?? 0);
+    const averageStudyTime = totalStudents === 0 ? 0 : Number((totalMinutes / totalStudents).toFixed(1));
+
+    // 6. Most viewed / least viewed / lessons without quiz
+    const [mostViewedLessons, leastViewedLessons, lessonsWithoutQuiz] = await Promise.all([
+      this.pool.query<{ lesson_id: string; title: string; chapter_title: string; view_count: number }>(`
+        select l.id as lesson_id, l.title, c.title as chapter_title, count(p.id)::int as view_count
+        from lessons l
+        join chapters c on l.chapter_id = c.id
+        left join progress p on p.lesson_id = l.id
+        where l.is_published = true
+        group by l.id, l.title, c.title, l.order_index
+        order by view_count desc, l.order_index asc
+        limit 5
+      `),
+      this.pool.query<{ lesson_id: string; title: string; chapter_title: string; view_count: number }>(`
+        select l.id as lesson_id, l.title, c.title as chapter_title, count(p.id)::int as view_count
+        from lessons l
+        join chapters c on l.chapter_id = c.id
+        left join progress p on p.lesson_id = l.id
+        where l.is_published = true
+        group by l.id, l.title, c.title, l.order_index
+        order by view_count asc, l.order_index asc
+        limit 5
+      `),
+      this.pool.query<{ lesson_id: string; title: string; chapter_title: string }>(`
+        select l.id as lesson_id, l.title, c.title as chapter_title
+        from lessons l
+        join chapters c on l.chapter_id = c.id
+        left join questions q on q.lesson_id = l.id
+        where l.is_published = true
+        group by l.id, l.title, c.title, c.order_index, l.order_index
+        having count(q.id) = 0
+        order by c.order_index asc, l.order_index asc
+      `),
+    ]);
+
+    // 7. Completion Rate calculations (fixed)
+    const completedProgressResult = await this.pool.query<{ count: string }>(`
+      select count(*)::int as count
+      from progress p
+      join users u on p.user_id = u.id
+      where p.status = 'COMPLETED' and u.role = 'STUDENT'
+    `);
+    const totalCompletedProgress = Number(completedProgressResult.rows[0]?.count ?? 0);
+    const possibleCompletions = totalStudents * totalLessons;
+    const completionRate = possibleCompletions === 0 ? 0 : Number((totalCompletedProgress / possibleCompletions).toFixed(4));
+
+    // Per chapter completion rate
+    const completionByChapterRaw = await this.pool.query<{
       chapter_id: string;
       title: string;
-      completed_count: string;
-      total_lessons: string;
+      total_lessons: number;
+      completed_count: number;
     }>(`
       select c.id as chapter_id,
              c.title,
-             count(p.id) as completed_count,
-             count(l.id) as total_lessons
+             count(distinct l.id)::int as total_lessons,
+             coalesce(sum(case when p.status = 'COMPLETED' then 1 else 0 end), 0)::int as completed_count
       from chapters c
       left join lessons l on l.chapter_id = c.id and l.is_published = true
-      left join progress p on p.lesson_id = l.id and p.status = 'COMPLETED'
-      group by c.id, c.title
+      left join progress p on p.lesson_id = l.id and p.user_id in (select id from users where role = 'STUDENT')
+      group by c.id, c.title, c.order_index
       order by c.order_index asc
     `);
 
-    const completionByLesson = await this.pool.query<{
-      lesson_id: string;
-      chapter_id: string;
-      title: string;
-      completed_count: string;
-    }>(`
-      select l.id as lesson_id,
-             l.chapter_id,
-             l.title,
-             count(p.id) as completed_count
-      from lessons l
-      left join progress p on p.lesson_id = l.id and p.status = 'COMPLETED'
-      where l.is_published = true
-      group by l.id, l.chapter_id, l.title
-      order by l.chapter_id asc, l.order_index asc
-      limit 50
-    `);
+    // 8. Quiz assessments (avg score, difficult questions, trend)
+    const [avgScoreResult, difficultQuestionsRaw, quizAttemptsTrendRaw] = await Promise.all([
+      this.pool.query<{ avg_score: string }>(`select coalesce(avg(score), 0)::float as avg_score from quiz_attempts`),
+      this.pool.query<{
+        id: string;
+        question: string;
+        lesson_title: string;
+        total_attempts: number;
+        wrong_count: number;
+        error_rate: number;
+      }>(`
+        select
+          q.id,
+          q.question_text as question,
+          l.title as lesson_title,
+          count(ans."questionId")::int as total_attempts,
+          sum(case when ans."selectedOption" != q.correct_option then 1 else 0 end)::int as wrong_count,
+          round(cast(sum(case when ans."selectedOption" != q.correct_option then 1 else 0 end) as numeric) / count(ans."questionId") * 100, 1)::float as error_rate
+        from quiz_attempts qa,
+        lateral jsonb_to_recordset(qa.answers_json) as ans("questionId" text, "selectedOption" int)
+        join questions q on q.id = ans."questionId"
+        join lessons l on q.lesson_id = l.id
+        group by q.id, q.question_text, l.title
+        order by error_rate desc, total_attempts desc
+        limit 5
+      `),
+      this.pool.query<{ date: string; count: number }>(`
+        select to_char(day, 'YYYY-MM-DD') as date, coalesce(stats.attempts_count, 0)::int as count
+        from (
+          select (current_date - val)::date as day
+          from generate_series(0, 6) as val
+        ) days
+        left join (
+          select date_trunc('day', created_at)::date as day, count(*) as attempts_count
+          from quiz_attempts
+          where created_at >= current_date - interval '7 days'
+          group by 1
+        ) stats using (day)
+        order by date asc
+      `),
+    ]);
+
+    const averageScore = Number(Number(avgScoreResult.rows[0]?.avg_score ?? 0).toFixed(2));
 
     return {
-      activeStudents,
+      activeStudents: activeUsers7Days, // keep variable name compatibility
       totalUsers,
       totalAttempts,
-      completionRate: totalLessons === 0 ? 0 : completedLessons / totalLessons,
+      completionRate,
       totalBadgesAwarded: totalBadges,
-      activeTrend: activeTrend.rows.map((row) => ({
-        date: row.day,
-        activeStudents: Number(row.active_students ?? 0),
-      })),
-      completionByChapter: completionByChapter.rows.map((row) => ({
-        chapterId: row.chapter_id,
-        title: row.title,
-        completedCount: Number(row.completed_count ?? 0),
-        totalLessons: Number(row.total_lessons ?? 0),
-        completionRate:
-          Number(row.total_lessons ?? 0) === 0
-            ? 0
-            : Number(row.completed_count ?? 0) / Number(row.total_lessons ?? 0),
-      })),
-      completionByLesson: completionByLesson.rows.map((row) => ({
+      activeUsers7Days,
+      activeUsers30Days,
+      newUsersThisWeek,
+      newUsersGrowth,
+      attemptsThisWeek,
+      attemptsGrowth,
+      completionsThisWeek,
+      completionsGrowth,
+      retentionRate,
+      averageStudyTime,
+      mostViewedLessons: mostViewedLessons.rows.map((row) => ({
         lessonId: row.lesson_id,
-        chapterId: row.chapter_id,
         title: row.title,
-        completedCount: Number(row.completed_count ?? 0),
-        completionRate: totalLessons === 0 ? 0 : Number(row.completed_count ?? 0) / totalLessons,
+        chapterTitle: row.chapter_title,
+        viewCount: row.view_count,
       })),
-      difficultLessons: difficultLessons.rows.map((row) => ({
+      leastViewedLessons: leastViewedLessons.rows.map((row) => ({
         lessonId: row.lesson_id,
-        chapterId: row.chapter_id,
         title: row.title,
-        wrongCount: Number(row.wrong_count),
+        chapterTitle: row.chapter_title,
+        viewCount: row.view_count,
       })),
+      lessonsWithoutQuiz: lessonsWithoutQuiz.rows.map((row) => ({
+        lessonId: row.lesson_id,
+        title: row.title,
+        chapterTitle: row.chapter_title,
+      })),
+      completionByChapter: completionByChapterRaw.rows.map((row) => {
+        const tLessons = Number(row.total_lessons ?? 0);
+        const cCount = Number(row.completed_count ?? 0);
+        const denom = totalStudents * tLessons;
+        return {
+          chapterId: row.chapter_id,
+          title: row.title,
+          completedCount: cCount,
+          totalLessons: tLessons,
+          completionRate: denom === 0 ? 0 : Number((cCount / denom).toFixed(4)),
+        };
+      }),
+      averageScore,
+      difficultQuestions: difficultQuestionsRaw.rows,
+      quizAttemptsTrend: quizAttemptsTrendRaw.rows,
     };
   }
 

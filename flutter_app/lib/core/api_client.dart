@@ -1,18 +1,28 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'dart:io' show Platform;
 
 class ApiClient {
   static final ApiClient _instance = ApiClient._internal();
 
   factory ApiClient() => _instance;
 
+  static String get _defaultBaseUrl {
+    const defineUrl = String.fromEnvironment('API_BASE_URL');
+    if (defineUrl.isNotEmpty) {
+      return defineUrl.endsWith('/api') ? defineUrl : '$defineUrl/api';
+    }
+    if (!kIsWeb && Platform.isAndroid) {
+      return 'http://10.0.2.2:3000/api';
+    }
+    return 'http://localhost:3000/api';
+  }
+
   ApiClient._internal() {
     _dio = Dio(
       BaseOptions(
-        baseUrl: const String.fromEnvironment(
-          'API_BASE_URL',
-          defaultValue: 'http://localhost:3000/api',
-        ),
+        baseUrl: _defaultBaseUrl,
         connectTimeout: const Duration(seconds: 15),
         receiveTimeout: const Duration(seconds: 15),
         headers: {'Content-Type': 'application/json'},
