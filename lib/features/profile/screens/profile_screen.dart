@@ -132,6 +132,8 @@ class _ProfileContent extends StatelessWidget {
           _RecentScoreChart(attempts: profile.recentAttempts),
           const SizedBox(height: 16),
           _BadgeGrid(badges: [...profile.earnedBadges, ...profile.lockedBadges]),
+          const SizedBox(height: 16),
+          _buildStudentSettings(context, appState),
         ],
         const SizedBox(height: 16),
         OutlinedButton.icon(
@@ -152,6 +154,93 @@ class _ProfileContent extends StatelessWidget {
           label: const Text('Đăng xuất'),
         ),
       ],
+    );
+  }
+
+  Widget _buildStudentSettings(BuildContext context, AppState state) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.settings_rounded, color: Color(0xFF6366F1)),
+                SizedBox(width: 8),
+                Text(
+                  'Cài đặt & Tiện ích',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF4F46E5),
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SwitchListTile(
+              secondary: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0xFFEFF6FF),
+                ),
+                child: const Icon(
+                  Icons.wifi_off_rounded,
+                  color: Color(0xFF2563EB),
+                  size: 20,
+                ),
+              ),
+              title: const Text(
+                'Chế độ ngoại tuyến',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              subtitle: const Text(
+                'Giả lập học tập không có mạng internet',
+                style: TextStyle(fontSize: 12),
+              ),
+              value: state.simulateOffline,
+              onChanged: state.setOfflineMode,
+              activeColor: const Color(0xFF2563EB),
+            ),
+            const Divider(),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0xFFECFDF5),
+                ),
+                child: const Icon(
+                  Icons.download_done_rounded,
+                  color: Color(0xFF10B981),
+                  size: 20,
+                ),
+              ),
+              title: const Text(
+                'Bài học tải xuống',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              subtitle: Text(
+                '${state.downloadedLessons.length} bài học sẵn sàng đọc offline',
+                style: const TextStyle(fontSize: 12),
+              ),
+              trailing: const Icon(
+                Icons.chevron_right_rounded,
+                color: Color(0xFF94A3B8),
+              ),
+              onTap: () => context.go('/offline'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
