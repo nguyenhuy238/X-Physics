@@ -82,13 +82,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: () => context.go('/register'),
                   child: const Text('Tạo tài khoản học sinh'),
                 ),
-                TextButton(
-                  onPressed: () {
-                    email.text = 'admin@example.com';
-                    password.text = '123456';
-                  },
-                  child: const Text('Dùng tài khoản Admin demo'),
-                ),
               ],
             ),
           ),
