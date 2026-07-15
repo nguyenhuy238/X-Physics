@@ -115,6 +115,9 @@ alter table quiz_attempts
 alter table quiz_attempts
   add column if not exists review_json jsonb;
 
+alter table quiz_attempts
+  add column if not exists coins_earned integer not null default 0;
+
 create index if not exists quiz_attempts_user_lesson_idx on quiz_attempts(user_id, lesson_id);
 
 create table if not exists progress (

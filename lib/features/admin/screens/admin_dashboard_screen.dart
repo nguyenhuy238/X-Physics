@@ -568,11 +568,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: activities.length,
-            separatorBuilder: (_, __) => const Divider(
+            separatorBuilder: (context, index) => const Divider(
               color: Color(0xFFF1F5F9),
               height: 24,
             ),
-            itemBuilder: (_, index) {
+            itemBuilder: (context, index) {
               final item = activities[index];
               return Row(
                 children: [

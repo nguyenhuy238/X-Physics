@@ -33,6 +33,7 @@ interface LessonRow {
   order_index: number;
   is_published: boolean;
   created_at: Date;
+  updated_at: Date;
 }
 
 interface SimulationRow {
@@ -121,6 +122,10 @@ interface ChapterProgressRow {
 
 @Injectable()
 export class DatabaseRepository {
+  private learningActivitySchemaReady = false;
+  private quizAttemptsSchemaReady = false;
+  private rewardEventsSchemaReady = false;
+
   constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
 
   async withTransaction<T>(work: (client: PoolClient) => Promise<T>) {
@@ -728,6 +733,7 @@ export class DatabaseRepository {
     },
     db: Db,
   ) {
+    await this.ensureQuizAttemptsSchema(db);
     const result = await db.query<AttemptRow>(
       `insert into quiz_attempts
         (user_id, lesson_id, answers_json, review_json, score, correct_count, total_questions, duration_seconds, coins_earned)
@@ -845,6 +851,29 @@ export class DatabaseRepository {
     return result.rows[0] ? this.mapProgress(result.rows[0]) : null;
   }
 
+  // Records a real download event for the `downloaded_lessons` stats table
+  // (see schema.sql). Intentionally not deduplicated when clientDeviceId is
+  // omitted: Postgres treats each NULL as distinct for the unique
+  // constraint, so repeated downloads without a device id simply add more
+  // event rows, which matches how this table is consumed as an activity
+  // stream (see the "recent activities" union query in getAdminStatistics)
+  // rather than as a single "has this lesson" flag.
+  async recordLessonDownload(
+    input: {
+      userId: string;
+      lessonId: string;
+      clientDeviceId?: string | null;
+    },
+    db: Db = this.pool,
+  ) {
+    await db.query(
+      `insert into downloaded_lessons (user_id, lesson_id, client_device_id)
+       values ($1, $2, $3)
+       on conflict (user_id, lesson_id, client_device_id) do nothing`,
+      [input.userId, input.lessonId, input.clientDeviceId ?? null],
+    );
+  }
+
   async listProgress(userId: string) {
     const result = await this.pool.query<ProgressRow>(
       `select * from progress
@@ -940,6 +969,7 @@ export class DatabaseRepository {
     },
     db: Db = this.pool,
   ) {
+    await this.ensureRewardEventsSchema(db);
     const result = await db.query<RewardEventRow>(
       `insert into reward_events
         (user_id, reward_type, source_type, source_id, reward_level, coins, metadata_json)
@@ -979,6 +1009,7 @@ export class DatabaseRepository {
     input: { sourceType: string; sourceId: string; activityDate?: string },
     db: Db = this.pool,
   ) {
+    await this.ensureLearningActivitySchema(db);
     const result = await db.query<{ activity_date: Date | string }>(
       `insert into learning_activity (user_id, activity_date, source_type, source_id)
        values ($1, coalesce($2::date, (now() at time zone 'utc')::date), $3, $4)
@@ -990,7 +1021,50 @@ export class DatabaseRepository {
     return result.rows[0].activity_date;
   }
 
+  private async ensureQuizAttemptsSchema(db: Db = this.pool) {
+    if (this.quizAttemptsSchemaReady) return;
+
+    await db.query(`
+      alter table quiz_attempts
+        add column if not exists duration_seconds integer not null default 0,
+        add column if not exists review_json jsonb,
+        add column if not exists coins_earned integer not null default 0
+    `);
+
+    this.quizAttemptsSchemaReady = true;
+  }
+
+  private async ensureRewardEventsSchema(db: Db = this.pool) {
+    if (this.rewardEventsSchemaReady) return;
+
+    await db.query(`
+      create table if not exists reward_events (
+        id uuid primary key default gen_random_uuid(),
+        user_id uuid not null references users(id) on delete cascade,
+        reward_type varchar(60) not null,
+        source_type varchar(60) not null,
+        source_id varchar(120) not null,
+        reward_level integer not null default 0,
+        coins integer not null,
+        metadata_json jsonb not null default '{}'::jsonb,
+        created_at timestamptz not null default now()
+      )
+    `);
+    await db.query(`
+      alter table reward_events
+        add column if not exists reward_level integer not null default 0,
+        add column if not exists metadata_json jsonb not null default '{}'::jsonb
+    `);
+    await db.query(`
+      create unique index if not exists reward_events_user_reward_source_level_idx
+      on reward_events (user_id, reward_type, source_type, source_id, reward_level)
+    `);
+
+    this.rewardEventsSchemaReady = true;
+  }
+
   async currentLearningStreak(userId: string, db: Db = this.pool) {
+    await this.ensureLearningActivitySchema(db);
     const result = await db.query<{ activity_date: Date }>(
       `select activity_date
        from learning_activity
@@ -1017,6 +1091,28 @@ export class DatabaseRepository {
       expected = previousDate.toISOString().slice(0, 10);
     }
     return streak;
+  }
+
+  private async ensureLearningActivitySchema(db: Db = this.pool) {
+    if (this.learningActivitySchemaReady) return;
+
+    await db.query(`
+      create table if not exists learning_activity (
+        id uuid primary key default gen_random_uuid(),
+        user_id uuid not null references users(id) on delete cascade,
+        activity_date date not null,
+        source_type varchar(60) not null,
+        source_id varchar(120) not null,
+        created_at timestamptz not null default now(),
+        unique (user_id, activity_date)
+      )
+    `);
+    await db.query(`
+      create index if not exists learning_activity_user_date_idx
+      on learning_activity(user_id, activity_date desc)
+    `);
+
+    this.learningActivitySchemaReady = true;
   }
 
   async countCompletedLessons(userId: string, db: Db = this.pool) {
@@ -1210,6 +1306,7 @@ export class DatabaseRepository {
       orderIndex: row.order_index,
       isPublished: row.is_published,
       createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 
