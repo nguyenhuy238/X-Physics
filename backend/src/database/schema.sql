@@ -45,14 +45,24 @@ create index if not exists lessons_chapter_order_idx on lessons(chapter_id, orde
 create table if not exists simulations (
   id varchar(80) primary key,
   lesson_id varchar(80) not null references lessons(id) on delete cascade,
+  type varchar(60) not null default 'formula_simulation',
   title varchar(180) not null,
   formula text not null,
   expression varchar(120) not null,
   variables_json jsonb not null,
-  result_json jsonb not null
+  result_json jsonb not null,
+  order_index integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create index if not exists simulations_lesson_idx on simulations(lesson_id);
+
+alter table simulations
+  add column if not exists type varchar(60) not null default 'formula_simulation',
+  add column if not exists order_index integer not null default 0,
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists updated_at timestamptz not null default now();
 
 create table if not exists questions (
   id varchar(100) primary key,

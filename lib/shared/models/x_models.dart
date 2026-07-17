@@ -166,24 +166,30 @@ class Lesson {
     'updatedAt': updatedAt,
   };
 
-  factory Lesson.fromJson(Map<dynamic, dynamic> json) => Lesson(
-    id: json['id'] as String,
-    chapterId: json['chapterId'] as String,
-    title: json['title'] as String,
-    content: (json['content'] ?? json['contentMarkdown']) as String,
-    formulaLatex: json['formulaLatex'] as String? ?? '',
-    estimatedMinutes: (json['estimatedMinutes'] as num?)?.toInt() ?? 10,
-    simulation: json['simulation'] == null
-        ? FormulaSimulationConfig.empty()
-        : FormulaSimulationConfig.fromJson(json['simulation'] as Map),
-    questions: (json['questions'] as List? ?? const [])
-        .map((q) => Question.fromJson(q as Map))
-        .toList(),
-    orderIndex: (json['orderIndex'] as num?)?.toInt() ?? 0,
-    isPublished: json['isPublished'] as bool? ?? true,
-    createdAt: json['createdAt'] as String?,
-    updatedAt: json['updatedAt'] as String? ?? json['updated_at'] as String?,
-  );
+  factory Lesson.fromJson(Map<dynamic, dynamic> json) {
+    final simulations = json['simulations'] as List?;
+    final simulationJson =
+        json['simulation'] ??
+        (simulations == null || simulations.isEmpty ? null : simulations.first);
+    return Lesson(
+      id: json['id'] as String,
+      chapterId: json['chapterId'] as String,
+      title: json['title'] as String,
+      content: (json['content'] ?? json['contentMarkdown']) as String,
+      formulaLatex: json['formulaLatex'] as String? ?? '',
+      estimatedMinutes: (json['estimatedMinutes'] as num?)?.toInt() ?? 10,
+      simulation: simulationJson == null
+          ? FormulaSimulationConfig.empty()
+          : FormulaSimulationConfig.fromJson(simulationJson as Map),
+      questions: (json['questions'] as List? ?? const [])
+          .map((q) => Question.fromJson(q as Map))
+          .toList(),
+      orderIndex: (json['orderIndex'] as num?)?.toInt() ?? 0,
+      isPublished: json['isPublished'] as bool? ?? true,
+      createdAt: json['createdAt'] as String?,
+      updatedAt: json['updatedAt'] as String? ?? json['updated_at'] as String?,
+    );
+  }
 }
 
 class FormulaVariable {
@@ -193,6 +199,7 @@ class FormulaVariable {
     required this.unit,
     required this.min,
     required this.max,
+    this.step = 1,
     required this.defaultValue,
   });
   final String symbol;
@@ -200,6 +207,7 @@ class FormulaVariable {
   final String unit;
   final double min;
   final double max;
+  final double step;
   final double defaultValue;
 
   Map<String, dynamic> toJson() => {
@@ -208,6 +216,8 @@ class FormulaVariable {
     'unit': unit,
     'min': min,
     'max': max,
+    'step': step,
+    'default': defaultValue,
     'defaultValue': defaultValue,
   };
 
@@ -218,6 +228,7 @@ class FormulaVariable {
         unit: json['unit'] as String,
         min: (json['min'] as num).toDouble(),
         max: (json['max'] as num).toDouble(),
+        step: (json['step'] as num?)?.toDouble() ?? 1,
         defaultValue: (json['defaultValue'] ?? json['default'] as num)
             .toDouble(),
       );
@@ -229,17 +240,20 @@ class FormulaResult {
     required this.label,
     required this.unit,
     required this.expression,
+    this.decimalPlaces = 2,
   });
   final String symbol;
   final String label;
   final String unit;
   final String expression;
+  final int decimalPlaces;
 
   Map<String, dynamic> toJson() => {
     'symbol': symbol,
     'label': label,
     'unit': unit,
     'expression': expression,
+    'decimalPlaces': decimalPlaces,
   };
 
   factory FormulaResult.fromJson(Map<dynamic, dynamic> json) => FormulaResult(
@@ -247,6 +261,7 @@ class FormulaResult {
     label: json['label'] as String,
     unit: json['unit'] as String,
     expression: json['expression'] as String? ?? '',
+    decimalPlaces: (json['decimalPlaces'] as num?)?.toInt() ?? 2,
   );
 }
 
@@ -278,12 +293,17 @@ class FormulaSimulationConfig {
   };
 
   factory FormulaSimulationConfig.fromJson(Map<dynamic, dynamic> json) {
-    final result = Map<dynamic, dynamic>.from(json['result'] as Map? ?? {});
+    final config = json['config'] is Map
+        ? Map<dynamic, dynamic>.from(json['config'] as Map)
+        : const <dynamic, dynamic>{};
+    final result = Map<dynamic, dynamic>.from(
+      (json['result'] ?? config['result']) as Map? ?? {},
+    );
     result['expression'] ??= json['expression'] as String? ?? '';
     return FormulaSimulationConfig(
-      title: json['title'] as String,
-      formula: json['formula'] as String,
-      variables: (json['variables'] as List? ?? const [])
+      title: json['title'] as String? ?? '',
+      formula: json['formula'] as String? ?? '',
+      variables: ((json['variables'] ?? config['variables']) as List? ?? const [])
           .map((v) => FormulaVariable.fromJson(v as Map))
           .toList(),
       result: FormulaResult.fromJson(result),

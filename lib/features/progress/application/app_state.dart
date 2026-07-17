@@ -1104,6 +1104,9 @@ class AppState extends ChangeNotifier {
       'estimatedMinutes': lesson.estimatedMinutes,
       'orderIndex': lesson.orderIndex,
       'isPublished': lesson.isPublished,
+      'simulation': lesson.simulation.title.trim().isEmpty
+          ? null
+          : lesson.simulation.toJson(),
     };
     return _adminWrite(
       () => isUpdate

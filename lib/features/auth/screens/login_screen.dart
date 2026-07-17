@@ -62,7 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 32),
                   const Text(
-                    'Chào mừng trở lại! 👋',
+                    'Đăng nhập X-Physics',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 28,
@@ -75,13 +75,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   const Text(
                     'Đăng nhập để tiếp tục học tập',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: Color(0xFF64748B),
-                    ),
+                    style: TextStyle(fontSize: 15, color: Color(0xFF64748B)),
                   ),
                   const SizedBox(height: 36),
-                  
+
                   // Email Input
                   const Text(
                     'Email',
@@ -245,8 +242,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             dimension: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2.5,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
                           )
                         : const Text(
@@ -316,8 +314,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 32),
 
                   // Register link
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       const Text(
                         'Chưa có tài khoản? ',
@@ -345,7 +344,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       email.text = 'admin@example.com';
                       password.text = '123456';
                     },
-                    icon: const Icon(Icons.admin_panel_settings_rounded, size: 18),
+                    icon: const Icon(
+                      Icons.admin_panel_settings_rounded,
+                      size: 18,
+                    ),
                     label: const Text('Dùng tài khoản Admin demo'),
                     style: TextButton.styleFrom(
                       foregroundColor: const Color(0xFF64748B),

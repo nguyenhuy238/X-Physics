@@ -2,12 +2,13 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
-} from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
+} from "@nestjs/common";
+import { randomUUID } from "node:crypto";
 
-import { DatabaseRepository } from '../../database/database.repository';
+import { DatabaseRepository } from "../../database/database.repository";
 import {
   AdminChapterDto,
+  AdminFormulaSimulationDto,
   AdminLessonDto,
   AdminQuestionQueryDto,
   CreateAdminQuestionDto,
@@ -17,12 +18,12 @@ import {
   AdminQuizAttemptQueryDto,
   CreateAdminQuizAttemptDto,
   UpdateAdminQuizAttemptDto,
-} from './dto/admin-content.dto';
-
+} from "./dto/admin-content.dto";
+import { FormulaExpression } from "./formula-expression";
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly database: DatabaseRepository) { }
+  constructor(private readonly database: DatabaseRepository) {}
 
   users(query: {
     search?: string;
@@ -98,11 +99,35 @@ export class AdminService {
   }
 
   createLesson(dto: AdminLessonDto) {
-    return this.database.createLesson(dto);
+    return this.database.withTransaction(async (client) => {
+      const lesson = await this.database.createLesson(dto, client);
+      if (dto.simulation) {
+        await this.saveLessonSimulation(lesson.id, dto.simulation, client);
+      }
+      const simulations = await this.database.listSimulationsByLesson(
+        lesson.id,
+        client,
+      );
+      return { ...lesson, simulation: simulations[0] ?? null };
+    });
   }
 
   updateLesson(id: string, dto: AdminLessonDto) {
-    return this.database.updateLesson(id, dto);
+    return this.database.withTransaction(async (client) => {
+      const lesson = await this.database.updateLesson(id, dto, client);
+      if (Object.prototype.hasOwnProperty.call(dto, "simulation")) {
+        if (dto.simulation) {
+          await this.saveLessonSimulation(id, dto.simulation, client);
+        } else {
+          await this.database.deleteFormulaSimulationsByLesson(id, client);
+        }
+      }
+      const simulations = await this.database.listSimulationsByLesson(
+        id,
+        client,
+      );
+      return { ...lesson, simulation: simulations[0] ?? null };
+    });
   }
 
   removeLesson(id: string) {
@@ -117,7 +142,10 @@ export class AdminService {
         client,
       );
       const id = randomUUID();
-      const insertAt = this.clampInsertPosition(input.orderIndex, existing.length);
+      const insertAt = this.clampInsertPosition(
+        input.orderIndex,
+        existing.length,
+      );
       await this.database.upsertQuestion(
         {
           id,
@@ -139,10 +167,9 @@ export class AdminService {
       const input = await this.validateQuestionInput(dto, id, client);
       const oldLessonId = current.lessonId;
       const newLessonId = input.lessonId;
-      const targetQuestions = (await this.database.listAdminQuestionsByLesson(
-        newLessonId,
-        client,
-      )).filter((question) => question.id !== id);
+      const targetQuestions = (
+        await this.database.listAdminQuestionsByLesson(newLessonId, client)
+      ).filter((question) => question.id !== id);
       await this.database.updateQuestion(
         id,
         {
@@ -153,10 +180,9 @@ export class AdminService {
       );
 
       if (oldLessonId !== newLessonId) {
-        const oldIds = (await this.database.listAdminQuestionsByLesson(
-          oldLessonId,
-          client,
-        ))
+        const oldIds = (
+          await this.database.listAdminQuestionsByLesson(oldLessonId, client)
+        )
           .filter((question) => question.id !== id)
           .map((question) => question.id);
         await this.database.setQuestionOrder(oldLessonId, oldIds, client);
@@ -177,10 +203,9 @@ export class AdminService {
     return this.database.withTransaction(async (client) => {
       const current = await this.database.findAdminQuestion(id, client);
       const result = await this.database.deleteQuestion(id, client);
-      const ids = (await this.database.listAdminQuestionsByLesson(
-        current.lessonId,
-        client,
-      )).map((question) => question.id);
+      const ids = (
+        await this.database.listAdminQuestionsByLesson(current.lessonId, client)
+      ).map((question) => question.id);
       await this.database.setQuestionOrder(current.lessonId, ids, client);
       return result;
     });
@@ -190,14 +215,14 @@ export class AdminService {
     return this.database.withTransaction(async (client) => {
       const lesson = await this.database.findAdminLesson(dto.lessonId, client);
       if (!lesson) {
-        throw new NotFoundException('Lesson not found');
+        throw new NotFoundException("Lesson not found");
       }
       const ids = dto.questionIds.map((id) => id.trim()).filter(Boolean);
       if (ids.length === 0) {
-        throw new BadRequestException('questionIds must not be empty');
+        throw new BadRequestException("questionIds must not be empty");
       }
       if (new Set(ids).size !== ids.length) {
-        throw new BadRequestException('questionIds must be unique');
+        throw new BadRequestException("questionIds must be unique");
       }
       const existing = await this.database.listAdminQuestionsByLesson(
         dto.lessonId,
@@ -209,11 +234,13 @@ export class AdminService {
       const missing = existingIds.filter((id) => !submittedSet.has(id));
       const extra = ids.filter((id) => !existingSet.has(id));
       if (missing.length > 0) {
-        throw new BadRequestException('questionIds is missing lesson questions');
+        throw new BadRequestException(
+          "questionIds is missing lesson questions",
+        );
       }
       if (extra.length > 0) {
         throw new BadRequestException(
-          'questionIds contains unknown or foreign questions',
+          "questionIds contains unknown or foreign questions",
         );
       }
       const items = await this.database.setQuestionOrder(
@@ -232,35 +259,37 @@ export class AdminService {
   ) {
     const lesson = await this.database.findAdminLesson(dto.lessonId, db);
     if (!lesson) {
-      throw new NotFoundException('Lesson not found');
+      throw new NotFoundException("Lesson not found");
     }
 
     const questionText = dto.questionText.trim();
     const explanation = dto.explanation.trim();
     const options = dto.options.map((option) => option.trim());
     if (!questionText) {
-      throw new BadRequestException('Question text is required');
+      throw new BadRequestException("Question text is required");
     }
     if (!explanation) {
-      throw new BadRequestException('Explanation is required');
+      throw new BadRequestException("Explanation is required");
     }
     if (options.length !== 4) {
-      throw new BadRequestException('Question must have exactly 4 options');
+      throw new BadRequestException("Question must have exactly 4 options");
     }
     if (options.some((option) => option.length === 0)) {
-      throw new BadRequestException('Options must not be empty');
+      throw new BadRequestException("Options must not be empty");
     }
     const normalizedOptions = new Set(
-      options.map((option) => option.toLocaleLowerCase('vi-VN')),
+      options.map((option) => option.toLocaleLowerCase("vi-VN")),
     );
     if (normalizedOptions.size !== options.length) {
-      throw new BadRequestException('Options must be unique');
+      throw new BadRequestException("Options must be unique");
     }
     if (dto.correctOption < 0 || dto.correctOption >= options.length) {
-      throw new BadRequestException('Correct option is out of range');
+      throw new BadRequestException("Correct option is out of range");
     }
     if (dto.orderIndex < 1) {
-      throw new BadRequestException('Order index must be greater than or equal to 1');
+      throw new BadRequestException(
+        "Order index must be greater than or equal to 1",
+      );
     }
 
     return {
@@ -285,5 +314,119 @@ export class AdminService {
       0,
     );
     return minOrder - 1;
+  }
+
+  private async saveLessonSimulation(
+    lessonId: string,
+    dto: AdminFormulaSimulationDto,
+    db: Parameters<Parameters<DatabaseRepository["withTransaction"]>[0]>[0],
+  ) {
+    const input = this.validateFormulaSimulation(dto);
+    const existing = await this.database.listSimulationsByLesson(lessonId, db);
+    const existingFormulaSimulation = existing.find(
+      (simulation) => simulation.type === "formula_simulation",
+    );
+    const id = existingFormulaSimulation?.id ?? `sim-${lessonId}`;
+    return this.database.replaceLessonFormulaSimulation(
+      {
+        id,
+        lessonId,
+        ...input,
+      },
+      db,
+    );
+  }
+
+  private validateFormulaSimulation(dto: AdminFormulaSimulationDto) {
+    const title = dto.title.trim();
+    const formula = dto.formula.trim();
+    const expression = dto.result.expression.trim();
+    const resultLabel = dto.result.label.trim();
+    if (!title) {
+      throw new BadRequestException("Simulation title is required");
+    }
+    if (!formula) {
+      throw new BadRequestException("Simulation formula is required");
+    }
+    if (!resultLabel) {
+      throw new BadRequestException("Result label is required");
+    }
+    if (!expression) {
+      throw new BadRequestException("Expression is required");
+    }
+    if (dto.result.decimalPlaces < 0 || dto.result.decimalPlaces > 6) {
+      throw new BadRequestException("decimalPlaces must be between 0 and 6");
+    }
+
+    const symbols = new Set<string>();
+    const values = new Map<string, number>();
+    const variables = dto.variables.map((variable, index) => {
+      const symbol = variable.symbol.trim();
+      if (!symbol) {
+        throw new BadRequestException(
+          `Variable ${index + 1} symbol is required`,
+        );
+      }
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(symbol)) {
+        throw new BadRequestException(
+          `Variable "${symbol}" symbol must start with a letter or underscore and contain only letters, numbers, or underscores`,
+        );
+      }
+      if (symbols.has(symbol)) {
+        throw new BadRequestException(
+          `Variable symbol "${symbol}" is duplicated`,
+        );
+      }
+      symbols.add(symbol);
+      if (variable.min >= variable.max) {
+        throw new BadRequestException(
+          `Variable "${symbol}" min must be less than max`,
+        );
+      }
+      if (variable.step <= 0) {
+        throw new BadRequestException(
+          `Variable "${symbol}" step must be greater than 0`,
+        );
+      }
+      if (variable.default < variable.min || variable.default > variable.max) {
+        throw new BadRequestException(
+          `Variable "${symbol}" default must be within min and max`,
+        );
+      }
+      values.set(symbol, variable.default);
+      return {
+        symbol,
+        label: variable.label.trim(),
+        unit: variable.unit.trim(),
+        min: variable.min,
+        max: variable.max,
+        step: variable.step,
+        default: variable.default,
+        defaultValue: variable.default,
+      };
+    });
+    const { usedSymbols } = FormulaExpression.validate(
+      expression,
+      symbols,
+      values,
+    );
+    if (usedSymbols.size === 0) {
+      throw new BadRequestException(
+        "Expression must use at least one variable",
+      );
+    }
+    return {
+      title,
+      formula,
+      expression,
+      variables,
+      result: {
+        symbol: dto.result.symbol.trim(),
+        label: resultLabel,
+        unit: dto.result.unit.trim(),
+        expression,
+        decimalPlaces: dto.result.decimalPlaces,
+      },
+    };
   }
 }

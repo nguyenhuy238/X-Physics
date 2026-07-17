@@ -6,6 +6,8 @@ import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/app_card.dart';
 import '../../../shared/models/x_models.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/error_view.dart';
@@ -125,7 +127,11 @@ class _LessonScreenState extends State<LessonScreen> {
       ],
       child: Column(
         children: [
-          LinearProgressIndicator(value: progress, minHeight: 5),
+          LinearProgressIndicator(
+            value: progress,
+            minHeight: 5,
+            borderRadius: BorderRadius.circular(999),
+          ),
           if (state.offlineLessonUpdateAvailable(currentLesson.id))
             _OfflineUpdateBanner(
               lessonId: currentLesson.id,
@@ -134,32 +140,99 @@ class _LessonScreenState extends State<LessonScreen> {
           Expanded(
             child: ListView(
               controller: scroll,
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 110),
               children: [
-                MarkdownBody(data: currentLesson.content, selectable: true),
+                AppCard(
+                  padding: const EdgeInsets.all(18),
+                  child: MarkdownBody(
+                    data: currentLesson.content,
+                    selectable: true,
+                    styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
+                        .copyWith(
+                          p: Theme.of(context).textTheme.bodyLarge,
+                          h1: Theme.of(context).textTheme.headlineMedium,
+                          h2: Theme.of(context).textTheme.titleLarge,
+                          blockquoteDecoration: BoxDecoration(
+                            color: AppColors.accent.withValues(alpha: .45),
+                            borderRadius: BorderRadius.circular(12),
+                            border: const Border(
+                              left: BorderSide(
+                                color: AppColors.primary,
+                                width: 4,
+                              ),
+                            ),
+                          ),
+                        ),
+                  ),
+                ),
                 const SizedBox(height: 16),
                 if (currentLesson.formulaLatex.isNotEmpty)
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Center(
-                        child: Math.tex(
-                          currentLesson.formulaLatex,
-                          textStyle: const TextStyle(fontSize: 30),
+                  Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: .18),
+                          blurRadius: 18,
+                          offset: const Offset(0, 10),
                         ),
-                      ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Công thức cốt lõi',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: .72),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Center(
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Math.tex(
+                              currentLesson.formulaLatex,
+                              textStyle: const TextStyle(
+                                fontSize: 30,
+                                color: Colors.white,
+                              ),
+                              onErrorFallback: (_) => Text(
+                                currentLesson.formulaLatex,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 22,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 const SizedBox(height: 16),
                 if (currentLesson.simulation.title.isNotEmpty)
                   FormulaSimulationWidget(config: currentLesson.simulation),
-                const SizedBox(height: 18),
-                FilledButton.icon(
-                  onPressed: () => context.go('/quiz/${currentLesson.id}'),
-                  icon: const Icon(Icons.quiz_rounded),
-                  label: const Text('Làm bài tập'),
-                ),
               ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+            decoration: const BoxDecoration(
+              color: AppColors.surface,
+              border: Border(top: BorderSide(color: AppColors.border)),
+            ),
+            child: SafeArea(
+              top: false,
+              child: FilledButton.icon(
+                onPressed: () => context.go('/quiz/${currentLesson.id}'),
+                icon: const Icon(Icons.quiz_rounded),
+                label: const Text('Làm bài tập'),
+              ),
             ),
           ),
         ],

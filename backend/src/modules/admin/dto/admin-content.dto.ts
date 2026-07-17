@@ -8,6 +8,8 @@ import {
   IsIn,
   IsInt,
   IsNotEmpty,
+  IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   Length,
@@ -16,13 +18,98 @@ import {
   MaxLength,
   Min,
   MinLength,
-} from 'class-validator';
-import { Transform, Type } from 'class-transformer';
+  ValidateNested,
+} from "class-validator";
+import { Transform, Type } from "class-transformer";
 
 export enum QuestionDifficulty {
-  EASY = 'EASY',
-  MEDIUM = 'MEDIUM',
-  HARD = 'HARD',
+  EASY = "EASY",
+  MEDIUM = "MEDIUM",
+  HARD = "HARD",
+}
+
+export class AdminFormulaVariableDto {
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^[A-Za-z_][A-Za-z0-9_]*$/)
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
+  symbol!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
+  label!: string;
+
+  @IsString()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
+  unit!: string;
+
+  @IsNumber()
+  @Type(() => Number)
+  min!: number;
+
+  @IsNumber()
+  @Type(() => Number)
+  max!: number;
+
+  @IsNumber()
+  @Type(() => Number)
+  step!: number;
+
+  @IsNumber()
+  @Type(() => Number)
+  default!: number;
+}
+
+export class AdminFormulaResultDto {
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^[A-Za-z_][A-Za-z0-9_]*$/)
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
+  symbol!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
+  label!: string;
+
+  @IsString()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
+  unit!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
+  expression!: string;
+
+  @IsInt()
+  @Min(0)
+  @Max(6)
+  @Type(() => Number)
+  decimalPlaces!: number;
+}
+
+export class AdminFormulaSimulationDto {
+  @IsString()
+  @IsNotEmpty()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
+  title!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
+  formula!: string;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => AdminFormulaVariableDto)
+  variables!: AdminFormulaVariableDto[];
+
+  @IsObject()
+  @ValidateNested()
+  @Type(() => AdminFormulaResultDto)
+  result!: AdminFormulaResultDto;
 }
 
 export class AdminChapterDto {
@@ -30,19 +117,19 @@ export class AdminChapterDto {
   @IsNotEmpty()
   @Length(3, 50)
   @Matches(/^[a-z0-9\-]+$/)
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   id!: string;
 
   @IsString()
   @IsNotEmpty()
   @Length(3, 100)
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   title!: string;
 
   @IsString()
   @IsNotEmpty()
   @Length(5, 500)
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   description!: string;
 
   @IsInt()
@@ -60,30 +147,30 @@ export class AdminLessonDto {
   @IsNotEmpty()
   @Length(3, 50)
   @Matches(/^[a-z0-9\-]+$/)
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   id!: string;
 
   @IsString()
   @IsNotEmpty()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   chapterId!: string;
 
   @IsString()
   @IsNotEmpty()
   @Length(3, 100)
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   title!: string;
 
   @IsString()
   @IsNotEmpty()
   @Length(10, 10000)
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   contentMarkdown!: string;
 
   @IsOptional()
   @IsString()
   @Length(0, 500)
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   formulaLatex?: string;
 
   @IsInt()
@@ -100,17 +187,22 @@ export class AdminLessonDto {
   @IsOptional()
   @IsBoolean()
   isPublished?: boolean;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AdminFormulaSimulationDto)
+  simulation?: AdminFormulaSimulationDto | null;
 }
 
 export class CreateAdminQuestionDto {
   @IsString()
   @IsNotEmpty()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   lessonId!: string;
 
   @IsNotEmpty()
   @Length(3, 1000)
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   questionText!: string;
 
   @IsArray()
@@ -119,7 +211,7 @@ export class CreateAdminQuestionDto {
   @IsString({ each: true })
   @Transform(({ value }) =>
     Array.isArray(value)
-      ? value.map((item) => (typeof item === 'string' ? item.trim() : item))
+      ? value.map((item) => (typeof item === "string" ? item.trim() : item))
       : value,
   )
   options!: string[];
@@ -133,7 +225,7 @@ export class CreateAdminQuestionDto {
   @IsString()
   @IsNotEmpty()
   @Length(3, 2000)
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   explanation!: string;
 
   @IsEnum(QuestionDifficulty)
@@ -149,13 +241,13 @@ export class CreateAdminQuestionDto {
 export class UpdateAdminQuestionDto {
   @IsString()
   @IsNotEmpty()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   lessonId!: string;
 
   @IsString()
   @IsNotEmpty()
   @Length(3, 1000)
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   questionText!: string;
 
   @IsArray()
@@ -164,7 +256,7 @@ export class UpdateAdminQuestionDto {
   @IsString({ each: true })
   @Transform(({ value }) =>
     Array.isArray(value)
-      ? value.map((item) => (typeof item === 'string' ? item.trim() : item))
+      ? value.map((item) => (typeof item === "string" ? item.trim() : item))
       : value,
   )
   options!: string[];
@@ -178,7 +270,7 @@ export class UpdateAdminQuestionDto {
   @IsString()
   @IsNotEmpty()
   @Length(3, 2000)
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   explanation!: string;
 
   @IsEnum(QuestionDifficulty)
@@ -200,13 +292,13 @@ export class AdminUsersQueryDto {
 
   @IsOptional()
   @IsString()
-  @IsIn(['createdAt', 'name', 'email'])
-  sortBy?: 'createdAt' | 'name' | 'email';
+  @IsIn(["createdAt", "name", "email"])
+  sortBy?: "createdAt" | "name" | "email";
 
   @IsOptional()
   @IsString()
-  @IsIn(['ASC', 'DESC'])
-  sortOrder?: 'ASC' | 'DESC';
+  @IsIn(["ASC", "DESC"])
+  sortOrder?: "ASC" | "DESC";
 
   @IsOptional()
   @IsInt()
@@ -225,7 +317,7 @@ export class AdminUsersQueryDto {
 export class ReorderAdminQuestionsDto {
   @IsString()
   @IsNotEmpty()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   lessonId!: string;
 
   @IsArray()
@@ -233,7 +325,7 @@ export class ReorderAdminQuestionsDto {
   @IsString({ each: true })
   @Transform(({ value }) =>
     Array.isArray(value)
-      ? value.map((item) => (typeof item === 'string' ? item.trim() : item))
+      ? value.map((item) => (typeof item === "string" ? item.trim() : item))
       : value,
   )
   questionIds!: string[];
@@ -242,17 +334,17 @@ export class ReorderAdminQuestionsDto {
 export class AdminQuestionQueryDto {
   @IsOptional()
   @IsString()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   lessonId?: string;
 
   @IsOptional()
   @IsString()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   chapterId?: string;
 
   @IsOptional()
   @IsString()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   search?: string;
 
   @IsOptional()
@@ -276,12 +368,12 @@ export class AdminQuestionQueryDto {
 export class AdminQuizAttemptQueryDto {
   @IsOptional()
   @IsString()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   search?: string;
 
   @IsOptional()
   @IsString()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   lessonId?: string;
 
   @IsOptional()
@@ -351,4 +443,3 @@ export class UpdateAdminQuizAttemptDto {
   @Type(() => Number)
   durationSeconds!: number;
 }
-
