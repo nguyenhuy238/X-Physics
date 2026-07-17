@@ -554,9 +554,6 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                           hintText: 'VD: motion, force, electric',
                           filled: true,
                           fillColor: chapter == null ? const Color(0xFFF8FAFC) : const Color(0xFFE2E8F0),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                        ),
-                        validator: (value) => value == null || value.trim().isEmpty ? 'Mã chương là bắt buộc' : null,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
@@ -594,9 +591,6 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                           hintText: 'VD: Chuyển động cơ học',
                           filled: true,
                           fillColor: const Color(0xFFF8FAFC),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                        ),
-                        validator: (value) => value == null || value.trim().isEmpty ? 'Tên chương là bắt buộc' : null,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
@@ -629,9 +623,6 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                           hintText: 'Nhập mô tả tóm tắt nội dung chương',
                           filled: true,
                           fillColor: const Color(0xFFF8FAFC),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                        ),
-                        validator: (value) => value == null || value.trim().isEmpty ? 'Mô tả là bắt buộc' : null,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
