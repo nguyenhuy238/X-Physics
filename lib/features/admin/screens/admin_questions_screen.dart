@@ -345,7 +345,8 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
       context: context,
       barrierDismissible: !_saving,
       builder: (_) => _QuestionFormDialog(
-        question: question,
+        question: draft ?? question,
+        isUpdate: isUpdate,
         saving: _saving,
         defaultChapterId: _chapterId,
         defaultLessonId: _lessonId,
@@ -823,6 +824,7 @@ class _EmptyQuestionsView extends StatelessWidget {
 class _QuestionFormDialog extends StatefulWidget {
   const _QuestionFormDialog({
     this.question,
+    required this.isUpdate,
     required this.saving,
     this.defaultChapterId,
     this.defaultLessonId,
@@ -1098,6 +1100,7 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
         correctOption: _correctOption,
         explanation: _explanation.text.trim(),
         difficulty: _difficulty,
+        chapterId: _chapterId ?? '',
         orderIndex: int.tryParse(_order.text) ?? 1,
       ),
     );
