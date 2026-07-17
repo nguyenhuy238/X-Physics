@@ -38,6 +38,7 @@ class ApiEndpoints {
   static const adminLessons = '/api/admin/lessons';
   static const adminQuestions = '/api/admin/questions';
   static const adminQuestionsReorder = '/api/admin/questions/reorder';
+  static const adminQuizAttempts = '/api/admin/quiz-attempts';
 
   static String chapter(String id) => '/api/chapters/$id';
   static String chapterLessons(String id) => '/api/chapters/$id/lessons';
@@ -47,4 +48,6 @@ class ApiEndpoints {
   static String adminChapter(String id) => '/api/admin/chapters/$id';
   static String adminLesson(String id) => '/api/admin/lessons/$id';
   static String adminQuestion(String id) => '/api/admin/questions/$id';
+  static String adminQuizAttempt(String id) => '/api/admin/quiz-attempts/$id';
+  static String adminUserProgress(String userId) => '/api/admin/users/$userId/progress';
 }

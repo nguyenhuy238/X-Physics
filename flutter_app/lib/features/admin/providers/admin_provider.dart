@@ -12,7 +12,6 @@ class AdminProvider extends ChangeNotifier {
   List<dynamic> _lastChapters = const <dynamic>[];
   List<dynamic> _lastLessons = const <dynamic>[];
   List<dynamic> _lastQuestions = const <dynamic>[];
-  Map<String, dynamic>? _lastStatistics;
 
   int _usersPage = 1;
   int _usersLimit = 20;
@@ -24,7 +23,6 @@ class AdminProvider extends ChangeNotifier {
   List<dynamic> get lastChapters => _lastChapters;
   List<dynamic> get lastLessons => _lastLessons;
   List<dynamic> get lastQuestions => _lastQuestions;
-  Map<String, dynamic>? get lastStatistics => _lastStatistics;
 
   int get usersPage => _usersPage;
   int get usersLimit => _usersLimit;
@@ -82,14 +80,6 @@ class AdminProvider extends ChangeNotifier {
     });
   }
 
-  Future<Map<String, dynamic>> fetchStatistics() {
-    return _withLoading(() async {
-      final data = await _api.get('admin/statistics');
-      _lastStatistics = data;
-      return _lastStatistics!;
-    });
-  }
-
   Future<List<dynamic>> fetchChapters() {
     return _withLoading(() async {
       final data = await _api.getList('admin/chapters');
@@ -98,17 +88,23 @@ class AdminProvider extends ChangeNotifier {
     });
   }
 
-  Future<List<dynamic>> fetchLessons() {
+  Future<List<dynamic>> fetchLessons({String? chapterId}) {
     return _withLoading(() async {
-      final data = await _api.getList('admin/lessons');
+      final data = await _api.getList(
+        'admin/lessons',
+        queryParameters: chapterId != null ? {'chapterId': chapterId} : null,
+      );
       _lastLessons = data;
       return _lastLessons;
     });
   }
 
-  Future<List<dynamic>> fetchQuestions() {
+  Future<List<dynamic>> fetchQuestions({String? lessonId}) {
     return _withLoading(() async {
-      final data = await _api.getList('admin/questions');
+      final data = await _api.getList(
+        'admin/questions',
+        queryParameters: lessonId != null ? {'lessonId': lessonId} : null,
+      );
       _lastQuestions = data;
       return _lastQuestions;
     });

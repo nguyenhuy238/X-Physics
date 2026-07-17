@@ -247,8 +247,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _buildActiveUsersChart(Map<String, dynamic>? stats) {
     final List<dynamic>? dbPoints = stats?['activeUsersData'] as List<dynamic>?;
     final List<double> dataPoints = dbPoints != null
-        ? dbPoints.map((val) => (val as num).toDouble() * 15 + 15).toList() // Scale to fit y-axis 0-120 beautifully
+        ? dbPoints.map((val) => (val as num).toDouble()).toList()
         : const [45, 62, 58, 72, 90, 105, 78]; // Fallback
+
+    double maxVal = 10.0;
+    for (final val in dataPoints) {
+      if (val > maxVal) maxVal = val;
+    }
+    final double maxY = ((maxVal / 10).ceil() * 10).toDouble();
+    final List<double> yTicks = [
+      0,
+      (maxY * 0.25),
+      (maxY * 0.50),
+      (maxY * 0.75),
+      maxY,
+    ];
 
     return Container(
       decoration: BoxDecoration(
@@ -322,7 +335,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               painter: LineChartPainter(
                 dataPoints: dataPoints,
                 xLabels: const ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
-                yTicks: const [0, 30, 60, 90, 120],
+                yTicks: yTicks,
+                maxY: maxY,
               ),
             ),
           ),
@@ -692,11 +706,13 @@ class LineChartPainter extends CustomPainter {
   final List<double> dataPoints;
   final List<String> xLabels;
   final List<double> yTicks;
+  final double maxY;
 
   LineChartPainter({
     required this.dataPoints,
     required this.xLabels,
     required this.yTicks,
+    required this.maxY,
   });
 
   @override
@@ -728,7 +744,7 @@ class LineChartPainter extends CustomPainter {
 
     // Draw horizontal grid lines and Y labels
     for (var tick in yTicks) {
-      final y = size.height - paddingBottom - ((tick / 120.0) * (size.height - paddingTop - paddingBottom));
+      final y = size.height - paddingBottom - ((tick / maxY) * (size.height - paddingTop - paddingBottom));
       
       // Draw grid line
       canvas.drawLine(
@@ -758,7 +774,7 @@ class LineChartPainter extends CustomPainter {
 
     for (int i = 0; i < dataPoints.length; i++) {
       final x = paddingLeft + i * widthBetweenPoints;
-      final y = size.height - paddingBottom - ((dataPoints[i] / 120.0) * (size.height - paddingTop - paddingBottom));
+      final y = size.height - paddingBottom - ((dataPoints[i] / maxY) * (size.height - paddingTop - paddingBottom));
       points.add(Offset(x, y));
     }
 

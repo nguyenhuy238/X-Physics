@@ -2,6 +2,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/admin/screens/admin_chapters_screen.dart';
 import '../../features/admin/screens/admin_dashboard_screen.dart';
+import '../../features/admin/screens/admin_lesson_detail_screen.dart';
+import '../../features/admin/screens/admin_students_screen.dart';
 import '../../features/admin/screens/admin_lessons_screen.dart';
 import '../../features/admin/screens/admin_questions_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
@@ -33,8 +35,14 @@ GoRouter buildRouter(AppState appState) {
       }
       if (!appState.loading &&
           appState.user != null &&
-          (location == '/login' || location == '/register')) {
-        return '/';
+          (location == '/login' || location == '/register' || location == '/splash')) {
+        return appState.canAccessAdmin ? '/admin' : '/';
+      }
+      if (location == '/' &&
+          !appState.loading &&
+          appState.user != null &&
+          appState.canAccessAdmin) {
+        return '/admin';
       }
       if (location.startsWith('/admin') && !appState.canAccessAdmin) {
         return appState.user == null ? '/login' : '/';
@@ -83,13 +91,28 @@ GoRouter buildRouter(AppState appState) {
       ),
       GoRoute(
         path: '/admin/lessons',
-        builder: (_, state) => AdminLessonsScreen(
-          chapterId: state.uri.queryParameters['chapterId'],
-        ),
+        builder: (_, state) {
+          final chapterId = state.uri.queryParameters['chapterId'];
+          return AdminLessonsScreen(chapterId: chapterId);
+        },
+      ),
+      GoRoute(
+        path: '/admin/lessons/:id',
+        builder: (_, state) {
+          final lessonId = state.pathParameters['id']!;
+          return AdminLessonDetailScreen(lessonId: lessonId);
+        },
       ),
       GoRoute(
         path: '/admin/questions',
-        builder: (_, _) => const AdminQuestionsScreen(),
+        builder: (_, state) {
+          final lessonId = state.uri.queryParameters['lessonId'];
+          return AdminQuestionsScreen(lessonId: lessonId);
+        },
+      ),
+      GoRoute(
+        path: '/admin/students',
+        builder: (_, _) => const AdminStudentsScreen(),
       ),
     ],
   );

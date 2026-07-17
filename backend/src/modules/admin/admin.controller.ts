@@ -18,6 +18,9 @@ import {
   CreateAdminQuestionDto,
   ReorderAdminQuestionsDto,
   UpdateAdminQuestionDto,
+  AdminQuizAttemptQueryDto,
+  CreateAdminQuizAttemptDto,
+  UpdateAdminQuizAttemptDto,
 } from './dto/admin-content.dto';
 import {
   AdminChapterItemDto,
@@ -26,7 +29,10 @@ import {
   AdminStatisticsResponseDto,
   AdminUserItemDto,
   AdminUserListResponseDto,
+  AdminQuizAttemptItemDto,
+  AdminQuizAttemptListResponseDto,
 } from './dto/admin-response.dto';
+
 import { ApiResponseDto } from '../../common/api-response.dto';
 import { AuthGuard } from '../../common/auth.guard';
 import { Roles } from '../../common/roles.decorator';
@@ -65,6 +71,12 @@ export class AdminController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   async users(@Query() query: AdminUsersQueryDto) {
     return ApiResponseDto.ok(await this.adminService.users(query));
+  }
+
+  @Get('users/:id/progress')
+  @ApiParam({ name: 'id', description: 'User ID' })
+  async userProgress(@Param('id') id: string) {
+    return ApiResponseDto.ok(await this.adminService.userProgress(id));
   }
 
   @Get('statistics')
@@ -130,6 +142,7 @@ export class AdminController {
     return ApiResponseDto.ok(await this.adminService.lessons());
   }
 
+  @Get('questions')
   @ApiOkResponse({
     description: 'Admin question list with correct options.',
     type: ApiResponseDto,
@@ -236,6 +249,7 @@ export class AdminController {
     return ApiResponseDto.ok(await this.adminService.removeLesson(id));
   }
 
+  @Post('questions')
   @ApiBody({ type: CreateAdminQuestionDto })
   @ApiOkResponse({
     description: 'Create or upsert a question.',
@@ -272,5 +286,53 @@ export class AdminController {
   @ApiParam({ name: 'id', description: 'Question ID' })
   async removeQuestion(@Param('id') id: string) {
     return ApiResponseDto.ok(await this.adminService.removeQuestion(id));
+  }
+
+  @Get('quiz-attempts')
+  @ApiOkResponse({
+    description: 'Paginated list of quiz attempts.',
+    type: ApiResponseDto,
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(ApiResponseDto) },
+        {
+          properties: {
+            data: { $ref: getSchemaPath(AdminQuizAttemptListResponseDto) },
+          },
+        },
+      ],
+    },
+  })
+  @ApiQuery({ name: 'search', required: false })
+  @ApiQuery({ name: 'lessonId', required: false })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async quizAttempts(@Query() query: AdminQuizAttemptQueryDto) {
+    return ApiResponseDto.ok(await this.adminService.quizAttempts(query));
+  }
+
+  @Get('quiz-attempts/:id')
+  @ApiParam({ name: 'id', description: 'Attempt ID' })
+  async quizAttempt(@Param('id') id: string) {
+    return ApiResponseDto.ok(await this.adminService.quizAttempt(id));
+  }
+
+  @Post('quiz-attempts')
+  @ApiBody({ type: CreateAdminQuizAttemptDto })
+  async createQuizAttempt(@Body() dto: CreateAdminQuizAttemptDto) {
+    return ApiResponseDto.ok(await this.adminService.createQuizAttempt(dto), 'Created');
+  }
+
+  @Put('quiz-attempts/:id')
+  @ApiParam({ name: 'id', description: 'Attempt ID' })
+  @ApiBody({ type: UpdateAdminQuizAttemptDto })
+  async updateQuizAttempt(@Param('id') id: string, @Body() dto: UpdateAdminQuizAttemptDto) {
+    return ApiResponseDto.ok(await this.adminService.updateQuizAttempt(id, dto));
+  }
+
+  @Delete('quiz-attempts/:id')
+  @ApiParam({ name: 'id', description: 'Attempt ID' })
+  async removeQuizAttempt(@Param('id') id: string) {
+    return ApiResponseDto.ok(await this.adminService.removeQuizAttempt(id));
   }
 }

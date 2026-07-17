@@ -14,7 +14,11 @@ import {
   QuestionDifficulty,
   ReorderAdminQuestionsDto,
   UpdateAdminQuestionDto,
+  AdminQuizAttemptQueryDto,
+  CreateAdminQuizAttemptDto,
+  UpdateAdminQuizAttemptDto,
 } from './dto/admin-content.dto';
+
 
 @Injectable()
 export class AdminService {
@@ -32,6 +36,30 @@ export class AdminService {
 
   statistics() {
     return this.database.statistics();
+  }
+
+  quizAttempts(query: AdminQuizAttemptQueryDto) {
+    return this.database.adminListQuizAttempts(query);
+  }
+
+  quizAttempt(id: string) {
+    return this.database.findAdminQuizAttempt(id);
+  }
+
+  createQuizAttempt(dto: CreateAdminQuizAttemptDto) {
+    return this.database.createAdminQuizAttempt(dto);
+  }
+
+  updateQuizAttempt(id: string, dto: UpdateAdminQuizAttemptDto) {
+    return this.database.updateAdminQuizAttempt(id, dto);
+  }
+
+  removeQuizAttempt(id: string) {
+    return this.database.deleteAdminQuizAttempt(id);
+  }
+
+  userProgress(userId: string) {
+    return this.database.adminUserProgress(userId);
   }
 
   chapters() {

@@ -89,6 +89,10 @@ class AppState extends ChangeNotifier {
   final adminUsers = <XUser>[];
   final adminLessons = <Lesson>[];
   final adminQuestions = <Question>[];
+  final adminQuizAttempts = <Map<String, dynamic>>[];
+  final adminUserProgressData = <Map<String, dynamic>>[];
+  int adminQuizAttemptsPage = 1;
+  int adminQuizAttemptsTotal = 0;
   Map<String, dynamic>? adminStatistics;
   QuizAttempt? lastAttempt;
   ProgressDashboard? progressDashboard;
@@ -1146,6 +1150,109 @@ class AppState extends ChangeNotifier {
       ),
       refresh: loadAdminQuestions,
     );
+  }
+
+  Future<void> loadAdminQuizAttempts({
+    String? search,
+    String? lessonId,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    if (!canAccessAdmin) {
+      errorMessage = 'Bạn không có quyền truy cập Admin.';
+      notifyListeners();
+      return;
+    }
+    isBusy = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final query = <String, dynamic>{
+        'page': page,
+        'limit': limit,
+        if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+        if (lessonId != null && lessonId.isNotEmpty) 'lessonId': lessonId,
+      };
+      final response = await _apiClient.dio.get<Map<String, dynamic>>(
+        ApiEndpoints.adminQuizAttempts,
+        queryParameters: query,
+      );
+      final body = response.data;
+      if (body == null || body['success'] != true) {
+        throw StateError(body?['message'] as String? ?? 'API error');
+      }
+      final data = body['data'] as Map<String, dynamic>;
+      final list = data['items'] as List<dynamic>;
+      adminQuizAttempts
+        ..clear()
+        ..addAll(list.map((item) => Map<String, dynamic>.from(item as Map)));
+      adminQuizAttemptsPage = data['page'] as int? ?? 1;
+      adminQuizAttemptsTotal = data['total'] as int? ?? 0;
+    } catch (error) {
+      errorMessage = _readableError(error);
+    } finally {
+      isBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> saveAdminQuizAttempt(
+    Map<String, dynamic> attempt, {
+    required bool isUpdate,
+  }) async {
+    final payload = {
+      'userId': attempt['userId'],
+      'lessonId': attempt['lessonId'],
+      'score': attempt['score'],
+      'correctCount': attempt['correctCount'],
+      'totalQuestions': attempt['totalQuestions'],
+      'durationSeconds': attempt['durationSeconds'],
+    };
+    return _adminWrite(
+      () => isUpdate
+          ? _apiClient.dio.put<Map<String, dynamic>>(
+              ApiEndpoints.adminQuizAttempt(attempt['id'] as String),
+              data: payload,
+            )
+          : _apiClient.dio.post<Map<String, dynamic>>(
+              ApiEndpoints.adminQuizAttempts,
+              data: payload,
+            ),
+      refresh: loadAdminQuizAttempts,
+    );
+  }
+
+  Future<bool> deleteAdminQuizAttempt(String id) {
+    return _adminWrite(
+      () => _apiClient.dio.delete<Map<String, dynamic>>(
+        ApiEndpoints.adminQuizAttempt(id),
+      ),
+      refresh: loadAdminQuizAttempts,
+    );
+  }
+
+  Future<void> loadAdminUserProgress(String userId) async {
+    if (!canAccessAdmin) {
+      errorMessage = 'Bạn không có quyền truy cập Admin.';
+      notifyListeners();
+      return;
+    }
+    isBusy = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final list = await _getData<List<dynamic>>(
+        ApiEndpoints.adminUserProgress(userId),
+      );
+      adminUserProgressData
+        ..clear()
+        ..addAll(list.map((item) => Map<String, dynamic>.from(item as Map)));
+    } catch (error) {
+      errorMessage = _readableError(error);
+    } finally {
+      isBusy = false;
+      notifyListeners();
+    }
   }
 
   Future<bool> _authenticate(

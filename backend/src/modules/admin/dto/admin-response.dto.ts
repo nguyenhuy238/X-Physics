@@ -82,3 +82,26 @@ export class AdminStatisticsResponseDto {
   completionByLesson!: CompletionByLessonDto[];
   difficultLessons!: DifficultLessonDto[];
 }
+
+export class AdminQuizAttemptItemDto {
+  id!: string;
+  userId!: string;
+  userName!: string;
+  userEmail!: string;
+  lessonId!: string;
+  lessonTitle!: string;
+  score!: number;
+  correctCount!: number;
+  totalQuestions!: number;
+  durationSeconds!: number;
+  coinsEarned!: number;
+  createdAt!: string;
+}
+
+export class AdminQuizAttemptListResponseDto {
+  items!: AdminQuizAttemptItemDto[];
+  total!: number;
+  page!: number;
+  limit!: number;
+}
+
