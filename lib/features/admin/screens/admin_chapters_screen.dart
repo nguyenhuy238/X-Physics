@@ -444,8 +444,22 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                           ),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         ),
-                        validator: (value) =>
-                            value == null || value.trim().isEmpty ? 'Mã chương là bắt buộc' : null,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Mã chương là bắt buộc';
+                          }
+                          final trimmed = value.trim();
+                          if (trimmed.length < 3 || trimmed.length > 50) {
+                            return 'Độ dài mã chương phải từ 3 đến 50 ký tự';
+                          }
+                          if (!RegExp(r'^[a-z0-9\-]+$').hasMatch(trimmed)) {
+                            return 'Chỉ dùng chữ thường (a-z), số (0-9) và dấu gạch ngang (-)';
+                          }
+                          if (chapter == null && state.chapters.any((c) => c.id == trimmed)) {
+                            return 'Mã chương đã tồn tại';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 18),
 
@@ -478,8 +492,16 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                           ),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         ),
-                        validator: (value) =>
-                            value == null || value.trim().isEmpty ? 'Tên chương là bắt buộc' : null,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Tên chương là bắt buộc';
+                          }
+                          final trimmed = value.trim();
+                          if (trimmed.length < 3 || trimmed.length > 100) {
+                            return 'Tên chương học phải từ 3 đến 100 ký tự';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 18),
 
@@ -516,8 +538,16 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                           ),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         ),
-                        validator: (value) =>
-                            value == null || value.trim().isEmpty ? 'Mô tả là bắt buộc' : null,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Mô tả là bắt buộc';
+                          }
+                          final trimmed = value.trim();
+                          if (trimmed.length < 5 || trimmed.length > 500) {
+                            return 'Mô tả phải từ 5 đến 500 ký tự';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 18),
 
@@ -558,6 +588,19 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                                     ),
                                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                                   ),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Bắt buộc';
+                                    }
+                                    final val = int.tryParse(value.trim());
+                                    if (val == null) {
+                                      return 'Phải là số nguyên';
+                                    }
+                                    if (val < 0) {
+                                      return 'Phải >= 0';
+                                    }
+                                    return null;
+                                  },
                                 ),
                               ],
                             ),

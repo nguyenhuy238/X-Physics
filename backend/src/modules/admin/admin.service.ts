@@ -51,7 +51,11 @@ export class AdminService {
     return this.database.findAdminQuestion(id);
   }
 
-  createChapter(dto: AdminChapterDto) {
+  async createChapter(dto: AdminChapterDto) {
+    const exists = await this.database.chapterIdExists(dto.id);
+    if (exists) {
+      throw new BadRequestException(`Chapter ID "${dto.id}" already exists`);
+    }
     return this.database.upsertChapter(dto);
   }
 
@@ -63,7 +67,15 @@ export class AdminService {
     return this.database.softDeleteChapter(id);
   }
 
-  createLesson(dto: AdminLessonDto) {
+  async createLesson(dto: AdminLessonDto) {
+    const chapterExists = await this.database.chapterIdExists(dto.chapterId);
+    if (!chapterExists) {
+      throw new BadRequestException(`Chapter ID "${dto.chapterId}" does not exist`);
+    }
+    const exists = await this.database.lessonIdExists(dto.id);
+    if (exists) {
+      throw new BadRequestException(`Lesson ID "${dto.id}" already exists`);
+    }
     return this.database.upsertLesson(dto);
   }
 

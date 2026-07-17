@@ -32,6 +32,7 @@ interface LessonRow {
   estimated_minutes: number;
   order_index: number;
   is_published: boolean;
+  created_at: Date;
 }
 
 interface SimulationRow {
@@ -217,6 +218,22 @@ export class DatabaseRepository {
       throw new NotFoundException("Chapter not found");
     }
     return this.mapChapter(result.rows[0]);
+  }
+
+  async chapterIdExists(id: string, db: Db = this.pool) {
+    const result = await db.query<{ exists: boolean }>(
+      "select exists(select 1 from chapters where id = $1)",
+      [id],
+    );
+    return Boolean(result.rows[0]?.exists);
+  }
+
+  async lessonIdExists(id: string, db: Db = this.pool) {
+    const result = await db.query<{ exists: boolean }>(
+      "select exists(select 1 from lessons where id = $1)",
+      [id],
+    );
+    return Boolean(result.rows[0]?.exists);
   }
 
   async listLessonsByChapter(chapterId: string) {
@@ -1151,7 +1168,7 @@ export class DatabaseRepository {
       userName: row.user_name,
       action: row.action,
       detail: row.detail,
-      createdAt: row.createdAt ?? row.created_at, // Postgres query standardizes to camelCase, fallback to snake_case
+      createdAt: row.created_at,
     }));
 
     return {

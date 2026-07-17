@@ -510,7 +510,22 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                                     ),
                                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                                   ),
-                                  validator: _required,
+                                  validator: (value) {
+                                     if (value == null || value.trim().isEmpty) {
+                                       return 'Mã bài học là bắt buộc';
+                                     }
+                                     final trimmed = value.trim();
+                                     if (trimmed.length < 3 || trimmed.length > 50) {
+                                       return 'Độ bài học phải từ 3 đến 50 ký tự';
+                                     }
+                                     if (!RegExp(r'^[a-z0-9\-]+$').hasMatch(trimmed)) {
+                                       return 'Chỉ dùng chữ thường (a-z), số (0-9) và dấu gạch ngang (-)';
+                                     }
+                                     if (lesson == null && state.adminLessons.any((l) => l.id == trimmed)) {
+                                       return 'Mã bài học đã tồn tại';
+                                     }
+                                     return null;
+                                   },
                                 ),
                               ],
                             ),
@@ -590,7 +605,16 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                           ),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         ),
-                        validator: _required,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Tên bài học là bắt buộc';
+                          }
+                          final trimmed = value.trim();
+                          if (trimmed.length < 3 || trimmed.length > 100) {
+                            return 'Tên bài học phải từ 3 đến 100 ký tự';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 18),
 
@@ -623,7 +647,16 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                           ),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         ),
-                        validator: _required,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Nội dung là bắt buộc';
+                          }
+                          final trimmed = value.trim();
+                          if (trimmed.length < 10 || trimmed.length > 10000) {
+                            return 'Nội dung bài học phải từ 10 đến 10000 ký tự';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 18),
 
@@ -655,6 +688,12 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                           ),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         ),
+                        validator: (value) {
+                          if (value != null && value.trim().length > 500) {
+                            return 'Công thức tối đa 500 ký tự';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 18),
 
@@ -693,6 +732,19 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                                     ),
                                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                                   ),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Bắt buộc';
+                                    }
+                                    final val = int.tryParse(value.trim());
+                                    if (val == null) {
+                                      return 'Phải là số';
+                                    }
+                                    if (val < 1 || val > 180) {
+                                      return 'Ước lượng từ 1 đến 180 phút';
+                                    }
+                                    return null;
+                                  },
                                 ),
                               ],
                             ),
@@ -729,6 +781,19 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                                     ),
                                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                                   ),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Bắt buộc';
+                                    }
+                                    final val = int.tryParse(value.trim());
+                                    if (val == null) {
+                                      return 'Phải là số';
+                                    }
+                                    if (val < 0) {
+                                      return 'Phải >= 0';
+                                    }
+                                    return null;
+                                  },
                                 ),
                               ],
                             ),

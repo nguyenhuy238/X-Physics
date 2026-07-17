@@ -10,6 +10,7 @@ import {
   IsOptional,
   IsString,
   Length,
+  Matches,
   Max,
   Min,
 } from 'class-validator';
@@ -23,16 +24,27 @@ export enum QuestionDifficulty {
 
 export class AdminChapterDto {
   @IsString()
+  @IsNotEmpty()
+  @Length(3, 50)
+  @Matches(/^[a-z0-9\-]+$/)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   id!: string;
 
   @IsString()
+  @IsNotEmpty()
+  @Length(3, 100)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   title!: string;
 
   @IsString()
+  @IsNotEmpty()
+  @Length(5, 500)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   description!: string;
 
   @IsInt()
   @Min(0)
+  @Type(() => Number)
   orderIndex!: number;
 
   @IsOptional()
@@ -42,27 +54,44 @@ export class AdminChapterDto {
 
 export class AdminLessonDto {
   @IsString()
+  @IsNotEmpty()
+  @Length(3, 50)
+  @Matches(/^[a-z0-9\-]+$/)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   id!: string;
 
   @IsString()
+  @IsNotEmpty()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   chapterId!: string;
 
   @IsString()
+  @IsNotEmpty()
+  @Length(3, 100)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   title!: string;
 
   @IsString()
+  @IsNotEmpty()
+  @Length(10, 10000)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   contentMarkdown!: string;
 
   @IsOptional()
   @IsString()
+  @Length(0, 500)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   formulaLatex?: string;
 
   @IsInt()
   @Min(1)
+  @Max(180)
+  @Type(() => Number)
   estimatedMinutes!: number;
 
   @IsInt()
   @Min(0)
+  @Type(() => Number)
   orderIndex!: number;
 
   @IsOptional()
