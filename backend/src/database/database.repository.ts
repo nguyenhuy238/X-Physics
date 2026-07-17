@@ -1,5 +1,10 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { Pool, PoolClient } from 'pg';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
+import { Pool, PoolClient } from "pg";
 
 import { DATABASE_POOL } from "./database.constants";
 
@@ -44,11 +49,15 @@ interface LessonRow {
 interface SimulationRow {
   id: string;
   lesson_id: string;
+  type?: string;
   title: string;
   formula: string;
   expression: string;
   variables_json: unknown;
   result_json: unknown;
+  order_index?: number;
+  created_at?: Date;
+  updated_at?: Date;
 }
 
 interface QuestionRow {
@@ -58,7 +67,7 @@ interface QuestionRow {
   options_json: unknown;
   correct_option: number;
   explanation: string;
-  difficulty: 'EASY' | 'MEDIUM' | 'HARD';
+  difficulty: "EASY" | "MEDIUM" | "HARD";
   order_index: number;
 }
 
@@ -132,7 +141,7 @@ export class DatabaseRepository {
   private quizAttemptsSchemaReady = false;
   private rewardEventsSchemaReady = false;
 
-  constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) { }
+  constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
 
   async withTransaction<T>(work: (client: PoolClient) => Promise<T>) {
     const client = await this.pool.connect();
@@ -311,35 +320,73 @@ export class DatabaseRepository {
     return this.mapLesson(result.rows[0]);
   }
 
-  async listSimulationsByLesson(lessonId: string) {
-    const result = await this.pool.query<SimulationRow>(
-      "select * from simulations where lesson_id = $1 order by id asc",
+  async listSimulationsByLesson(lessonId: string, db: Db = this.pool) {
+    const result = await db.query<SimulationRow>(
+      "select * from simulations where lesson_id = $1 order by order_index asc, id asc",
       [lessonId],
     );
-    return result.rows.map((row) => ({
-      id: row.id,
-      lessonId: row.lesson_id,
-      title: row.title,
-      formula: row.formula,
-      expression: row.expression,
-      variables: row.variables_json,
-      result: row.result_json,
-    }));
+    return result.rows.map((row) => this.mapSimulation(row));
   }
 
-  async listSimulations() {
-    const result = await this.pool.query<SimulationRow>(
-      "select * from simulations order by lesson_id asc, id asc",
+  async listSimulations(db: Db = this.pool) {
+    const result = await db.query<SimulationRow>(
+      "select * from simulations order by lesson_id asc, order_index asc, id asc",
     );
-    return result.rows.map((row) => ({
-      id: row.id,
-      lessonId: row.lesson_id,
-      title: row.title,
-      formula: row.formula,
-      expression: row.expression,
-      variables: row.variables_json,
-      result: row.result_json,
-    }));
+    return result.rows.map((row) => this.mapSimulation(row));
+  }
+
+  async replaceLessonFormulaSimulation(
+    input: {
+      id: string;
+      lessonId: string;
+      title: string;
+      formula: string;
+      expression: string;
+      variables: unknown[];
+      result: Record<string, unknown>;
+      orderIndex?: number;
+    },
+    db: Db = this.pool,
+  ) {
+    await db.query(
+      `delete from simulations
+       where lesson_id = $1 and id <> $2 and type = 'formula_simulation'`,
+      [input.lessonId, input.id],
+    );
+    const result = await db.query<SimulationRow>(
+      `insert into simulations
+        (id, lesson_id, type, title, formula, expression, variables_json, result_json, order_index)
+       values ($1, $2, 'formula_simulation', $3, $4, $5, $6::jsonb, $7::jsonb, $8)
+       on conflict (id) do update set
+         lesson_id = excluded.lesson_id,
+         type = excluded.type,
+         title = excluded.title,
+         formula = excluded.formula,
+         expression = excluded.expression,
+         variables_json = excluded.variables_json,
+         result_json = excluded.result_json,
+         order_index = excluded.order_index,
+         updated_at = now()
+       returning *`,
+      [
+        input.id,
+        input.lessonId,
+        input.title,
+        input.formula,
+        input.expression,
+        JSON.stringify(input.variables),
+        JSON.stringify(input.result),
+        input.orderIndex ?? 0,
+      ],
+    );
+    return this.mapSimulation(result.rows[0]);
+  }
+
+  async deleteFormulaSimulationsByLesson(lessonId: string, db: Db = this.pool) {
+    await db.query(
+      "delete from simulations where lesson_id = $1 and type = 'formula_simulation'",
+      [lessonId],
+    );
   }
 
   async listQuestionsByLesson(lessonId: string, db: Db = this.pool) {
@@ -582,7 +629,7 @@ export class DatabaseRepository {
     if (!result.rows[0]) {
       throw new NotFoundException("Chapter not found");
     }
-    return { id, deleted: true, mode: 'hard' };
+    return { id, deleted: true, mode: "hard" };
   }
 
   async removeChapterWithLessonCheck(id: string) {
@@ -602,9 +649,9 @@ export class DatabaseRepository {
       [id],
     );
     if (!result.rows[0]) {
-      throw new NotFoundException('Chapter not found');
+      throw new NotFoundException("Chapter not found");
     }
-    return { id, deleted: true, mode: 'hard' };
+    return { id, deleted: true, mode: "hard" };
   }
 
   async upsertLesson(input: {
@@ -648,8 +695,9 @@ export class DatabaseRepository {
   async updateLesson(
     id: string,
     input: Omit<Parameters<DatabaseRepository["upsertLesson"]>[0], "id">,
+    db: Db = this.pool,
   ) {
-    const result = await this.pool.query<LessonRow>(
+    const result = await db.query<LessonRow>(
       `update lessons
        set chapter_id = $2,
            title = $3,
@@ -688,7 +736,7 @@ export class DatabaseRepository {
     if (!result.rows[0]) {
       throw new NotFoundException("Lesson not found");
     }
-    return { id, deleted: true, mode: 'hard' };
+    return { id, deleted: true, mode: "hard" };
   }
 
   async upsertQuestion(
@@ -907,7 +955,9 @@ export class DatabaseRepository {
       where.push(`qa.lesson_id = ${addValue(query.lessonId)}`);
     }
     if (query.search) {
-      where.push(`(u.name ilike ${addValue(`%${query.search}%`)} or u.email ilike ${addValue(`%${query.search}%`)})`);
+      where.push(
+        `(u.name ilike ${addValue(`%${query.search}%`)} or u.email ilike ${addValue(`%${query.search}%`)})`,
+      );
     }
 
     const whereClause = where.length > 0 ? `where ${where.join(" and ")}` : "";
@@ -920,7 +970,13 @@ export class DatabaseRepository {
     );
     const total = Number(countResult.rows[0]?.total ?? 0);
     const listValues = [...values, limit, offset];
-    const result = await this.pool.query<AttemptRow & { user_name: string; user_email: string; lesson_title: string }>(
+    const result = await this.pool.query<
+      AttemptRow & {
+        user_name: string;
+        user_email: string;
+        lesson_title: string;
+      }
+    >(
       `select qa.*,
               u.name as user_name,
               u.email as user_email,
@@ -957,7 +1013,13 @@ export class DatabaseRepository {
   }
 
   async findAdminQuizAttempt(id: string, db: Db = this.pool) {
-    const result = await db.query<AttemptRow & { user_name: string; user_email: string; lesson_title: string }>(
+    const result = await db.query<
+      AttemptRow & {
+        user_name: string;
+        user_email: string;
+        lesson_title: string;
+      }
+    >(
       `select qa.*,
               u.name as user_name,
               u.email as user_email,
@@ -1461,7 +1523,13 @@ export class DatabaseRepository {
     return Number(result.rows[0]?.count ?? 0);
   }
 
-  async adminUsers(query?: { search?: string; sortBy?: string; sortOrder?: string; page?: number; limit?: number }) {
+  async adminUsers(query?: {
+    search?: string;
+    sortBy?: string;
+    sortOrder?: string;
+    page?: number;
+    limit?: number;
+  }) {
     if (!query) {
       const result = await this.pool.query<UserRow>(
         "select * from users order by created_at desc",
@@ -1471,18 +1539,20 @@ export class DatabaseRepository {
     const whereClauses: string[] = [];
     const params: unknown[] = [];
     if (query.search) {
-      whereClauses.push('(u.name ilike $1 or u.email ilike $1)');
+      whereClauses.push("(u.name ilike $1 or u.email ilike $1)");
       params.push(`%${query.search}%`);
     }
 
     const orderBy = {
-      createdAt: 'u.created_at',
-      name: 'u.name',
-      email: 'u.email',
-    }[query.sortBy ?? 'createdAt'];
+      createdAt: "u.created_at",
+      name: "u.name",
+      email: "u.email",
+    }[query.sortBy ?? "createdAt"];
 
-    const sortOrder = query.sortOrder ?? 'DESC';
-    const whereSql = whereClauses.length ? `where ${whereClauses.join(' and ')}` : '';
+    const sortOrder = query.sortOrder ?? "DESC";
+    const whereSql = whereClauses.length
+      ? `where ${whereClauses.join(" and ")}`
+      : "";
 
     const limit = query.limit ?? 20;
     const page = query.page ?? 1;
@@ -1506,7 +1576,9 @@ export class DatabaseRepository {
     ]);
 
     return {
-      items: usersResult.rows.map((row) => this.toPublicUser(this.mapUser(row))),
+      items: usersResult.rows.map((row) =>
+        this.toPublicUser(this.mapUser(row)),
+      ),
       total: Number(countResult.rows[0]?.count ?? 0),
       page,
       limit,
@@ -1521,15 +1593,26 @@ export class DatabaseRepository {
        group by l.id
        order by l.chapter_id asc, l.order_index asc`,
     );
-    return result.rows.map((row) => ({
-      ...this.mapLesson(row),
-      questionCount: Number(row.question_count ?? 0),
-    }));
+    const simulations = await this.listSimulations();
+    const simulationByLesson = new Map<string, (typeof simulations)[number]>();
+    for (const simulation of simulations) {
+      if (!simulationByLesson.has(simulation.lessonId)) {
+        simulationByLesson.set(simulation.lessonId, simulation);
+      }
+    }
+    return result.rows.map((row) => {
+      const lesson = this.mapLesson(row);
+      return {
+        ...lesson,
+        simulation: simulationByLesson.get(lesson.id) ?? null,
+        questionCount: Number(row.question_count ?? 0),
+      };
+    });
   }
 
   async adminQuestions() {
     const result = await this.pool.query<QuestionRow>(
-      'select * from questions order by lesson_id asc, order_index asc',
+      "select * from questions order by lesson_id asc, order_index asc",
     );
     return result.rows.map((row) => this.mapQuestion(row));
   }
@@ -1576,17 +1659,20 @@ export class DatabaseRepository {
     return this.mapChapter(result.rows[0]);
   }
 
-  async createLesson(input: {
-    id: string;
-    chapterId: string;
-    title: string;
-    contentMarkdown: string;
-    formulaLatex?: string | null;
-    estimatedMinutes: number;
-    orderIndex: number;
-    isPublished?: boolean;
-  }) {
-    const result = await this.pool.query<LessonRow>(
+  async createLesson(
+    input: {
+      id: string;
+      chapterId: string;
+      title: string;
+      contentMarkdown: string;
+      formulaLatex?: string | null;
+      estimatedMinutes: number;
+      orderIndex: number;
+      isPublished?: boolean;
+    },
+    db: Db = this.pool,
+  ) {
+    const result = await db.query<LessonRow>(
       `insert into lessons
         (id, chapter_id, title, content_markdown, formula_latex, estimated_minutes, order_index, is_published)
        values ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -1621,7 +1707,7 @@ export class DatabaseRepository {
     options: string[];
     correctOption: number;
     explanation: string;
-    difficulty?: 'EASY' | 'MEDIUM' | 'HARD';
+    difficulty?: "EASY" | "MEDIUM" | "HARD";
     orderIndex: number;
   }) {
     const result = await this.pool.query<QuestionRow>(
@@ -1644,7 +1730,7 @@ export class DatabaseRepository {
         JSON.stringify(input.options),
         input.correctOption,
         input.explanation,
-        input.difficulty ?? 'MEDIUM',
+        input.difficulty ?? "MEDIUM",
         input.orderIndex,
       ],
     );
@@ -1653,7 +1739,11 @@ export class DatabaseRepository {
 
   async statistics() {
     // Drop unique order_index constraint on chapters to avoid index collision crashes on live database
-    await this.pool.query('alter table chapters drop constraint if exists chapters_order_index_key').catch(() => { });
+    await this.pool
+      .query(
+        "alter table chapters drop constraint if exists chapters_order_index_key",
+      )
+      .catch(() => {});
 
     const [
       overview,
@@ -1682,7 +1772,7 @@ export class DatabaseRepository {
       hardestQuery,
       activityQuery,
       difficultLessonsResult,
-      completionByLessonResult
+      completionByLessonResult,
     ] = await Promise.all([
       this.pool.query<{
         total_users: string;
@@ -1697,7 +1787,7 @@ export class DatabaseRepository {
           (select count(*) from user_badges) as total_badges
       `),
       this.pool.query<{ count: string }>(
-        `select count(*)::int as count from users where role = 'STUDENT'`
+        `select count(*)::int as count from users where role = 'STUDENT'`,
       ),
       this.pool.query<{ count: string }>(`
         select count(distinct user_id)::int as count
@@ -1723,12 +1813,24 @@ export class DatabaseRepository {
         join users u on u.id = all_activities.user_id
         where u.role = 'STUDENT'
       `),
-      this.pool.query<{ count: string }>(`select count(*)::int as count from users where role = 'STUDENT' and created_at >= now() - interval '7 days'`),
-      this.pool.query<{ count: string }>(`select count(*)::int as count from users where role = 'STUDENT' and created_at >= now() - interval '14 days' and created_at < now() - interval '7 days'`),
-      this.pool.query<{ count: string }>(`select count(*)::int as count from quiz_attempts where created_at >= now() - interval '7 days'`),
-      this.pool.query<{ count: string }>(`select count(*)::int as count from quiz_attempts where created_at >= now() - interval '14 days' and created_at < now() - interval '7 days'`),
-      this.pool.query<{ count: string }>(`select count(*)::int as count from progress p join users u on p.user_id = u.id where p.status = 'COMPLETED' and u.role = 'STUDENT' and p.updated_at >= now() - interval '7 days'`),
-      this.pool.query<{ count: string }>(`select count(*)::int as count from progress p join users u on p.user_id = u.id where p.status = 'COMPLETED' and u.role = 'STUDENT' and p.updated_at >= now() - interval '14 days' and p.updated_at < now() - interval '7 days'`),
+      this.pool.query<{ count: string }>(
+        `select count(*)::int as count from users where role = 'STUDENT' and created_at >= now() - interval '7 days'`,
+      ),
+      this.pool.query<{ count: string }>(
+        `select count(*)::int as count from users where role = 'STUDENT' and created_at >= now() - interval '14 days' and created_at < now() - interval '7 days'`,
+      ),
+      this.pool.query<{ count: string }>(
+        `select count(*)::int as count from quiz_attempts where created_at >= now() - interval '7 days'`,
+      ),
+      this.pool.query<{ count: string }>(
+        `select count(*)::int as count from quiz_attempts where created_at >= now() - interval '14 days' and created_at < now() - interval '7 days'`,
+      ),
+      this.pool.query<{ count: string }>(
+        `select count(*)::int as count from progress p join users u on p.user_id = u.id where p.status = 'COMPLETED' and u.role = 'STUDENT' and p.updated_at >= now() - interval '7 days'`,
+      ),
+      this.pool.query<{ count: string }>(
+        `select count(*)::int as count from progress p join users u on p.user_id = u.id where p.status = 'COMPLETED' and u.role = 'STUDENT' and p.updated_at >= now() - interval '14 days' and p.updated_at < now() - interval '7 days'`,
+      ),
       this.pool.query<{ total_active: string; retained: string }>(`
         with student_active_days as (
           select user_id, count(distinct date_trunc('day', activity_time)) as active_days
@@ -1755,7 +1857,12 @@ export class DatabaseRepository {
         join users u on u.id = p.user_id
         where p.status = 'COMPLETED' and u.role = 'STUDENT'
       `),
-      this.pool.query<{ lesson_id: string; title: string; chapter_title: string; view_count: number }>(`
+      this.pool.query<{
+        lesson_id: string;
+        title: string;
+        chapter_title: string;
+        view_count: number;
+      }>(`
         select l.id as lesson_id, l.title, c.title as chapter_title, count(p.id)::int as view_count
         from lessons l
         join chapters c on l.chapter_id = c.id
@@ -1765,7 +1872,12 @@ export class DatabaseRepository {
         order by view_count desc, l.order_index asc
         limit 5
       `),
-      this.pool.query<{ lesson_id: string; title: string; chapter_title: string; view_count: number }>(`
+      this.pool.query<{
+        lesson_id: string;
+        title: string;
+        chapter_title: string;
+        view_count: number;
+      }>(`
         select l.id as lesson_id, l.title, c.title as chapter_title, count(p.id)::int as view_count
         from lessons l
         join chapters c on l.chapter_id = c.id
@@ -1775,7 +1887,11 @@ export class DatabaseRepository {
         order by view_count asc, l.order_index asc
         limit 5
       `),
-      this.pool.query<{ lesson_id: string; title: string; chapter_title: string }>(`
+      this.pool.query<{
+        lesson_id: string;
+        title: string;
+        chapter_title: string;
+      }>(`
         select l.id as lesson_id, l.title, c.title as chapter_title
         from lessons l
         join chapters c on l.chapter_id = c.id
@@ -1807,7 +1923,9 @@ export class DatabaseRepository {
         group by c.id, c.title, c.order_index
         order by c.order_index asc
       `),
-      this.pool.query<{ avg_score: string }>(`select coalesce(avg(score), 0)::float as avg_score from quiz_attempts`),
+      this.pool.query<{ avg_score: string }>(
+        `select coalesce(avg(score), 0)::float as avg_score from quiz_attempts`,
+      ),
       this.pool.query<{
         id: string;
         question: string;
@@ -1845,14 +1963,14 @@ export class DatabaseRepository {
         ) stats using (day)
         order by date asc
       `),
-      this.pool.query<{ count: string }>('select count(*) from chapters'),
-      this.pool.query<{ count: string }>('select count(*) from questions'),
+      this.pool.query<{ count: string }>("select count(*) from chapters"),
+      this.pool.query<{ count: string }>("select count(*) from questions"),
       this.pool.query<{ date: string; active_count: string }>(
         `select to_char(d, 'YYYY-MM-DD') as date, coalesce(count(distinct q.user_id), 0) as active_count
          from generate_series(now() - interval '6 days', now(), '1 day') d
          left join quiz_attempts q on q.created_at::date = d::date
          group by d::date, d
-         order by d::date`
+         order by d::date`,
       ),
       this.pool.query<{ title: string; avg_score: string }>(
         `select l.title, coalesce(avg(q.score), 0.0) as avg_score
@@ -1861,7 +1979,7 @@ export class DatabaseRepository {
          where l.is_published = true
          group by l.id, l.title
          order by avg_score asc
-         limit 5`
+         limit 5`,
       ),
       this.pool.query<{
         type: string;
@@ -1898,7 +2016,7 @@ export class DatabaseRepository {
            join lessons l on l.id = d.lesson_id
          )
          order by created_at desc
-         limit 4`
+         limit 4`,
       ),
       this.pool.query<{
         lesson_id: string;
@@ -1929,7 +2047,7 @@ export class DatabaseRepository {
         from lessons l
         left join progress p on p.lesson_id = l.id and p.status = 'COMPLETED' and p.user_id in (select id from users where role = 'STUDENT')
         group by l.id, l.chapter_id, l.title
-      `)
+      `),
     ]);
 
     const overviewRow = overview.rows[0] ?? {};
@@ -1946,8 +2064,12 @@ export class DatabaseRepository {
     const newUsersLastWeek = Number(newUsersLastWeekResult.rows[0]?.count ?? 0);
     const attemptsThisWeek = Number(attemptsThisWeekResult.rows[0]?.count ?? 0);
     const attemptsLastWeek = Number(attemptsLastWeekResult.rows[0]?.count ?? 0);
-    const completionsThisWeek = Number(completionsThisWeekResult.rows[0]?.count ?? 0);
-    const completionsLastWeek = Number(completionsLastWeekResult.rows[0]?.count ?? 0);
+    const completionsThisWeek = Number(
+      completionsThisWeekResult.rows[0]?.count ?? 0,
+    );
+    const completionsLastWeek = Number(
+      completionsLastWeekResult.rows[0]?.count ?? 0,
+    );
 
     const calculateGrowth = (current: number, previous: number) => {
       if (previous === 0) return current > 0 ? 100 : 0;
@@ -1956,27 +2078,47 @@ export class DatabaseRepository {
 
     const newUsersGrowth = calculateGrowth(newUsersThisWeek, newUsersLastWeek);
     const attemptsGrowth = calculateGrowth(attemptsThisWeek, attemptsLastWeek);
-    const completionsGrowth = calculateGrowth(completionsThisWeek, completionsLastWeek);
+    const completionsGrowth = calculateGrowth(
+      completionsThisWeek,
+      completionsLastWeek,
+    );
 
-    const totalActiveStudents = Number(retentionResult.rows[0]?.total_active ?? 0);
+    const totalActiveStudents = Number(
+      retentionResult.rows[0]?.total_active ?? 0,
+    );
     const retainedStudents = Number(retentionResult.rows[0]?.retained ?? 0);
-    const retentionRate = totalActiveStudents === 0 ? 0 : Number(((retainedStudents / totalActiveStudents) * 100).toFixed(1));
+    const retentionRate =
+      totalActiveStudents === 0
+        ? 0
+        : Number(((retainedStudents / totalActiveStudents) * 100).toFixed(1));
 
     const totalMinutes = Number(studyTimeResult.rows[0]?.total_minutes ?? 0);
-    const averageStudyTime = totalStudents === 0 ? 0 : Number((totalMinutes / totalStudents).toFixed(1));
+    const averageStudyTime =
+      totalStudents === 0
+        ? 0
+        : Number((totalMinutes / totalStudents).toFixed(1));
 
-    const totalCompletedProgress = Number(completedProgressResult.rows[0]?.count ?? 0);
+    const totalCompletedProgress = Number(
+      completedProgressResult.rows[0]?.count ?? 0,
+    );
     const possibleCompletions = totalStudents * totalLessons;
-    const completionRate = possibleCompletions === 0 ? 0 : Number((totalCompletedProgress / possibleCompletions).toFixed(4));
+    const completionRate =
+      possibleCompletions === 0
+        ? 0
+        : Number((totalCompletedProgress / possibleCompletions).toFixed(4));
 
-    const averageScore = Number(Number(avgScoreResult.rows[0]?.avg_score ?? 0).toFixed(2));
+    const averageScore = Number(
+      Number(avgScoreResult.rows[0]?.avg_score ?? 0).toFixed(2),
+    );
 
-    const activeUsersData = chartQuery.rows.map(row => Number(row.active_count));
-    const hardestLessons = hardestQuery.rows.map(row => ({
+    const activeUsersData = chartQuery.rows.map((row) =>
+      Number(row.active_count),
+    );
+    const hardestLessons = hardestQuery.rows.map((row) => ({
       title: row.title,
       percentage: Number(row.avg_score) / 10.0,
     }));
-    const recentActivities = activityQuery.rows.map(row => ({
+    const recentActivities = activityQuery.rows.map((row) => ({
       type: row.type,
       userName: row.user_name,
       action: row.action,
@@ -1984,24 +2126,27 @@ export class DatabaseRepository {
       createdAt: row.created_at,
     }));
 
-    const activeTrend = chartQuery.rows.map(row => ({
+    const activeTrend = chartQuery.rows.map((row) => ({
       date: row.date,
       activeStudents: Number(row.active_count),
     }));
 
-    const difficultLessons = difficultLessonsResult.rows.map(row => ({
+    const difficultLessons = difficultLessonsResult.rows.map((row) => ({
       lessonId: row.lesson_id,
       chapterId: row.chapter_id,
       title: row.title,
       wrongCount: Number(row.wrong_count),
     }));
 
-    const completionByLesson = completionByLessonResult.rows.map(row => ({
+    const completionByLesson = completionByLessonResult.rows.map((row) => ({
       lessonId: row.lesson_id,
       chapterId: row.chapter_id,
       title: row.title,
       completedCount: Number(row.completed_count),
-      completionRate: totalStudents === 0 ? 0 : Number((Number(row.completed_count) / totalStudents).toFixed(4)),
+      completionRate:
+        totalStudents === 0
+          ? 0
+          : Number((Number(row.completed_count) / totalStudents).toFixed(4)),
     }));
 
     return {
@@ -2062,7 +2207,6 @@ export class DatabaseRepository {
       difficultLessons,
       completionByLesson,
     };
-
   }
 
   toPublicUser(user: ReturnType<DatabaseRepository["mapUser"]>) {
@@ -2108,6 +2252,34 @@ export class DatabaseRepository {
       estimatedMinutes: row.estimated_minutes,
       orderIndex: row.order_index,
       isPublished: row.is_published,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  private mapSimulation(row: SimulationRow) {
+    const result =
+      row.result_json && typeof row.result_json === "object"
+        ? { ...(row.result_json as Record<string, unknown>) }
+        : {};
+    result.expression ??= row.expression;
+    const variables = Array.isArray(row.variables_json)
+      ? row.variables_json
+      : [];
+    return {
+      id: row.id,
+      lessonId: row.lesson_id,
+      type: row.type ?? "formula_simulation",
+      title: row.title,
+      formula: row.formula,
+      expression: row.expression,
+      variables,
+      result,
+      config: {
+        variables,
+        result,
+      },
+      orderIndex: row.order_index ?? 0,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -2200,12 +2372,24 @@ export class DatabaseRepository {
   }
 
   async adminUserProgress(userId: string) {
-    const chaptersResult = await this.pool.query<any>('select * from chapters order by order_index asc');
-    const lessonsResult = await this.pool.query<any>('select * from lessons order by order_index asc');
-    const progressResult = await this.pool.query<any>('select * from progress where user_id = $1', [userId]);
-    const attemptsResult = await this.pool.query<any>('select * from quiz_attempts where user_id = $1 order by created_at desc', [userId]);
+    const chaptersResult = await this.pool.query<any>(
+      "select * from chapters order by order_index asc",
+    );
+    const lessonsResult = await this.pool.query<any>(
+      "select * from lessons order by order_index asc",
+    );
+    const progressResult = await this.pool.query<any>(
+      "select * from progress where user_id = $1",
+      [userId],
+    );
+    const attemptsResult = await this.pool.query<any>(
+      "select * from quiz_attempts where user_id = $1 order by created_at desc",
+      [userId],
+    );
 
-    const progressMap = new Map(progressResult.rows.map(r => [r.lesson_id, r]));
+    const progressMap = new Map(
+      progressResult.rows.map((r) => [r.lesson_id, r]),
+    );
 
     const attemptsMap = new Map<string, any[]>();
     for (const att of attemptsResult.rows) {
@@ -2229,7 +2413,7 @@ export class DatabaseRepository {
       const lessonData = {
         id: lesson.id,
         title: lesson.title,
-        status: prog?.status ?? 'NOT_STARTED',
+        status: prog?.status ?? "NOT_STARTED",
         progressPercent: prog?.progress_percent ?? 0,
         bestScore: prog?.best_quiz_score ? Number(prog.best_quiz_score) : null,
         attempts: atts,
@@ -2241,17 +2425,22 @@ export class DatabaseRepository {
       lessonsByChapter.get(lesson.chapter_id)!.push(lessonData);
     }
 
-    return chaptersResult.rows.map(chapter => {
+    return chaptersResult.rows.map((chapter) => {
       const lessons = lessonsByChapter.get(chapter.id) ?? [];
       const totalLessons = lessons.length;
-      const completedLessons = lessons.filter(l => l.status === 'COMPLETED').length;
+      const completedLessons = lessons.filter(
+        (l) => l.status === "COMPLETED",
+      ).length;
       return {
         id: chapter.id,
         title: chapter.title,
         description: chapter.description,
         totalLessons,
         completedLessons,
-        completionRate: totalLessons === 0 ? 0 : Number((completedLessons / totalLessons).toFixed(4)),
+        completionRate:
+          totalLessons === 0
+            ? 0
+            : Number((completedLessons / totalLessons).toFixed(4)),
         lessons,
       };
     });

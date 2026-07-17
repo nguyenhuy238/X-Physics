@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../../../shared/models/x_models.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
+import '../../formula_simulation/utils/formula_calculator.dart';
+import '../../formula_simulation/widgets/formula_simulation_widget.dart';
 import '../../progress/application/app_state.dart';
 import '../widgets/admin_layout.dart';
 
@@ -704,6 +706,60 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
     
     var isPublished = lesson?.isPublished ?? true;
     final formKey = GlobalKey<FormState>();
+    var simulationEnabled = lesson?.simulation.title.isNotEmpty ?? false;
+    final simulation = lesson?.simulation ?? FormulaSimulationConfig.empty();
+    final simTitle = TextEditingController(text: simulation.title);
+    final simFormula = TextEditingController(
+      text: simulation.formula.isNotEmpty ? simulation.formula : formula.text,
+    );
+    final resultSymbol = TextEditingController(text: simulation.result.symbol);
+    final resultLabel = TextEditingController(text: simulation.result.label);
+    final resultUnit = TextEditingController(text: simulation.result.unit);
+    final resultExpression =
+        TextEditingController(text: simulation.result.expression);
+    final decimalPlaces = TextEditingController(
+      text: '${simulation.result.decimalPlaces}',
+    );
+    final simVariables = simulation.variables
+        .map(_AdminSimulationVariableDraft.fromVariable)
+        .toList();
+
+    FormulaSimulationConfig? buildSimulationConfig() {
+      if (!simulationEnabled) return FormulaSimulationConfig.empty();
+      final variables = <FormulaVariable>[];
+      for (final variable in simVariables) {
+        final min = double.tryParse(variable.min.text.trim());
+        final max = double.tryParse(variable.max.text.trim());
+        final step = double.tryParse(variable.step.text.trim());
+        final defaultValue = double.tryParse(variable.defaultValue.text.trim());
+        if (min == null || max == null || step == null || defaultValue == null) {
+          return null;
+        }
+        variables.add(
+          FormulaVariable(
+            symbol: variable.symbol.text.trim(),
+            label: variable.label.text.trim(),
+            unit: variable.unit.text.trim(),
+            min: min,
+            max: max,
+            step: step,
+            defaultValue: defaultValue,
+          ),
+        );
+      }
+      return FormulaSimulationConfig(
+        title: simTitle.text.trim(),
+        formula: simFormula.text.trim(),
+        variables: variables,
+        result: FormulaResult(
+          symbol: resultSymbol.text.trim(),
+          label: resultLabel.text.trim(),
+          unit: resultUnit.text.trim(),
+          expression: resultExpression.text.trim(),
+          decimalPlaces: int.tryParse(decimalPlaces.text.trim()) ?? 2,
+        ),
+      );
+    }
 
     final result = await showDialog<Lesson>(
       context: context,
@@ -713,7 +769,7 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
             borderRadius: BorderRadius.circular(20),
           ),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 540),
+            constraints: const BoxConstraints(maxWidth: 760),
             child: Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
@@ -977,6 +1033,23 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                       ),
                       const SizedBox(height: 18),
 
+                      _buildSimulationSection(
+                        enabled: simulationEnabled,
+                        onEnabledChanged: (value) =>
+                            setDialogState(() => simulationEnabled = value),
+                        title: simTitle,
+                        formula: simFormula,
+                        resultSymbol: resultSymbol,
+                        resultLabel: resultLabel,
+                        resultUnit: resultUnit,
+                        resultExpression: resultExpression,
+                        decimalPlaces: decimalPlaces,
+                        variables: simVariables,
+                        previewConfig: buildSimulationConfig(),
+                        setDialogState: setDialogState,
+                      ),
+                      const SizedBox(height: 18),
+
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -1149,6 +1222,19 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                               if (formKey.currentState?.validate() != true) {
                                 return;
                               }
+                              final simulationError = _validateSimulationDraft(
+                                enabled: simulationEnabled,
+                                variables: simVariables,
+                              );
+                              if (simulationError != null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(simulationError)),
+                                );
+                                return;
+                              }
+                              final simulationConfig =
+                                  buildSimulationConfig() ??
+                                  FormulaSimulationConfig.empty();
                               Navigator.pop(
                                 dialogContext,
                                 Lesson(
@@ -1158,7 +1244,9 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                                   content: content.text.trim(),
                                   formulaLatex: formula.text.trim(),
                                   estimatedMinutes: int.tryParse(minutes.text) ?? 10,
-                                  simulation: FormulaSimulationConfig.empty(),
+                                  simulation: simulationEnabled
+                                      ? simulationConfig
+                                      : FormulaSimulationConfig.empty(),
                                   questions: const [],
                                   orderIndex: int.tryParse(order.text) ?? 0,
                                   isPublished: isPublished,
@@ -1195,4 +1283,385 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
       isUpdate: lesson != null,
     );
   }
+
+  Widget _buildSimulationSection({
+    required bool enabled,
+    required ValueChanged<bool> onEnabledChanged,
+    required TextEditingController title,
+    required TextEditingController formula,
+    required TextEditingController resultSymbol,
+    required TextEditingController resultLabel,
+    required TextEditingController resultUnit,
+    required TextEditingController resultExpression,
+    required TextEditingController decimalPlaces,
+    required List<_AdminSimulationVariableDraft> variables,
+    required FormulaSimulationConfig? previewConfig,
+    required StateSetter setDialogState,
+  }) {
+    String? requiredWhenEnabled(String? value, String message) {
+      if (!enabled) return null;
+      return value == null || value.trim().isEmpty ? message : null;
+    }
+
+    String? symbolValidator(
+      String? value,
+      _AdminSimulationVariableDraft variable,
+    ) {
+      final required = requiredWhenEnabled(value, 'Bắt buộc');
+      if (required != null) return required;
+      if (!enabled) return null;
+      final symbol = value!.trim();
+      if (!RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$').hasMatch(symbol)) {
+        return 'Bắt đầu bằng chữ/gạch dưới';
+      }
+      final count = variables
+          .where((item) => item.symbol.text.trim() == symbol)
+          .length;
+      if (count > 1) return 'Symbol bị trùng';
+      return null;
+    }
+
+    String? numberValidator(String? value, String label) {
+      if (!enabled) return null;
+      if (value == null || value.trim().isEmpty) return '$label là bắt buộc';
+      return double.tryParse(value.trim()) == null ? '$label phải là số' : null;
+    }
+
+    String? expressionValidator(String? value) {
+      final required = requiredWhenEnabled(value, 'Biểu thức là bắt buộc');
+      if (required != null) return required;
+      if (!enabled) return null;
+      final expression = value!.trim();
+      if (!FormulaCalculator.isSupported(expression)) {
+        return 'Biểu thức không parse được';
+      }
+      final symbols = variables
+          .map((variable) => variable.symbol.text.trim())
+          .where((symbol) => symbol.isNotEmpty)
+          .toSet();
+      final identifiers = RegExp(r'[A-Za-z_][A-Za-z0-9_]*')
+          .allMatches(expression)
+          .map((match) => match.group(0)!)
+          .toSet();
+      final unknown = identifiers.where((symbol) => !symbols.contains(symbol));
+      return unknown.isEmpty
+          ? null
+          : 'Symbol chưa khai báo: ${unknown.join(', ')}';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'MÔ PHỎNG CÔNG THỨC',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF94A3B8),
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ),
+              Switch(
+                value: enabled,
+                activeThumbColor: const Color(0xFF2563EB),
+                onChanged: onEnabledChanged,
+              ),
+            ],
+          ),
+          if (enabled) ...[
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: title,
+              decoration: _simulationInputDecoration('Tiêu đề mô phỏng'),
+              validator: (value) =>
+                  requiredWhenEnabled(value, 'Tiêu đề mô phỏng là bắt buộc'),
+              onChanged: (_) => setDialogState(() {}),
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: formula,
+              decoration: _simulationInputDecoration('Công thức LaTeX'),
+              validator: (value) =>
+                  requiredWhenEnabled(value, 'Công thức là bắt buộc'),
+              onChanged: (_) => setDialogState(() {}),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: resultSymbol,
+                    decoration: _simulationInputDecoration('Ký hiệu KQ'),
+                    validator: (value) {
+                      final required =
+                          requiredWhenEnabled(value, 'Bắt buộc');
+                      if (required != null) return required;
+                      if (!enabled) return null;
+                      return RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$')
+                              .hasMatch(value!.trim())
+                          ? null
+                          : 'Symbol không hợp lệ';
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: TextFormField(
+                    controller: resultLabel,
+                    decoration: _simulationInputDecoration('Tên kết quả'),
+                    validator: (value) =>
+                        requiredWhenEnabled(value, 'Tên kết quả là bắt buộc'),
+                    onChanged: (_) => setDialogState(() {}),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextFormField(
+                    controller: resultUnit,
+                    decoration: _simulationInputDecoration('Đơn vị'),
+                    onChanged: (_) => setDialogState(() {}),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: TextFormField(
+                    controller: resultExpression,
+                    decoration: _simulationInputDecoration('Biểu thức tính'),
+                    validator: expressionValidator,
+                    onChanged: (_) => setDialogState(() {}),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextFormField(
+                    controller: decimalPlaces,
+                    keyboardType: TextInputType.number,
+                    decoration: _simulationInputDecoration('Lẻ'),
+                    validator: (value) {
+                      if (!enabled) return null;
+                      final parsed = int.tryParse(value?.trim() ?? '');
+                      if (parsed == null) return 'Phải là số';
+                      if (parsed < 0 || parsed > 6) return '0-6';
+                      return null;
+                    },
+                    onChanged: (_) => setDialogState(() {}),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Biến đầu vào',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => setDialogState(
+                    () => variables.add(_AdminSimulationVariableDraft.empty()),
+                  ),
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('Thêm biến'),
+                ),
+              ],
+            ),
+            if (variables.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'Cần ít nhất một biến đầu vào.',
+                  style: TextStyle(color: Color(0xFFB91C1C), fontSize: 12),
+                ),
+              ),
+            for (final variable in variables) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: variable.symbol,
+                            decoration: _simulationInputDecoration('Symbol'),
+                            validator: (value) =>
+                                symbolValidator(value, variable),
+                            onChanged: (_) => setDialogState(() {}),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 2,
+                          child: TextFormField(
+                            controller: variable.label,
+                            decoration: _simulationInputDecoration('Label'),
+                            validator: (value) =>
+                                requiredWhenEnabled(value, 'Bắt buộc'),
+                            onChanged: (_) => setDialogState(() {}),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextFormField(
+                            controller: variable.unit,
+                            decoration: _simulationInputDecoration('Unit'),
+                            onChanged: (_) => setDialogState(() {}),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Xóa biến',
+                          onPressed: () => setDialogState(
+                            () => variables.remove(variable),
+                          ),
+                          icon: const Icon(Icons.delete_outline_rounded),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        for (final item in [
+                          (variable.min, 'Min'),
+                          (variable.max, 'Max'),
+                          (variable.step, 'Step'),
+                          (variable.defaultValue, 'Default'),
+                        ]) ...[
+                          Expanded(
+                            child: TextFormField(
+                              controller: item.$1,
+                              keyboardType: TextInputType.number,
+                              decoration: _simulationInputDecoration(item.$2),
+                              validator: (value) =>
+                                  numberValidator(value, item.$2),
+                              onChanged: (_) => setDialogState(() {}),
+                            ),
+                          ),
+                          if (item.$2 != 'Default') const SizedBox(width: 8),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            Builder(
+              builder: (_) {
+                final config = previewConfig;
+                if (config == null ||
+                    config.title.isEmpty ||
+                    config.variables.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+                return Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: FormulaSimulationWidget(config: config),
+                );
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _simulationInputDecoration(String label) => InputDecoration(
+        labelText: label,
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      );
+
+  String? _validateSimulationDraft({
+    required bool enabled,
+    required List<_AdminSimulationVariableDraft> variables,
+  }) {
+    if (!enabled) return null;
+    if (variables.isEmpty) return 'Mô phỏng cần ít nhất một biến đầu vào';
+    for (final variable in variables) {
+      final symbol = variable.symbol.text.trim();
+      final min = double.tryParse(variable.min.text.trim());
+      final max = double.tryParse(variable.max.text.trim());
+      final step = double.tryParse(variable.step.text.trim());
+      final defaultValue = double.tryParse(variable.defaultValue.text.trim());
+      if (min == null || max == null || step == null || defaultValue == null) {
+        return 'Biến $symbol có giá trị số chưa hợp lệ';
+      }
+      if (min >= max) return 'Biến $symbol phải có min < max';
+      if (step <= 0) return 'Biến $symbol phải có step > 0';
+      if (defaultValue < min || defaultValue > max) {
+        return 'Biến $symbol phải có default nằm trong [min, max]';
+      }
+    }
+    return null;
+  }
+}
+
+class _AdminSimulationVariableDraft {
+  _AdminSimulationVariableDraft({
+    required this.symbol,
+    required this.label,
+    required this.unit,
+    required this.min,
+    required this.max,
+    required this.step,
+    required this.defaultValue,
+  });
+
+  factory _AdminSimulationVariableDraft.empty() => _AdminSimulationVariableDraft(
+        symbol: TextEditingController(),
+        label: TextEditingController(),
+        unit: TextEditingController(),
+        min: TextEditingController(text: '0'),
+        max: TextEditingController(text: '100'),
+        step: TextEditingController(text: '1'),
+        defaultValue: TextEditingController(text: '0'),
+      );
+
+  factory _AdminSimulationVariableDraft.fromVariable(FormulaVariable variable) =>
+      _AdminSimulationVariableDraft(
+        symbol: TextEditingController(text: variable.symbol),
+        label: TextEditingController(text: variable.label),
+        unit: TextEditingController(text: variable.unit),
+        min: TextEditingController(text: '${variable.min}'),
+        max: TextEditingController(text: '${variable.max}'),
+        step: TextEditingController(text: '${variable.step}'),
+        defaultValue: TextEditingController(text: '${variable.defaultValue}'),
+      );
+
+  final TextEditingController symbol;
+  final TextEditingController label;
+  final TextEditingController unit;
+  final TextEditingController min;
+  final TextEditingController max;
+  final TextEditingController step;
+  final TextEditingController defaultValue;
 }

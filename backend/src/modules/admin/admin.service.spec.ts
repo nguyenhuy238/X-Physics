@@ -17,9 +17,35 @@ import { LessonsService } from "../lessons/lessons.service";
 
 class FakeAdminDatabase {
   lessons = new Map([
-    ["lesson-1", { id: "lesson-1", chapterId: "chapter-1", isPublished: true }],
-    ["lesson-2", { id: "lesson-2", chapterId: "chapter-2", isPublished: true }],
+    [
+      "lesson-1",
+      {
+        id: "lesson-1",
+        chapterId: "chapter-1",
+        title: "Ohm",
+        contentMarkdown: "Content",
+        formulaLatex: "I = U / R",
+        estimatedMinutes: 10,
+        orderIndex: 1,
+        isPublished: true,
+      },
+    ],
+    [
+      "lesson-2",
+      {
+        id: "lesson-2",
+        chapterId: "chapter-2",
+        title: "Pressure",
+        contentMarkdown: "Content",
+        formulaLatex: "p = F / S",
+        estimatedMinutes: 10,
+        orderIndex: 1,
+        isPublished: true,
+      },
+    ],
   ]);
+
+  simulations = new Map<string, any>();
 
   questions = new Map<string, any>([
     [
@@ -46,10 +72,14 @@ class FakeAdminDatabase {
 
   async withTransaction<T>(work: (client: this) => Promise<T>) {
     const snapshot = new Map(this.questions);
+    const lessonSnapshot = new Map(this.lessons);
+    const simulationSnapshot = new Map(this.simulations);
     try {
       return await work(this);
     } catch (error) {
       this.questions = snapshot;
+      this.lessons = lessonSnapshot;
+      this.simulations = simulationSnapshot;
       throw error;
     }
   }
@@ -110,6 +140,59 @@ class FakeAdminDatabase {
     return this.lessons.get(id) ?? null;
   }
 
+  async createLesson(input: any) {
+    const lesson = { ...input };
+    this.lessons.set(input.id, lesson);
+    return lesson;
+  }
+
+  async updateLesson(id: string, input: any) {
+    if (!this.lessons.has(id)) throw new NotFoundException("Lesson not found");
+    const lesson = { id, ...input };
+    this.lessons.set(id, lesson);
+    return lesson;
+  }
+
+  async listSimulationsByLesson(lessonId: string) {
+    return Array.from(this.simulations.values())
+      .filter((simulation) => simulation.lessonId === lessonId)
+      .sort((a, b) => a.orderIndex - b.orderIndex);
+  }
+
+  async replaceLessonFormulaSimulation(input: any) {
+    for (const [id, simulation] of this.simulations.entries()) {
+      if (
+        simulation.lessonId === input.lessonId &&
+        simulation.type === "formula_simulation" &&
+        id !== input.id
+      ) {
+        this.simulations.delete(id);
+      }
+    }
+    const result = {
+      ...input,
+      type: "formula_simulation",
+      config: {
+        variables: input.variables,
+        result: input.result,
+      },
+      orderIndex: input.orderIndex ?? 0,
+    };
+    this.simulations.set(input.id, result);
+    return result;
+  }
+
+  async deleteFormulaSimulationsByLesson(lessonId: string) {
+    for (const [id, simulation] of this.simulations.entries()) {
+      if (
+        simulation.lessonId === lessonId &&
+        simulation.type === "formula_simulation"
+      ) {
+        this.simulations.delete(id);
+      }
+    }
+  }
+
   async questionOrderIndexExists(input: {
     lessonId: string;
     orderIndex: number;
@@ -130,20 +213,25 @@ class FakeAdminDatabase {
   }
 
   async upsertQuestion(input: any) {
-    const question = this.makeQuestion({ ...input, questionText: input.questionText });
+    const question = this.makeQuestion({
+      ...input,
+      questionText: input.questionText,
+    });
     this.questions.set(question.id, question);
     return question;
   }
 
   async updateQuestion(id: string, input: any) {
-    if (!this.questions.has(id)) throw new NotFoundException("Question not found");
+    if (!this.questions.has(id))
+      throw new NotFoundException("Question not found");
     const question = this.makeQuestion({ id, ...input });
     this.questions.set(id, question);
     return question;
   }
 
   async deleteQuestion(id: string) {
-    if (!this.questions.delete(id)) throw new NotFoundException("Question not found");
+    if (!this.questions.delete(id))
+      throw new NotFoundException("Question not found");
     return { id, deleted: true, mode: "hard" };
   }
 
@@ -178,6 +266,49 @@ const validQuestionDto: CreateAdminQuestionDto = {
   explanation: "Voltage is electric potential difference.",
   difficulty: "MEDIUM" as any,
   orderIndex: 2,
+};
+
+const validSimulation = {
+  title: "Mô phỏng I = U / R",
+  formula: "I = \\frac{U}{R}",
+  variables: [
+    {
+      symbol: "U",
+      label: "Hiệu điện thế",
+      unit: "V",
+      min: 0,
+      max: 220,
+      step: 1,
+      default: 12,
+    },
+    {
+      symbol: "R",
+      label: "Điện trở",
+      unit: "ohm",
+      min: 1,
+      max: 100,
+      step: 1,
+      default: 4,
+    },
+  ],
+  result: {
+    symbol: "I",
+    label: "Cường độ dòng điện",
+    unit: "A",
+    expression: "U / R",
+    decimalPlaces: 2,
+  },
+};
+
+const validLessonDto = {
+  id: "electric-new",
+  chapterId: "chapter-1",
+  title: "Định luật Ohm mới",
+  contentMarkdown: "Nội dung bài học đủ dài",
+  formulaLatex: "I = \\frac{U}{R}",
+  estimatedMinutes: 10,
+  orderIndex: 2,
+  isPublished: true,
 };
 
 describe("AdminService questions", () => {
@@ -312,9 +443,9 @@ describe("AdminService questions", () => {
     });
     await service.removeQuestion("q1");
 
-    expect(await database.listAdminQuestionsByLesson("lesson-1")).toMatchObject([
-      { id: created.id, orderIndex: 1 },
-    ]);
+    expect(await database.listAdminQuestionsByLesson("lesson-1")).toMatchObject(
+      [{ id: created.id, orderIndex: 1 }],
+    );
   });
 
   it("reorders a full lesson successfully", async () => {
@@ -336,13 +467,19 @@ describe("AdminService questions", () => {
 
   it("rejects reorder duplicate, missing, extra, foreign, and missing lesson", async () => {
     await expect(
-      service.reorderQuestions({ lessonId: "lesson-1", questionIds: ["q1", "q1"] }),
+      service.reorderQuestions({
+        lessonId: "lesson-1",
+        questionIds: ["q1", "q1"],
+      }),
     ).rejects.toBeInstanceOf(BadRequestException);
     await expect(
       service.reorderQuestions({ lessonId: "lesson-1", questionIds: [] }),
     ).rejects.toBeInstanceOf(BadRequestException);
     await expect(
-      service.reorderQuestions({ lessonId: "lesson-1", questionIds: ["q1", "extra"] }),
+      service.reorderQuestions({
+        lessonId: "lesson-1",
+        questionIds: ["q1", "extra"],
+      }),
     ).rejects.toBeInstanceOf(BadRequestException);
     await expect(
       service.reorderQuestions({ lessonId: "lesson-1", questionIds: ["q2"] }),
@@ -378,10 +515,16 @@ describe("AdminService questions", () => {
       service.createQuestion({ ...validQuestionDto, explanation: "   " }),
     ).rejects.toBeInstanceOf(BadRequestException);
     await expect(
-      service.createQuestion({ ...validQuestionDto, options: ["A", "", "C", "D"] }),
+      service.createQuestion({
+        ...validQuestionDto,
+        options: ["A", "", "C", "D"],
+      }),
     ).rejects.toBeInstanceOf(BadRequestException);
     await expect(
-      service.createQuestion({ ...validQuestionDto, options: ["A", "a", "C", "D"] }),
+      service.createQuestion({
+        ...validQuestionDto,
+        options: ["A", "a", "C", "D"],
+      }),
     ).rejects.toBeInstanceOf(BadRequestException);
     await expect(
       service.createQuestion({ ...validQuestionDto, correctOption: 4 }),
@@ -397,6 +540,113 @@ describe("AdminService questions", () => {
 
     expect(question).not.toHaveProperty("correctOption");
     expect(question).not.toHaveProperty("explanation");
+  });
+});
+
+describe("AdminService lesson simulations", () => {
+  let database: FakeAdminDatabase;
+  let service: AdminService;
+
+  beforeEach(() => {
+    database = new FakeAdminDatabase();
+    service = new AdminService(database as any);
+  });
+
+  it("creates a lesson with a formula simulation in one transaction", async () => {
+    const created = await service.createLesson({
+      ...validLessonDto,
+      simulation: validSimulation,
+    } as any);
+
+    expect(created.simulation).toMatchObject({
+      lessonId: "electric-new",
+      title: "Mô phỏng I = U / R",
+      expression: "U / R",
+    });
+    expect(await database.listSimulationsByLesson("electric-new")).toHaveLength(
+      1,
+    );
+  });
+
+  it("updates, preserves, and deletes lesson simulation based on request body", async () => {
+    await service.createLesson({
+      ...validLessonDto,
+      simulation: validSimulation,
+    } as any);
+
+    await service.updateLesson("electric-new", {
+      ...validLessonDto,
+      title: "Only title changed",
+    } as any);
+    expect(await database.listSimulationsByLesson("electric-new")).toHaveLength(
+      1,
+    );
+
+    await service.updateLesson("electric-new", {
+      ...validLessonDto,
+      simulation: {
+        ...validSimulation,
+        result: { ...validSimulation.result, expression: "(U + R) / R" },
+      },
+    } as any);
+    const [updated] = await database.listSimulationsByLesson("electric-new");
+    expect(updated.result.expression).toBe("(U + R) / R");
+    expect(await database.listSimulationsByLesson("electric-new")).toHaveLength(
+      1,
+    );
+
+    await service.updateLesson("electric-new", {
+      ...validLessonDto,
+      simulation: null,
+    } as any);
+    expect(await database.listSimulationsByLesson("electric-new")).toHaveLength(
+      0,
+    );
+  });
+
+  it("rejects duplicate symbols, invalid expression, bad defaults, and rolls back", async () => {
+    await expect(
+      service.createLesson({
+        ...validLessonDto,
+        id: "bad-duplicate",
+        simulation: {
+          ...validSimulation,
+          variables: [
+            validSimulation.variables[0],
+            { ...validSimulation.variables[1], symbol: "U" },
+          ],
+        },
+      } as any),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    await expect(
+      service.createLesson({
+        ...validLessonDto,
+        id: "bad-expression",
+        simulation: {
+          ...validSimulation,
+          result: { ...validSimulation.result, expression: "U / X" },
+        },
+      } as any),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    await expect(
+      service.createLesson({
+        ...validLessonDto,
+        id: "bad-default",
+        simulation: {
+          ...validSimulation,
+          variables: [
+            { ...validSimulation.variables[0], default: 999 },
+            validSimulation.variables[1],
+          ],
+        },
+      } as any),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(database.lessons.has("bad-duplicate")).toBe(false);
+    expect(database.lessons.has("bad-expression")).toBe(false);
+    expect(database.lessons.has("bad-default")).toBe(false);
   });
 });
 
@@ -434,9 +684,12 @@ describe("Admin auth and roles", () => {
   }
 
   it("returns 401 when token is missing", async () => {
-    const guard = new AuthGuard({} as any, {
-      get: () => "secret",
-    } as any);
+    const guard = new AuthGuard(
+      {} as any,
+      {
+        get: () => "secret",
+      } as any,
+    );
 
     await expect(guard.canActivate(contextFor({}))).rejects.toBeInstanceOf(
       UnauthorizedException,
@@ -452,11 +705,11 @@ describe("Admin auth and roles", () => {
     expect(() =>
       guard.canActivate(contextFor({ user: { role: "STUDENT" } })),
     ).toThrow("Insufficient role");
-    expect(
-      guard.canActivate(contextFor({ user: { role: "ADMIN" } })),
-    ).toBe(true);
-    expect(
-      guard.canActivate(contextFor({ user: { role: "TEACHER" } })),
-    ).toBe(true);
+    expect(guard.canActivate(contextFor({ user: { role: "ADMIN" } }))).toBe(
+      true,
+    );
+    expect(guard.canActivate(contextFor({ user: { role: "TEACHER" } }))).toBe(
+      true,
+    );
   });
 });

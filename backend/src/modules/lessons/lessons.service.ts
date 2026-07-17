@@ -6,8 +6,14 @@ import { DatabaseRepository } from "../../database/database.repository";
 export class LessonsService {
   constructor(private readonly database: DatabaseRepository) {}
 
-  findOne(id: string) {
-    return this.database.findLesson(id);
+  async findOne(id: string) {
+    const lesson = await this.database.findLesson(id);
+    const simulations = await this.database.listSimulationsByLesson(id);
+    return {
+      ...lesson,
+      simulation: simulations[0] ?? null,
+      simulations,
+    };
   }
 
   simulations(lessonId: string) {

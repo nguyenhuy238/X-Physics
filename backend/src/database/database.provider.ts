@@ -1,15 +1,15 @@
-import { ConfigService } from '@nestjs/config';
-import { Pool } from 'pg';
+import { ConfigService } from "@nestjs/config";
+import { Pool } from "pg";
 
-import { DATABASE_POOL } from './database.constants';
+import { DATABASE_POOL } from "./database.constants";
 
 export const databaseProvider = {
   provide: DATABASE_POOL,
   inject: [ConfigService],
   useFactory: async (configService: ConfigService) => {
-    const connectionString = configService.get<string>('DATABASE_URL');
+    const connectionString = configService.get<string>("DATABASE_URL");
     if (!connectionString) {
-      throw new Error('DATABASE_URL is required for backend database access');
+      throw new Error("DATABASE_URL is required for backend database access");
     }
     const pool = new Pool({ connectionString });
     await pool.query(`
@@ -37,6 +37,14 @@ export const databaseProvider = {
           alter table badges
             add column if not exists condition_value varchar(120),
             add column if not exists metadata_json jsonb not null default '{}'::jsonb;
+        end if;
+
+        if to_regclass('public.simulations') is not null then
+          alter table simulations
+            add column if not exists type varchar(60) not null default 'formula_simulation',
+            add column if not exists order_index integer not null default 0,
+            add column if not exists created_at timestamptz not null default now(),
+            add column if not exists updated_at timestamptz not null default now();
         end if;
       end $$;
 

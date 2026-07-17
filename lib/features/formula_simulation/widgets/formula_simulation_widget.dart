@@ -26,8 +26,15 @@ class _FormulaSimulationWidgetState extends State<FormulaSimulationWidget> {
   double _calculate() =>
       FormulaCalculator.calculate(widget.config.result.expression, values);
 
+  int? _divisionsFor(FormulaVariable variable) {
+    if (variable.step <= 0 || variable.max <= variable.min) return null;
+    final divisions = ((variable.max - variable.min) / variable.step).round();
+    return divisions > 0 ? divisions : null;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final decimalPlaces = widget.config.result.decimalPlaces.clamp(0, 6);
     final result = _calculate();
     final isSupported = FormulaCalculator.isSupported(
       widget.config.result.expression,
@@ -71,13 +78,14 @@ class _FormulaSimulationWidgetState extends State<FormulaSimulationWidget> {
                     ),
                   ),
                   Text(
-                    '${values[variable.symbol]!.toStringAsFixed(2)} ${variable.unit}',
+                    '${values[variable.symbol]!.toStringAsFixed(decimalPlaces)} ${variable.unit}',
                   ),
                 ],
               ),
               Slider(
                 min: variable.min,
                 max: variable.max,
+                divisions: _divisionsFor(variable),
                 value: values[variable.symbol]!,
                 onChanged: (value) =>
                     setState(() => values[variable.symbol] = value),
@@ -93,9 +101,8 @@ class _FormulaSimulationWidgetState extends State<FormulaSimulationWidget> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Text(
-                  'Công thức này chưa được hỗ trợ tính real-time. Kết quả '
-                  'bên dưới tạm thời là 0 — báo TV3 để bổ sung expression '
-                  'mới vào FormulaCalculator.',
+                  'Cấu hình biểu thức mô phỏng chưa hợp lệ. Kết quả bên dưới '
+                  'tạm thời là 0.',
                   style: TextStyle(color: Color(0xFFC0392B), fontSize: 13),
                 ),
               ),
@@ -107,7 +114,7 @@ class _FormulaSimulationWidgetState extends State<FormulaSimulationWidget> {
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Text(
-                '${widget.config.result.label}: ${result.toStringAsFixed(2)} ${widget.config.result.unit}',
+                '${widget.config.result.label}: ${result.toStringAsFixed(decimalPlaces)} ${widget.config.result.unit}',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
