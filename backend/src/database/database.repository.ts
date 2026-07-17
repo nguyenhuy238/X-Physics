@@ -132,7 +132,7 @@ export class DatabaseRepository {
   private quizAttemptsSchemaReady = false;
   private rewardEventsSchemaReady = false;
 
-  constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
+  constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) { }
 
   async withTransaction<T>(work: (client: PoolClient) => Promise<T>) {
     const client = await this.pool.connect();
@@ -272,6 +272,22 @@ export class DatabaseRepository {
       throw new NotFoundException("Chapter not found");
     }
     return this.mapChapter(result.rows[0]);
+  }
+
+  async chapterIdExists(id: string, db: Db = this.pool) {
+    const result = await db.query<{ exists: boolean }>(
+      "select exists(select 1 from chapters where id = $1)",
+      [id],
+    );
+    return Boolean(result.rows[0]?.exists);
+  }
+
+  async lessonIdExists(id: string, db: Db = this.pool) {
+    const result = await db.query<{ exists: boolean }>(
+      "select exists(select 1 from lessons where id = $1)",
+      [id],
+    );
+    return Boolean(result.rows[0]?.exists);
   }
 
   async listLessonsByChapter(chapterId: string) {
@@ -1637,7 +1653,7 @@ export class DatabaseRepository {
 
   async statistics() {
     // Drop unique order_index constraint on chapters to avoid index collision crashes on live database
-    await this.pool.query('alter table chapters drop constraint if exists chapters_order_index_key').catch(() => {});
+    await this.pool.query('alter table chapters drop constraint if exists chapters_order_index_key').catch(() => { });
 
     const [
       overview,
@@ -2190,7 +2206,7 @@ export class DatabaseRepository {
     const attemptsResult = await this.pool.query<any>('select * from quiz_attempts where user_id = $1 order by created_at desc', [userId]);
 
     const progressMap = new Map(progressResult.rows.map(r => [r.lesson_id, r]));
-    
+
     const attemptsMap = new Map<string, any[]>();
     for (const att of attemptsResult.rows) {
       if (!attemptsMap.has(att.lesson_id)) {

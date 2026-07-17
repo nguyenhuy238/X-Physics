@@ -22,7 +22,7 @@ import {
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly database: DatabaseRepository) {}
+  constructor(private readonly database: DatabaseRepository) { }
 
   users(query: {
     search?: string;

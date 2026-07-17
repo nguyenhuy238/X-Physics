@@ -554,9 +554,32 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                           hintText: 'VD: motion, force, electric',
                           filled: true,
                           fillColor: chapter == null ? const Color(0xFFF8FAFC) : const Color(0xFFE2E8F0),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.5),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         ),
-                        validator: (value) => value == null || value.trim().isEmpty ? 'Mã chương là bắt buộc' : null,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Mã chương là bắt buộc';
+                          }
+                          final trimmed = value.trim();
+                          if (trimmed.length < 3 || trimmed.length > 50) {
+                            return 'Độ dài mã chương phải từ 3 đến 50 ký tự';
+                          }
+                          if (!RegExp(r'^[a-z0-9\-]+$').hasMatch(trimmed)) {
+                            return 'Chỉ dùng chữ thường (a-z), số (0-9) và dấu gạch ngang (-)';
+                          }
+                          if (chapter == null && state.chapters.any((c) => c.id == trimmed)) {
+                            return 'Mã chương đã tồn tại';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 18),
                       const Text('TÊN CHƯƠNG HỌC', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8))),
@@ -568,9 +591,26 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                           hintText: 'VD: Chuyển động cơ học',
                           filled: true,
                           fillColor: const Color(0xFFF8FAFC),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.5),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         ),
-                        validator: (value) => value == null || value.trim().isEmpty ? 'Tên chương là bắt buộc' : null,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Tên chương là bắt buộc';
+                          }
+                          final trimmed = value.trim();
+                          if (trimmed.length < 3 || trimmed.length > 100) {
+                            return 'Tên chương học phải từ 3 đến 100 ký tự';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 18),
                       const Text('MÔ TẢ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8))),
@@ -583,9 +623,26 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                           hintText: 'Nhập mô tả tóm tắt nội dung chương',
                           filled: true,
                           fillColor: const Color(0xFFF8FAFC),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.5),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         ),
-                        validator: (value) => value == null || value.trim().isEmpty ? 'Mô tả là bắt buộc' : null,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Mô tả là bắt buộc';
+                          }
+                          final trimmed = value.trim();
+                          if (trimmed.length < 5 || trimmed.length > 500) {
+                            return 'Mô tả phải từ 5 đến 500 ký tự';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 18),
                       Row(
@@ -604,6 +661,19 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                                     fillColor: const Color(0xFFF8FAFC),
                                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                                   ),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Bắt buộc';
+                                    }
+                                    final val = int.tryParse(value.trim());
+                                    if (val == null) {
+                                      return 'Phải là số nguyên';
+                                    }
+                                    if (val < 0) {
+                                      return 'Phải >= 0';
+                                    }
+                                    return null;
+                                  },
                                 ),
                               ],
                             ),
