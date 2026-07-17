@@ -801,6 +801,179 @@ export class DatabaseRepository {
     return Number(result.rows[0]?.average_score ?? 0);
   }
 
+  async adminListQuizAttempts(query: {
+    search?: string;
+    lessonId?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const offset = (page - 1) * limit;
+
+    const where: string[] = [];
+    const values: unknown[] = [];
+    const addValue = (value: unknown) => {
+      values.push(value);
+      return `$${values.length}`;
+    };
+
+    if (query.lessonId) {
+      where.push(`qa.lesson_id = ${addValue(query.lessonId)}`);
+    }
+    if (query.search) {
+      where.push(`(u.name ilike ${addValue(`%${query.search}%`)} or u.email ilike ${addValue(`%${query.search}%`)})`);
+    }
+
+    const whereClause = where.length > 0 ? `where ${where.join(" and ")}` : "";
+    const countResult = await this.pool.query<{ total: string }>(
+      `select count(*) as total
+       from quiz_attempts qa
+       join users u on u.id = qa.user_id
+       ${whereClause}`,
+      values,
+    );
+    const total = Number(countResult.rows[0]?.total ?? 0);
+    const listValues = [...values, limit, offset];
+    const result = await this.pool.query<AttemptRow & { user_name: string; user_email: string; lesson_title: string }>(
+      `select qa.*,
+              u.name as user_name,
+              u.email as user_email,
+              l.title as lesson_title
+       from quiz_attempts qa
+       join users u on u.id = qa.user_id
+       join lessons l on l.id = qa.lesson_id
+       ${whereClause}
+       order by qa.created_at desc
+       limit $${values.length + 1} offset $${values.length + 2}`,
+      listValues,
+    );
+
+    return {
+      items: result.rows.map((row) => ({
+        id: row.id,
+        userId: row.user_id,
+        userName: row.user_name,
+        userEmail: row.user_email,
+        lessonId: row.lesson_id,
+        lessonTitle: row.lesson_title,
+        score: Number(row.score),
+        correctCount: row.correct_count,
+        totalQuestions: row.total_questions,
+        durationSeconds: row.duration_seconds,
+        coinsEarned: row.coins_earned,
+        createdAt: row.created_at.toISOString(),
+      })),
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async findAdminQuizAttempt(id: string, db: Db = this.pool) {
+    const result = await db.query<AttemptRow & { user_name: string; user_email: string; lesson_title: string }>(
+      `select qa.*,
+              u.name as user_name,
+              u.email as user_email,
+              l.title as lesson_title
+       from quiz_attempts qa
+       join users u on u.id = qa.user_id
+       join lessons l on l.id = qa.lesson_id
+       where qa.id = $1`,
+      [id],
+    );
+    const row = result.rows[0];
+    if (!row) {
+      throw new NotFoundException("Quiz attempt not found");
+    }
+    return {
+      id: row.id,
+      userId: row.user_id,
+      userName: row.user_name,
+      userEmail: row.user_email,
+      lessonId: row.lesson_id,
+      lessonTitle: row.lesson_title,
+      score: Number(row.score),
+      correctCount: row.correct_count,
+      totalQuestions: row.total_questions,
+      durationSeconds: row.duration_seconds,
+      coinsEarned: row.coins_earned,
+      createdAt: row.created_at.toISOString(),
+    };
+  }
+
+  async deleteAdminQuizAttempt(id: string, db: Db = this.pool) {
+    const result = await db.query(
+      "delete from quiz_attempts where id = $1 returning *",
+      [id],
+    );
+    if (result.rowCount === 0) {
+      throw new NotFoundException("Quiz attempt not found");
+    }
+    return { id, deleted: true };
+  }
+
+  async createAdminQuizAttempt(
+    input: {
+      userId: string;
+      lessonId: string;
+      score: number;
+      correctCount: number;
+      totalQuestions: number;
+      durationSeconds: number;
+    },
+    db: Db = this.pool,
+  ) {
+    const result = await db.query<AttemptRow>(
+      `insert into quiz_attempts
+        (user_id, lesson_id, score, correct_count, total_questions, duration_seconds, coins_earned, answers_json)
+       values ($1, $2, $3, $4, $5, $6, 0, '[]'::jsonb)
+       returning *`,
+      [
+        input.userId,
+        input.lessonId,
+        input.score,
+        input.correctCount,
+        input.totalQuestions,
+        input.durationSeconds,
+      ],
+    );
+    return this.findAdminQuizAttempt(result.rows[0].id, db);
+  }
+
+  async updateAdminQuizAttempt(
+    id: string,
+    input: {
+      score: number;
+      correctCount: number;
+      totalQuestions: number;
+      durationSeconds: number;
+    },
+    db: Db = this.pool,
+  ) {
+    const result = await db.query<AttemptRow>(
+      `update quiz_attempts
+       set score = $2,
+           correct_count = $3,
+           total_questions = $4,
+           duration_seconds = $5
+       where id = $1
+       returning *`,
+      [
+        id,
+        input.score,
+        input.correctCount,
+        input.totalQuestions,
+        input.durationSeconds,
+      ],
+    );
+    if (result.rowCount === 0) {
+      throw new NotFoundException("Quiz attempt not found");
+    }
+    return this.findAdminQuizAttempt(id, db);
+  }
+
   async findAttempt(id: string, userId: string) {
     const result = await this.pool.query<AttemptRow>(
       "select * from quiz_attempts where id = $1 and user_id = $2",
@@ -1074,19 +1247,89 @@ export class DatabaseRepository {
     return Number(result.rows[0]?.count ?? 0);
   }
 
-  async adminUsers() {
-    const result = await this.pool.query<UserRow>(
-      "select * from users order by created_at desc",
+  async adminUsers(query: {
+    search?: string;
+    sortBy?: string;
+    sortOrder?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const offset = (page - 1) * limit;
+
+    const where: string[] = [];
+    const values: unknown[] = [];
+    const addValue = (value: unknown) => {
+      values.push(value);
+      return `$${values.length}`;
+    };
+
+    if (query.search) {
+      where.push(`(name ilike ${addValue(`%${query.search}%`)} or email ilike ${addValue(`%${query.search}%`)})`);
+    }
+
+    const whereClause = where.length > 0 ? `where ${where.join(" and ")}` : "";
+    
+    // Sort logic
+    let orderBy = "created_at desc";
+    if (query.sortBy) {
+      const field = query.sortBy === "createdAt" ? "created_at" : query.sortBy;
+      const order = query.sortOrder === "ASC" ? "asc" : "desc";
+      orderBy = `${field} ${order}`;
+    }
+
+    const countResult = await this.pool.query<{ total: string }>(
+      `select count(*) as total from users ${whereClause}`,
+      values,
     );
-    return result.rows.map((row) => this.toPublicUser(this.mapUser(row)));
+    const total = Number(countResult.rows[0]?.total ?? 0);
+
+    const listValues = [...values, limit, offset];
+    const result = await this.pool.query<UserRow>(
+      `select * from users
+       ${whereClause}
+       order by ${orderBy}
+       limit $${values.length + 1} offset $${values.length + 2}`,
+      listValues,
+    );
+
+    return {
+      items: result.rows.map((row) => this.toPublicUser(this.mapUser(row))),
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async statistics() {
     // Drop unique order_index constraint on chapters to avoid index collision crashes on live database
     await this.pool.query('alter table chapters drop constraint if exists chapters_order_index_key').catch(() => {});
 
-    const [users, attempts, completed, lessons, chapters, questions] = await Promise.all([
-      this.pool.query<{ count: string }>("select count(*) from users where role = 'STUDENT'"),
+    const [
+      overview,
+      attempts,
+      completed,
+      lessonsCountResult,
+      chaptersCountResult,
+      questionsCountResult,
+      chartQuery,
+      hardestQuery,
+      activityQuery,
+      difficultLessonsResult,
+      completionByLessonResult
+    ] = await Promise.all([
+      this.pool.query<{
+        total_users: string;
+        total_students: string;
+        active_users_7days: string;
+      }>(
+        `select 
+          (select count(*) from users) as total_users,
+          (select count(*) from users where role = 'STUDENT') as total_students,
+          (select count(distinct user_id) from quiz_attempts where created_at >= now() - interval '6 days') as active_users_7days`
+      ),
       this.pool.query<{ count: string }>('select count(*) from quiz_attempts'),
       this.pool.query<{ count: string }>(
         "select count(*) from progress where status = 'COMPLETED'",
@@ -1096,73 +1339,107 @@ export class DatabaseRepository {
       ),
       this.pool.query<{ count: string }>('select count(*) from chapters'),
       this.pool.query<{ count: string }>('select count(*) from questions'),
+      this.pool.query<{ date: string; active_count: string }>(
+        `select to_char(d, 'YYYY-MM-DD') as date, coalesce(count(distinct q.user_id), 0) as active_count
+         from generate_series(now() - interval '6 days', now(), '1 day') d
+         left join quiz_attempts q on q.created_at::date = d::date
+         group by d::date, d
+         order by d::date`
+      ),
+      this.pool.query<{ title: string; avg_score: string }>(
+        `select l.title, coalesce(avg(q.score), 0.0) as avg_score
+         from lessons l
+         left join quiz_attempts q on q.lesson_id = l.id
+         where l.is_published = true
+         group by l.id, l.title
+         order by avg_score asc
+         limit 5`
+      ),
+      this.pool.query<{
+        type: string;
+        user_name: string;
+        action: string;
+        detail: string;
+        created_at: Date;
+      }>(
+        `(
+           select 'quiz' as type, u.name as user_name, 'Hoàn thành bài kiểm tra' as action, l.title as detail, q.created_at as created_at
+           from quiz_attempts q
+           join users u on u.id = q.user_id
+           join lessons l on l.id = q.lesson_id
+         )
+         union all
+         (
+           select 'progress' as type, u.name as user_name, 'Bắt đầu bài học' as action, l.title as detail, p.updated_at as created_at
+           from progress p
+           join users u on u.id = p.user_id
+           join lessons l on l.id = p.lesson_id
+           where p.status = 'IN_PROGRESS'
+         )
+         union all
+         (
+           select 'user' as type, name as user_name, 'Đăng ký tài khoản' as action, 'Lớp 8' as detail, created_at as created_at
+           from users
+           where role = 'STUDENT'
+         )
+         union all
+         (
+           select 'download' as type, u.name as user_name, 'Tải bài học offline' as action, l.title as detail, d.downloaded_at as created_at
+           from downloaded_lessons d
+           join users u on u.id = d.user_id
+           join lessons l on l.id = d.lesson_id
+         )
+         order by created_at desc
+         limit 4`
+      ),
+      this.pool.query<{
+        lesson_id: string;
+        chapter_id: string;
+        title: string;
+        wrong_count: number;
+      }>(
+        `select l.id as lesson_id,
+               l.chapter_id,
+               l.title,
+               coalesce(sum(q.total_questions - q.correct_count), 0)::int as wrong_count
+        from lessons l
+        join quiz_attempts q on q.lesson_id = l.id
+        group by l.id, l.chapter_id, l.title
+        order by wrong_count desc
+        limit 5`
+      ),
+      this.pool.query<{
+        lesson_id: string;
+        chapter_id: string;
+        title: string;
+        completed_count: number;
+      }>(
+        `select l.id as lesson_id,
+               l.chapter_id,
+               l.title,
+               count(distinct p.user_id)::int as completed_count
+        from lessons l
+        left join progress p on p.lesson_id = l.id and p.status = 'COMPLETED' and p.user_id in (select id from users where role = 'STUDENT')
+        group by l.id, l.chapter_id, l.title`
+      )
     ]);
-    const completedCount = Number(completed.rows[0]?.count ?? 0);
-    const lessonCount = Number(lessons.rows[0]?.count ?? 0);
 
-    // Dynamic Chart Data: Unique active users per day over the last 7 days
-    const chartQuery = await this.pool.query<{ day_num: string; active_count: string }>(
-      `select to_char(d, 'ID') as day_num, coalesce(count(distinct q.user_id), 0) as active_count
-       from generate_series(now() - interval '6 days', now(), '1 day') d
-       left join quiz_attempts q on q.created_at::date = d::date
-       group by d::date, d
-       order by d::date`
-    );
+    const overviewRow = overview.rows[0] ?? {};
+    const totalUsers = Number(overviewRow.total_users ?? 0);
+    const totalStudents = Number(overviewRow.total_students ?? 0);
+    const activeUsers7Days = Number(overviewRow.active_users_7days ?? 0);
+    const completedCount = Number(completed.rows[0]?.count ?? 0);
+    const lessonCount = Number(lessonsCountResult.rows[0]?.count ?? 0);
+    const totalChapters = Number(chaptersCountResult.rows[0]?.count ?? 0);
+    const totalQuestions = Number(questionsCountResult.rows[0]?.count ?? 0);
+
     const activeUsersData = chartQuery.rows.map(row => Number(row.active_count));
 
-    // Hardest Lessons: Top 5 lessons with lowest average quiz attempt score
-    const hardestQuery = await this.pool.query<{ title: string; avg_score: string }>(
-      `select l.title, coalesce(avg(q.score), 0.0) as avg_score
-       from lessons l
-       left join quiz_attempts q on q.lesson_id = l.id
-       where l.is_published = true
-       group by l.id, l.title
-       order by avg_score asc
-       limit 5`
-    );
     const hardestLessons = hardestQuery.rows.map(row => ({
       title: row.title,
       percentage: Number(row.avg_score) / 10.0,
     }));
 
-    // Blended Recent Activities: Blending quiz attempts, progress, signups and downloads
-    const activityQuery = await this.pool.query<{
-      type: string;
-      user_name: string;
-      action: string;
-      detail: string;
-      created_at: Date;
-    }>(
-      `(
-         select 'quiz' as type, u.name as user_name, 'Hoàn thành bài kiểm tra' as action, l.title as detail, q.created_at as created_at
-         from quiz_attempts q
-         join users u on u.id = q.user_id
-         join lessons l on l.id = q.lesson_id
-       )
-       union all
-       (
-         select 'progress' as type, u.name as user_name, 'Bắt đầu bài học' as action, l.title as detail, p.updated_at as created_at
-         from progress p
-         join users u on u.id = p.user_id
-         join lessons l on l.id = p.lesson_id
-         where p.status = 'IN_PROGRESS'
-       )
-       union all
-       (
-         select 'user' as type, name as user_name, 'Đăng ký tài khoản' as action, 'Lớp 8' as detail, created_at as created_at
-         from users
-         where role = 'STUDENT'
-       )
-       union all
-       (
-         select 'download' as type, u.name as user_name, 'Tải bài học offline' as action, l.title as detail, d.downloaded_at as created_at
-         from downloaded_lessons d
-         join users u on u.id = d.user_id
-         join lessons l on l.id = d.lesson_id
-       )
-       order by created_at desc
-       limit 4`
-    );
     const recentActivities = activityQuery.rows.map(row => ({
       type: row.type,
       userName: row.user_name,
@@ -1171,16 +1448,39 @@ export class DatabaseRepository {
       createdAt: row.created_at,
     }));
 
+    const activeTrend = chartQuery.rows.map(row => ({
+      date: row.date,
+      activeStudents: Number(row.active_count),
+    }));
+
+    const difficultLessons = difficultLessonsResult.rows.map(row => ({
+      lessonId: row.lesson_id,
+      chapterId: row.chapter_id,
+      title: row.title,
+      wrongCount: Number(row.wrong_count),
+    }));
+
+    const completionByLesson = completionByLessonResult.rows.map(row => ({
+      lessonId: row.lesson_id,
+      chapterId: row.chapter_id,
+      title: row.title,
+      completedCount: Number(row.completed_count),
+      completionRate: totalStudents === 0 ? 0 : Number((Number(row.completed_count) / totalStudents).toFixed(4)),
+    }));
+
     return {
-      totalUsers: Number(users.rows[0]?.count ?? 0),
-      totalAttempts: Number(attempts.rows[0]?.count ?? 0),
-      completionRate: lessonCount === 0 ? 0 : completedCount / lessonCount,
-      totalChapters: Number(chapters.rows[0]?.count ?? 0),
+      activeStudents: activeUsers7Days,
+      totalUsers,
+      completionRate: totalStudents === 0 ? 0 : Number((completedCount / (totalStudents * lessonCount)).toFixed(4)),
+      totalChapters,
       totalLessons: lessonCount,
-      totalQuestions: Number(questions.rows[0]?.count ?? 0),
+      totalQuestions,
       activeUsersData,
       hardestLessons,
       recentActivities,
+      activeTrend,
+      difficultLessons,
+      completionByLesson,
     };
   }
 
@@ -1313,5 +1613,67 @@ export class DatabaseRepository {
       metadata: row.metadata_json,
       achievedAt: row.awarded_at,
     };
+  }
+
+  async adminLessons() {
+    return this.adminListLessons();
+  }
+
+  async adminUserProgress(userId: string) {
+    const chaptersResult = await this.pool.query<any>('select * from chapters order by order_index asc');
+    const lessonsResult = await this.pool.query<any>('select * from lessons order by order_index asc');
+    const progressResult = await this.pool.query<any>('select * from progress where user_id = $1', [userId]);
+    const attemptsResult = await this.pool.query<any>('select * from quiz_attempts where user_id = $1 order by created_at desc', [userId]);
+
+    const progressMap = new Map(progressResult.rows.map(r => [r.lesson_id, r]));
+    
+    const attemptsMap = new Map<string, any[]>();
+    for (const att of attemptsResult.rows) {
+      if (!attemptsMap.has(att.lesson_id)) {
+        attemptsMap.set(att.lesson_id, []);
+      }
+      attemptsMap.get(att.lesson_id)!.push({
+        id: att.id,
+        score: Number(att.score),
+        correctCount: att.correct_count,
+        totalQuestions: att.total_questions,
+        durationSeconds: att.duration_seconds,
+        createdAt: att.created_at.toISOString(),
+      });
+    }
+
+    const lessonsByChapter = new Map<string, any[]>();
+    for (const lesson of lessonsResult.rows) {
+      const prog = progressMap.get(lesson.id);
+      const atts = attemptsMap.get(lesson.id) ?? [];
+      const lessonData = {
+        id: lesson.id,
+        title: lesson.title,
+        status: prog?.status ?? 'NOT_STARTED',
+        progressPercent: prog?.progress_percent ?? 0,
+        bestScore: prog?.best_quiz_score ? Number(prog.best_quiz_score) : null,
+        attempts: atts,
+      };
+
+      if (!lessonsByChapter.has(lesson.chapter_id)) {
+        lessonsByChapter.set(lesson.chapter_id, []);
+      }
+      lessonsByChapter.get(lesson.chapter_id)!.push(lessonData);
+    }
+
+    return chaptersResult.rows.map(chapter => {
+      const lessons = lessonsByChapter.get(chapter.id) ?? [];
+      const totalLessons = lessons.length;
+      const completedLessons = lessons.filter(l => l.status === 'COMPLETED').length;
+      return {
+        id: chapter.id,
+        title: chapter.title,
+        description: chapter.description,
+        totalLessons,
+        completedLessons,
+        completionRate: totalLessons === 0 ? 0 : Number((completedLessons / totalLessons).toFixed(4)),
+        lessons,
+      };
+    });
   }
 }

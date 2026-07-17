@@ -14,18 +14,51 @@ import {
   QuestionDifficulty,
   ReorderAdminQuestionsDto,
   UpdateAdminQuestionDto,
+  AdminQuizAttemptQueryDto,
+  CreateAdminQuizAttemptDto,
+  UpdateAdminQuizAttemptDto,
 } from './dto/admin-content.dto';
 
 @Injectable()
 export class AdminService {
   constructor(private readonly database: DatabaseRepository) {}
 
-  users() {
-    return this.database.adminUsers();
+  users(query: {
+    search?: string;
+    sortBy?: string;
+    sortOrder?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    return this.database.adminUsers(query);
   }
 
   statistics() {
     return this.database.statistics();
+  }
+
+  quizAttempts(query: AdminQuizAttemptQueryDto) {
+    return this.database.adminListQuizAttempts(query);
+  }
+
+  quizAttempt(id: string) {
+    return this.database.findAdminQuizAttempt(id);
+  }
+
+  createQuizAttempt(dto: CreateAdminQuizAttemptDto) {
+    return this.database.createAdminQuizAttempt(dto);
+  }
+
+  updateQuizAttempt(id: string, dto: UpdateAdminQuizAttemptDto) {
+    return this.database.updateAdminQuizAttempt(id, dto);
+  }
+
+  removeQuizAttempt(id: string) {
+    return this.database.deleteAdminQuizAttempt(id);
+  }
+
+  userProgress(userId: string) {
+    return this.database.adminUserProgress(userId);
   }
 
   chapters() {
@@ -33,10 +66,10 @@ export class AdminService {
   }
 
   lessons() {
-    return this.database.adminListLessons();
+    return this.database.adminLessons();
   }
 
-  questions(query: AdminQuestionQueryDto) {
+  questions(query: AdminQuestionQueryDto = {}) {
     return this.database.adminListQuestions({
       lessonId: query.lessonId,
       chapterId: query.chapterId,
@@ -56,7 +89,7 @@ export class AdminService {
     if (exists) {
       throw new BadRequestException(`Chapter ID "${dto.id}" already exists`);
     }
-    return this.database.upsertChapter(dto);
+    return this.database.createChapter(dto);
   }
 
   updateChapter(id: string, dto: AdminChapterDto) {
@@ -64,7 +97,7 @@ export class AdminService {
   }
 
   removeChapter(id: string) {
-    return this.database.softDeleteChapter(id);
+    return this.database.removeChapterWithLessonCheck(id);
   }
 
   async createLesson(dto: AdminLessonDto) {
@@ -76,7 +109,7 @@ export class AdminService {
     if (exists) {
       throw new BadRequestException(`Lesson ID "${dto.id}" already exists`);
     }
-    return this.database.upsertLesson(dto);
+    return this.database.createLesson(dto);
   }
 
   updateLesson(id: string, dto: AdminLessonDto) {
