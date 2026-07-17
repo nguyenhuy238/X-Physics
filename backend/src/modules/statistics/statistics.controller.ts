@@ -6,7 +6,7 @@ import { Roles } from '../../common/roles.decorator';
 import { RolesGuard } from '../../common/roles.guard';
 import { StatisticsService } from './statistics.service';
 
-@Controller('statistics')
+@Controller('admin/statistics')
 @UseGuards(AuthGuard, RolesGuard)
 @Roles('ADMIN', 'TEACHER')
 export class StatisticsController {
