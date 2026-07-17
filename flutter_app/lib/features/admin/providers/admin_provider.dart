@@ -92,24 +92,24 @@ class AdminProvider extends ChangeNotifier {
 
   Future<List<dynamic>> fetchChapters() {
     return _withLoading(() async {
-      final data = await _api.get('admin/chapters');
-      _lastChapters = data as List<dynamic>;
+      final data = await _api.getList('admin/chapters');
+      _lastChapters = data;
       return _lastChapters;
     });
   }
 
   Future<List<dynamic>> fetchLessons() {
     return _withLoading(() async {
-      final data = await _api.get('admin/lessons');
-      _lastLessons = data as List<dynamic>;
+      final data = await _api.getList('admin/lessons');
+      _lastLessons = data;
       return _lastLessons;
     });
   }
 
   Future<List<dynamic>> fetchQuestions() {
     return _withLoading(() async {
-      final data = await _api.get('admin/questions');
-      _lastQuestions = data as List<dynamic>;
+      final data = await _api.getList('admin/questions');
+      _lastQuestions = data;
       return _lastQuestions;
     });
   }

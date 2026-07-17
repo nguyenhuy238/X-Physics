@@ -89,9 +89,7 @@ GoRouter buildRouter(AppState appState) {
       ),
       GoRoute(
         path: '/admin/questions',
-        builder: (_, state) => AdminQuestionsScreen(
-          lessonId: state.uri.queryParameters['lessonId'],
-        ),
+        builder: (_, _) => const AdminQuestionsScreen(),
       ),
     ],
   );

@@ -59,6 +59,11 @@ class ApiClient {
     return response.data['data'] as Map<String, dynamic>;
   }
 
+  Future<List<dynamic>> getList(String path, {Map<String, dynamic>? queryParameters}) async {
+    final response = await _dio.get(path, queryParameters: queryParameters);
+    return response.data['data'] as List<dynamic>;
+  }
+
   Future<void> setAuthToken(String token) async {
     await _storage.write(key: 'access_token', value: token);
   }

@@ -38,8 +38,8 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
     }).toList();
 
     return AdminLayout(
-      title: 'Quản lý Chương học',
-      subtitle: 'Tất cả chương học hiện có trên hệ thống',
+      title: 'Qu?n l� Ch??ng h?c',
+      subtitle: 'T?t c? ch??ng h?c hi?n c� tr�n h? th?ng',
       activeRoute: '/admin/chapters',
       onSearchChanged: (query) {
         setState(() {
@@ -47,7 +47,7 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
         });
       },
       child: state.isBusy && state.chapters.isEmpty
-          ? const LoadingView(message: 'Đang tải chapters...')
+          ? const LoadingView(message: '?ang t?i chapters...')
           : state.errorMessage != null && state.chapters.isEmpty
               ? ErrorView(
                   message: state.errorMessage!,
@@ -61,12 +61,11 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                     return ListView(
                       padding: const EdgeInsets.all(24),
                       children: [
-                        // Subtitle & "+ Thêm chương" row
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              '$totalChapters chương - $publishedChapters đã xuất bản',
+                              '$totalChapters ch??ng - $publishedChapters ?� xu?t b?n',
                               style: const TextStyle(
                                 fontSize: 14,
                                 color: Color(0xFF64748B),
@@ -76,7 +75,7 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                             FilledButton.icon(
                               onPressed: () => _showChapterDialog(context),
                               icon: const Icon(Icons.add_rounded, size: 18),
-                              label: const Text('Thêm chương'),
+                              label: const Text('Th�m ch??ng'),
                               style: FilledButton.styleFrom(
                                 backgroundColor: const Color(0xFF2563EB),
                                 shape: RoundedRectangleBorder(
@@ -92,7 +91,6 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                         ),
                         const SizedBox(height: 18),
 
-                        // Table Card
                         Container(
                           decoration: BoxDecoration(
                             color: Colors.white,
@@ -113,17 +111,16 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                               ),
                               child: Table(
                                 columnWidths: const {
-                                  0: FixedColumnWidth(48), // Drag icon
-                                  1: FlexColumnWidth(3),   // Tên chương
-                                  2: FixedColumnWidth(90),  // Thứ tự
-                                  3: FixedColumnWidth(110), // Số bài học
-                                  4: FixedColumnWidth(130), // Trạng thái
-                                  5: FixedColumnWidth(130), // Ngày tạo
-                                  6: FixedColumnWidth(110), // Thao tác
+                                  0: FixedColumnWidth(48),
+                                  1: FlexColumnWidth(3),
+                                  2: FixedColumnWidth(90),
+                                  3: FixedColumnWidth(110),
+                                  4: FixedColumnWidth(130),
+                                  5: FixedColumnWidth(130),
+                                  6: FixedColumnWidth(110),
                                 },
                                 defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                                 children: [
-                                  // Table Headers Row
                                   TableRow(
                                     decoration: const BoxDecoration(
                                       border: Border(
@@ -134,17 +131,15 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                                       ),
                                     ),
                                     children: [
-                                      const SizedBox(height: 48), // Blank space for drag column header
-                                      _buildHeaderCell('TÊN CHƯƠNG', alignment: TextAlign.left),
-                                      _buildHeaderCell('THỨ TỰ'),
-                                      _buildHeaderCell('SỐ BÀI HỌC'),
-                                      _buildHeaderCell('TRẠNG THÁI'),
-                                      _buildHeaderCell('NGÀY TẠO'),
-                                      _buildHeaderCell('THAO TÁC'),
+                                      const SizedBox(height: 48),
+                                      _buildHeaderCell('T�N CH??NG', alignment: TextAlign.left),
+                                      _buildHeaderCell('TH? T?'),
+                                      _buildHeaderCell('S? B�I H?C'),
+                                      _buildHeaderCell('TR?NG TH�I'),
+                                      _buildHeaderCell('NG�Y T?O'),
+                                      _buildHeaderCell('THAO T�C'),
                                     ],
                                   ),
-
-                                  // Table Data Rows
                                   for (final chapter in filteredChapters)
                                     TableRow(
                                       decoration: const BoxDecoration(
@@ -156,7 +151,6 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                                         ),
                                       ),
                                       children: [
-                                        // Drag Indicator Handle
                                         const Center(
                                           child: Icon(
                                             Icons.drag_indicator_rounded,
@@ -164,7 +158,6 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                                             size: 20,
                                           ),
                                         ),
-                                        // Tên chương
                                         Padding(
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 16,
@@ -179,7 +172,6 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                                             ),
                                           ),
                                         ),
-                                        // Thứ tự order with arrows
                                         Row(
                                           mainAxisAlignment: MainAxisAlignment.center,
                                           children: [
@@ -211,7 +203,6 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                                             ),
                                           ],
                                         ),
-                                        // Số bài học count
                                         Center(
                                           child: Text(
                                             '${chapter.lessonCount}',
@@ -222,7 +213,6 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                                             ),
                                           ),
                                         ),
-                                        // Trạng thái capsule badge
                                         Center(
                                           child: Container(
                                             padding: const EdgeInsets.symmetric(
@@ -236,7 +226,7 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                                               borderRadius: BorderRadius.circular(12),
                                             ),
                                             child: Text(
-                                              chapter.isPublished ? 'Đã xuất bản' : 'Nháp',
+                                              chapter.isPublished ? '?� xu?t b?n' : 'Nh�p',
                                               style: TextStyle(
                                                 color: chapter.isPublished
                                                     ? const Color(0xFF065F46)
@@ -247,7 +237,6 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                                             ),
                                           ),
                                         ),
-                                        // Ngày tạo
                                         Center(
                                           child: Text(
                                             _formatDate(chapter.createdAt),
@@ -258,7 +247,6 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                                             ),
                                           ),
                                         ),
-                                        // Thao tác circle buttons
                                         Row(
                                           mainAxisAlignment: MainAxisAlignment.center,
                                           children: [
@@ -328,13 +316,23 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
   Future<void> _updateOrder(BuildContext context, Chapter chapter, bool isUp) async {
     final state = Provider.of<AppState>(context, listen: false);
     final newOrder = chapter.orderIndex + (isUp ? -1 : 1);
-    if (newOrder < 0) return; // Keep indexes positive
-    
+    if (newOrder < 0) return;
+
     final updated = Chapter(
       id: chapter.id,
       title: chapter.title,
       description: chapter.description,
-      orderIndex: newOrder,    final state = Provider.of<AppState>(context, listen: false);
+      orderIndex: newOrder,
+      icon: chapter.icon,
+      color: chapter.color,
+      isPublished: chapter.isPublished,
+    );
+
+    await state.updateAdminChapter(updated);
+  }
+
+  Future<void> _showChapterDialog(BuildContext context, {Chapter? chapter}) async {
+    final state = Provider.of<AppState>(context, listen: false);
     final maxOrder = state.chapters.isEmpty
         ? 0
         : state.chapters.map((c) => c.orderIndex).reduce((a, b) => a > b ? a : b);
@@ -346,6 +344,7 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
     final order = TextEditingController(text: '$defaultOrder');
     var isPublished = chapter?.isPublished ?? true;
     final formKey = GlobalKey<FormState>();
+
     final result = await showDialog<Chapter>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -368,12 +367,11 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Header Row
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            chapter == null ? 'Thêm Chương học' : 'Cập nhật Chương học',
+                            chapter == null ? 'Th�m Ch??ng h?c' : 'C?p nh?t Ch??ng h?c',
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w900,
@@ -394,18 +392,17 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                       const SizedBox(height: 8),
                       Text(
                         chapter == null
-                            ? 'Tạo một chương mới để tổ chức các bài học vật lý.'
-                            : 'Chỉnh sửa thông tin chi tiết của chương học hiện có.',
+                            ? 'T?o m?t ch??ng m?i ?? t? ch?c c�c b�i h?c v?t l�.'
+                            : 'Ch?nh s?a th�ng tin chi ti?t c?a ch??ng h?c hi?n c�.',
                         style: const TextStyle(
                           fontSize: 13,
                           color: Color(0xFF64748B),
                         ),
                       ),
                       const Divider(color: Color(0xFFF1F5F9), height: 32),
-                      
-                      // ID Field
+
                       const Text(
-                        'MÃ CHƯƠNG (ID)',
+                        'M� CH??NG (ID)',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
@@ -434,13 +431,12 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         ),
                         validator: (value) =>
-                            value == null || value.trim().isEmpty ? 'Mã chương là bắt buộc' : null,
+                            value == null || value.trim().isEmpty ? 'M� ch??ng l� b?t bu?c' : null,
                       ),
                       const SizedBox(height: 18),
 
-                      // Title Field
                       const Text(
-                        'TÊN CHƯƠNG HỌC',
+                        'T�N CH??NG H?C',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
@@ -453,7 +449,7 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                         controller: title,
                         style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A), fontWeight: FontWeight.bold),
                         decoration: InputDecoration(
-                          hintText: 'Nhập tên chương học',
+                          hintText: 'Nh?p t�n ch??ng h?c',
                           prefixIcon: const Icon(Icons.title_rounded, color: Color(0xFF94A3B8), size: 20),
                           filled: true,
                           fillColor: const Color(0xFFF8FAFC),
@@ -468,13 +464,12 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         ),
                         validator: (value) =>
-                            value == null || value.trim().isEmpty ? 'Tên chương là bắt buộc' : null,
+                            value == null || value.trim().isEmpty ? 'T�n ch??ng l� b?t bu?c' : null,
                       ),
                       const SizedBox(height: 18),
 
-                      // Description Field
                       const Text(
-                        'MÔ TẢ NGẮN',
+                        'M� T? NG?N',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
@@ -488,7 +483,7 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                         maxLines: 3,
                         style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
                         decoration: InputDecoration(
-                          hintText: 'Nhập mô tả tóm tắt nội dung chương học',
+                          hintText: 'Nh?p m� t? t�m t?t n?i dung ch??ng h?c',
                           prefixIcon: const Padding(
                             padding: EdgeInsets.only(bottom: 32),
                             child: Icon(Icons.description_rounded, color: Color(0xFF94A3B8), size: 20),
@@ -506,21 +501,19 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         ),
                         validator: (value) =>
-                            value == null || value.trim().isEmpty ? 'Mô tả là bắt buộc' : null,
+                            value == null || value.trim().isEmpty ? 'M� t? l� b?t bu?c' : null,
                       ),
                       const SizedBox(height: 18),
 
-                      // Order Index & Publish Status Row
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Order Index Field
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
-                                  'THỬ TỰ SẮP XẾP',
+                                  'TH? T? S?P X?P',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
@@ -552,14 +545,12 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                             ),
                           ),
                           const SizedBox(width: 16),
-                          
-                          // Publish Status Card Switch
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
-                                  'TRẠNG THÁI',
+                                  'TR?NG TH�I',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
@@ -578,7 +569,7 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
-                                        isPublished ? 'Xuất bản' : 'Bản nháp',
+                                        isPublished ? 'Xu?t b?n' : 'B?n nh�p',
                                         style: TextStyle(
                                           fontSize: 13,
                                           fontWeight: FontWeight.bold,
@@ -601,7 +592,6 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                       ),
                       const SizedBox(height: 28),
 
-                      // Actions Row
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
@@ -616,7 +606,7 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                             ),
                             child: const Text(
-                              'Hủy bỏ',
+                              'H?y b?',
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                           ),
@@ -641,11 +631,11 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                               backgroundColor: const Color(0xFF2563EB),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
-                               ),
-                               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                             ),
                             child: const Text(
-                              'Lưu chương học',
+                              'L?u ch??ng h?c',
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                           ),
@@ -657,22 +647,10 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
               ),
             ),
           ),
-        ),�c',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
->>>>>>> main
         ),
       ),
     );
+
     if (result == null || !context.mounted) return;
     if (chapter == null) {
       await state.saveAdminChapter(result);
@@ -687,12 +665,12 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
           builder: (_) => AlertDialog(
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: const Text('Xóa chapter?'),
-            content: const Text('Chapter sẽ được ẩn khỏi luồng học sinh.'),
+            title: const Text('X�a chapter?'),
+            content: const Text('Chapter s? ???c ?n kh?i l??ng h?c sinh.'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Hủy'),
+                child: const Text('H?y'),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(context, true),
@@ -702,7 +680,7 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text('Xóa'),
+                child: const Text('X�a'),
               ),
             ],
           ),
@@ -712,10 +690,4 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
       await Provider.of<AppState>(context, listen: false).deleteAdminChapter(id);
     }
   }
-}
-
-class _BreadcrumbItem {
-  final String label;
-  final VoidCallback? onTap;
-  _BreadcrumbItem({required this.label, this.onTap});
 }

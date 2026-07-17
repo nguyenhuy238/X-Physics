@@ -481,8 +481,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               detail: map['detail'] as String? ?? '',
               timeText: timeText,
               icon: icon,
-              iconColor: iconColor,
-              iconBg: iconBg,
+              color: iconColor,
+              bgColor: iconBg,
             );
           }).toList()
         : [
@@ -492,8 +492,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               detail: 'Chuyển động đều — 9.5/10',
               timeText: '5 phút trước',
               icon: Icons.assignment_turned_in_rounded,
-              iconColor: const Color(0xFFF97316),
-              iconBg: const Color(0xFFFFF7ED),
+              color: const Color(0xFFF97316),
+              bgColor: const Color(0xFFFFF7ED),
             ),
             _ActivityItem(
               userName: 'Nguyễn Văn Nam',
@@ -501,8 +501,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               detail: 'Vận tốc trung bình',
               timeText: '12 phút trước',
               icon: Icons.menu_book_rounded,
-              iconColor: const Color(0xFF3B82F6),
-              iconBg: const Color(0xFFEFF6FF),
+              color: const Color(0xFF3B82F6),
+              bgColor: const Color(0xFFEFF6FF),
             ),
             _ActivityItem(
               userName: 'Lê Văn Hùng',
@@ -510,8 +510,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               detail: 'Lớp 8',
               timeText: '1 giờ trước',
               icon: Icons.person_add_rounded,
-              iconColor: const Color(0xFF10B981),
-              iconBg: const Color(0xFFECFDF5),
+              color: const Color(0xFF10B981),
+              bgColor: const Color(0xFFECFDF5),
             ),
             _ActivityItem(
               userName: 'Phạm Thị Lan',
@@ -519,8 +519,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               detail: 'Lực là gì?',
               timeText: '2 giờ trước',
               icon: Icons.download_rounded,
-              iconColor: const Color(0xFF3B82F6),
-              iconBg: const Color(0xFFEFF6FF),
+              color: const Color(0xFF3B82F6),
+              bgColor: const Color(0xFFEFF6FF),
             ),
           ];
 
@@ -579,12 +579,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: item.iconBg,
+                      color: item.bgColor,
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       item.icon,
-                      color: item.iconColor,
+                      color: item.color,
                       size: 20,
                     ),
                   ),
@@ -732,7 +732,7 @@ class LineChartPainter extends CustomPainter {
       
       // Draw grid line
       canvas.drawLine(
-        const Offset(paddingLeft, y),
+        Offset(paddingLeft, y),
         Offset(size.width - paddingRight, y),
         paintGrid,
       );
