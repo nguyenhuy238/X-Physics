@@ -247,8 +247,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _buildActiveUsersChart(Map<String, dynamic>? stats) {
     final List<dynamic>? dbPoints = stats?['activeUsersData'] as List<dynamic>?;
     final List<double> dataPoints = dbPoints != null
-        ? dbPoints.map((val) => (val as num).toDouble() * 15 + 15).toList() // Scale to fit y-axis 0-120 beautifully
+        ? dbPoints.map((val) => (val as num).toDouble()).toList()
         : const [45, 62, 58, 72, 90, 105, 78]; // Fallback
+
+    double maxVal = 10.0;
+    for (final val in dataPoints) {
+      if (val > maxVal) maxVal = val;
+    }
+    final double maxY = ((maxVal / 10).ceil() * 10).toDouble();
+    final List<double> yTicks = [
+      0,
+      (maxY * 0.25),
+      (maxY * 0.50),
+      (maxY * 0.75),
+      maxY,
+    ];
 
     return Container(
       decoration: BoxDecoration(
@@ -322,7 +335,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               painter: LineChartPainter(
                 dataPoints: dataPoints,
                 xLabels: const ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
-                yTicks: const [0, 30, 60, 90, 120],
+                yTicks: yTicks,
+                maxY: maxY,
               ),
             ),
           ),
@@ -481,8 +495,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               detail: map['detail'] as String? ?? '',
               timeText: timeText,
               icon: icon,
-              iconColor: iconColor,
-              iconBg: iconBg,
+              color: iconColor,
+              bgColor: iconBg,
             );
           }).toList()
         : [
@@ -492,8 +506,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               detail: 'Chuyển động đều — 9.5/10',
               timeText: '5 phút trước',
               icon: Icons.assignment_turned_in_rounded,
-              iconColor: const Color(0xFFF97316),
-              iconBg: const Color(0xFFFFF7ED),
+              color: const Color(0xFFF97316),
+              bgColor: const Color(0xFFFFF7ED),
             ),
             _ActivityItem(
               userName: 'Nguyễn Văn Nam',
@@ -501,8 +515,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               detail: 'Vận tốc trung bình',
               timeText: '12 phút trước',
               icon: Icons.menu_book_rounded,
-              iconColor: const Color(0xFF3B82F6),
-              iconBg: const Color(0xFFEFF6FF),
+              color: const Color(0xFF3B82F6),
+              bgColor: const Color(0xFFEFF6FF),
             ),
             _ActivityItem(
               userName: 'Lê Văn Hùng',
@@ -510,8 +524,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               detail: 'Lớp 8',
               timeText: '1 giờ trước',
               icon: Icons.person_add_rounded,
-              iconColor: const Color(0xFF10B981),
-              iconBg: const Color(0xFFECFDF5),
+              color: const Color(0xFF10B981),
+              bgColor: const Color(0xFFECFDF5),
             ),
             _ActivityItem(
               userName: 'Phạm Thị Lan',
@@ -519,8 +533,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               detail: 'Lực là gì?',
               timeText: '2 giờ trước',
               icon: Icons.download_rounded,
-              iconColor: const Color(0xFF3B82F6),
-              iconBg: const Color(0xFFEFF6FF),
+              color: const Color(0xFF3B82F6),
+              bgColor: const Color(0xFFEFF6FF),
             ),
           ];
 
@@ -568,23 +582,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: activities.length,
-            separatorBuilder: (_, __) => const Divider(
+            separatorBuilder: (context, index) => const Divider(
               color: Color(0xFFF1F5F9),
               height: 24,
             ),
-            itemBuilder: (_, index) {
+            itemBuilder: (context, index) {
               final item = activities[index];
               return Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: item.iconBg,
+                      color: item.bgColor,
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       item.icon,
-                      color: item.iconColor,
+                      color: item.color,
                       size: 20,
                     ),
                   ),
@@ -675,8 +689,8 @@ class _ActivityItem {
     required this.detail,
     required this.timeText,
     required this.icon,
-    required this.iconColor,
-    required this.iconBg,
+    required this.color,
+    required this.bgColor,
   });
 
   final String userName;
@@ -684,27 +698,35 @@ class _ActivityItem {
   final String detail;
   final String timeText;
   final IconData icon;
-  final Color iconColor;
-  final Color iconBg;
+  final Color color;
+  final Color bgColor;
 }
 
 class LineChartPainter extends CustomPainter {
   final List<double> dataPoints;
   final List<String> xLabels;
   final List<double> yTicks;
+  final double maxY;
 
   LineChartPainter({
     required this.dataPoints,
     required this.xLabels,
     required this.yTicks,
+    required this.maxY,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
+    const double paddingLeft = 40.0;
+    const double paddingRight = 20.0;
+    const double paddingTop = 20.0;
+    const double paddingBottom = 30.0;
+
     final paintLine = Paint()
       ..color = const Color(0xFF2563EB)
+      ..strokeWidth = 3.5
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round
       ..isAntiAlias = true;
 
     final paintFill = Paint()
@@ -712,34 +734,26 @@ class LineChartPainter extends CustomPainter {
       ..isAntiAlias = true;
 
     final paintGrid = Paint()
-      ..color = const Color(0xFFF1F5F9)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
+      ..color = const Color(0xFFE2E8F0)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
 
     final textPainter = TextPainter(
       textDirection: TextDirection.ltr,
     );
 
-    const double paddingLeft = 35;
-    const double paddingRight = 15;
-    const double paddingTop = 15;
-    const double paddingBottom = 25;
-
-    final chartWidth = size.width - paddingLeft - paddingRight;
-    final chartHeight = size.height - paddingTop - paddingBottom;
-
-    const double maxVal = 120;
-    
-    // Draw Y grid lines & labels
+    // Draw horizontal grid lines and Y labels
     for (var tick in yTicks) {
-      final y = paddingTop + chartHeight * (1 - (tick / maxVal));
-
+      final y = size.height - paddingBottom - ((tick / maxY) * (size.height - paddingTop - paddingBottom));
+      
+      // Draw grid line
       canvas.drawLine(
         Offset(paddingLeft, y),
         Offset(size.width - paddingRight, y),
         paintGrid,
       );
 
+      // Draw Y label
       textPainter.text = TextSpan(
         text: tick.toInt().toString(),
         style: const TextStyle(
@@ -751,15 +765,16 @@ class LineChartPainter extends CustomPainter {
       textPainter.layout();
       textPainter.paint(
         canvas,
-        Offset(paddingLeft - textPainter.width - 12, y - textPainter.height / 2),
+        Offset(paddingLeft - textPainter.width - 8, y - textPainter.height / 2),
       );
     }
 
+    final double widthBetweenPoints = (size.width - paddingLeft - paddingRight) / (dataPoints.length - 1);
     final List<Offset> points = [];
-    final double xStep = chartWidth / (dataPoints.length - 1);
+
     for (int i = 0; i < dataPoints.length; i++) {
-      final x = paddingLeft + i * xStep;
-      final y = paddingTop + chartHeight * (1 - (dataPoints[i] / maxVal));
+      final x = paddingLeft + i * widthBetweenPoints;
+      final y = size.height - paddingBottom - ((dataPoints[i] / maxY) * (size.height - paddingTop - paddingBottom));
       points.add(Offset(x, y));
     }
 
@@ -856,4 +871,3 @@ class LineChartPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
-

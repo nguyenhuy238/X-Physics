@@ -19,9 +19,10 @@ import {
   UpdateAdminQuizAttemptDto,
 } from './dto/admin-content.dto';
 
+
 @Injectable()
 export class AdminService {
-  constructor(private readonly database: DatabaseRepository) {}
+  constructor(private readonly database: DatabaseRepository) { }
 
   users(query: {
     search?: string;
@@ -84,11 +85,7 @@ export class AdminService {
     return this.database.findAdminQuestion(id);
   }
 
-  async createChapter(dto: AdminChapterDto) {
-    const exists = await this.database.chapterIdExists(dto.id);
-    if (exists) {
-      throw new BadRequestException(`Chapter ID "${dto.id}" already exists`);
-    }
+  createChapter(dto: AdminChapterDto) {
     return this.database.createChapter(dto);
   }
 
@@ -100,15 +97,7 @@ export class AdminService {
     return this.database.removeChapterWithLessonCheck(id);
   }
 
-  async createLesson(dto: AdminLessonDto) {
-    const chapterExists = await this.database.chapterIdExists(dto.chapterId);
-    if (!chapterExists) {
-      throw new BadRequestException(`Chapter ID "${dto.chapterId}" does not exist`);
-    }
-    const exists = await this.database.lessonIdExists(dto.id);
-    if (exists) {
-      throw new BadRequestException(`Lesson ID "${dto.id}" already exists`);
-    }
+  createLesson(dto: AdminLessonDto) {
     return this.database.createLesson(dto);
   }
 

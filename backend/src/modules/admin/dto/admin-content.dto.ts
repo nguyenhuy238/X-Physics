@@ -108,7 +108,6 @@ export class CreateAdminQuestionDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   lessonId!: string;
 
-  @IsString()
   @IsNotEmpty()
   @Length(3, 1000)
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
@@ -192,6 +191,37 @@ export class UpdateAdminQuestionDto {
   orderIndex!: number;
 }
 
+export class AdminUsersQueryDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(180)
+  search?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['createdAt', 'name', 'email'])
+  sortBy?: 'createdAt' | 'name' | 'email';
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['ASC', 'DESC'])
+  sortOrder?: 'ASC' | 'DESC';
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  page?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @Type(() => Number)
+  limit?: number;
+}
+
 export class ReorderAdminQuestionsDto {
   @IsString()
   @IsNotEmpty()
@@ -228,37 +258,6 @@ export class AdminQuestionQueryDto {
   @IsOptional()
   @IsEnum(QuestionDifficulty)
   difficulty?: QuestionDifficulty;
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Type(() => Number)
-  page?: number;
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  @Type(() => Number)
-  limit?: number;
-}
-
-export class AdminUsersQueryDto {
-  @IsOptional()
-  @IsString()
-  @MinLength(1)
-  @MaxLength(180)
-  search?: string;
-
-  @IsOptional()
-  @IsString()
-  @IsIn(['createdAt', 'name', 'email'])
-  sortBy?: 'createdAt' | 'name' | 'email';
-
-  @IsOptional()
-  @IsString()
-  @IsIn(['ASC', 'DESC'])
-  sortOrder?: 'ASC' | 'DESC';
 
   @IsOptional()
   @IsInt()
@@ -352,3 +351,4 @@ export class UpdateAdminQuizAttemptDto {
   @Type(() => Number)
   durationSeconds!: number;
 }
+

@@ -36,34 +36,18 @@ class AdminLayout extends StatelessWidget {
         isActive: activeRoute == '/admin',
       ),
       _SidebarItem(
-        label: 'Chương học',
+        label: 'Quản lý nội dung',
         icon: Icons.auto_stories_rounded,
         route: '/admin/chapters',
-        isActive: activeRoute == '/admin/chapters',
-      ),
-      _SidebarItem(
-        label: 'Bài học',
-        icon: Icons.menu_book_rounded,
-        route: '/admin/lessons',
-        isActive: activeRoute == '/admin/lessons',
-      ),
-      _SidebarItem(
-        label: 'Câu hỏi',
-        icon: Icons.help_outline_rounded,
-        route: '/admin/questions',
-        isActive: activeRoute == '/admin/questions',
+        isActive: activeRoute.startsWith('/admin/chapters') ||
+            activeRoute.startsWith('/admin/lessons') ||
+            activeRoute.startsWith('/admin/questions'),
       ),
       _SidebarItem(
         label: 'Học sinh',
         icon: Icons.people_alt_rounded,
-        route: '/admin',
+        route: '/admin/students',
         isActive: activeRoute == '/admin/students',
-      ),
-      _SidebarItem(
-        label: 'Thống kê',
-        icon: Icons.bar_chart_rounded,
-        route: '/admin',
-        isActive: activeRoute == '/admin/statistics',
       ),
     ];
 
@@ -125,8 +109,8 @@ class AdminLayout extends StatelessWidget {
           Expanded(
             child: ListView.separated(
               itemCount: menuItems.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (_, index) {
+              separatorBuilder: (context, index) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
                 final item = menuItems[index];
                 return InkWell(
                   onTap: () {
@@ -246,7 +230,7 @@ class AdminLayout extends StatelessWidget {
                     color: Color(0xFFF87171),
                     size: 18,
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Text(
                     'Thoát Admin',
                     style: TextStyle(
@@ -317,20 +301,25 @@ class AdminLayout extends StatelessWidget {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 22,
+                    fontSize: 20,
                     fontWeight: FontWeight.w900,
                     color: Color(0xFF0F172A),
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: 12,
                     color: Color(0xFF64748B),
                   ),
                 ),

@@ -7,9 +7,15 @@ create table if not exists users (
   password_hash text not null,
   role varchar(30) not null check (role in ('STUDENT', 'TEACHER', 'ADMIN')),
   coins integer not null default 0,
+  refresh_token_hash text,
+  refresh_token_expires_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table users
+  add column if not exists refresh_token_hash text,
+  add column if not exists refresh_token_expires_at timestamptz;
 
 create table if not exists chapters (
   id varchar(80) primary key,
@@ -55,7 +61,7 @@ create table if not exists questions (
   options_json jsonb not null,
   correct_option integer not null,
   explanation text not null,
-  difficulty varchar(20) not null default 'MEDIUM' check (difficulty in ('EASY', 'MEDIUM', 'HARD')),
+  difficulty varchar(30) not null default 'MEDIUM' check (difficulty in ('EASY', 'MEDIUM', 'HARD')),
   order_index integer not null
 );
 
@@ -114,6 +120,9 @@ alter table quiz_attempts
 
 alter table quiz_attempts
   add column if not exists review_json jsonb;
+
+alter table quiz_attempts
+  add column if not exists coins_earned integer not null default 0;
 
 create index if not exists quiz_attempts_user_lesson_idx on quiz_attempts(user_id, lesson_id);
 

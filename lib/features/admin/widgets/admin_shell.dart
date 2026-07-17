@@ -239,32 +239,17 @@ class _AdminSidebar extends StatelessWidget {
               ),
               _AdminNavItem(
                 icon: Icons.menu_book_rounded,
-                label: 'Chương học',
+                label: 'Quản lý nội dung',
                 route: '/admin/chapters',
                 activeRoute: activeRoute,
-              ),
-              _AdminNavItem(
-                icon: Icons.description_outlined,
-                label: 'Bài học',
-                route: '/admin/lessons',
-                activeRoute: activeRoute,
-              ),
-              _AdminNavItem(
-                icon: Icons.help_outline_rounded,
-                label: 'Câu hỏi',
-                route: '/admin/questions',
-                activeRoute: activeRoute,
+                isActive: activeRoute.startsWith('/admin/chapters') ||
+                    activeRoute.startsWith('/admin/lessons') ||
+                    activeRoute.startsWith('/admin/questions'),
               ),
               _AdminNavItem(
                 icon: Icons.group_outlined,
                 label: 'Học sinh',
-                route: '/admin',
-                activeRoute: activeRoute,
-              ),
-              _AdminNavItem(
-                icon: Icons.bar_chart_rounded,
-                label: 'Thống kê',
-                route: '/admin',
+                route: '/admin/students',
                 activeRoute: activeRoute,
               ),
               const Spacer(),
@@ -321,16 +306,18 @@ class _AdminNavItem extends StatelessWidget {
     required this.label,
     required this.route,
     required this.activeRoute,
+    this.isActive,
   });
 
   final IconData icon;
   final String label;
   final String route;
   final String activeRoute;
+  final bool? isActive;
 
   @override
   Widget build(BuildContext context) {
-    final active = route == activeRoute;
+    final active = isActive ?? (route == activeRoute);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(

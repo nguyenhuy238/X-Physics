@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/models/x_models.dart';
@@ -34,10 +37,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final error = state.profileError;
 
     return XScaffold(
-      title: 'Ho so',
+      title: 'Hồ sơ',
       actions: [
         IconButton(
-          tooltip: 'Lam moi',
+          tooltip: 'Làm mới',
           onPressed: state.isProfileLoading ? null : _refresh,
           icon: const Icon(Icons.refresh_rounded),
         ),
@@ -96,7 +99,7 @@ class _ProfileEmptyState extends StatelessWidget {
       children: [
         SizedBox(
           height: MediaQuery.sizeOf(context).height * 0.7,
-          child: const EmptyView(message: 'Chua co du lieu ho so.'),
+          child: const EmptyView(message: 'Chưa có dữ liệu hồ sơ.'),
         ),
       ],
     );
@@ -110,24 +113,196 @@ class _ProfileContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appState = context.watch<AppState>();
+    final isAdmin = appState.canAccessAdmin;
+
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(20),
       children: [
         _ProfileHeader(profile: profile),
+        if (isAdmin) ...[
+          const SizedBox(height: 16),
+          _buildAdminSection(context, appState),
+        ],
+        if (!isAdmin) ...[
+          const SizedBox(height: 16),
+          _StatsRow(profile: profile),
+          const SizedBox(height: 16),
+          _RecentScoreChart(attempts: profile.recentAttempts),
+          const SizedBox(height: 16),
+          _BadgeGrid(badges: [...profile.earnedBadges, ...profile.lockedBadges]),
+          const SizedBox(height: 16),
+          _buildStudentSettings(context, appState),
+        ],
         const SizedBox(height: 16),
-        _StatsRow(profile: profile),
-        const SizedBox(height: 16),
-        _RecentScoreChart(attempts: profile.recentAttempts),
-        const SizedBox(height: 16),
-        _BadgeGrid(badges: [...profile.earnedBadges, ...profile.lockedBadges]),
-        const SizedBox(height: 16),
+        OutlinedButton.icon(
+          onPressed: () => _showEditProfileDialog(context, profile.user.name),
+          icon: const Icon(Icons.edit_rounded),
+          label: const Text('Cập nhật họ tên'),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: () => _showChangePasswordDialog(context),
+          icon: const Icon(Icons.lock_reset_rounded),
+          label: const Text('Đổi mật khẩu'),
+        ),
+        const SizedBox(height: 8),
         OutlinedButton.icon(
           onPressed: () => context.read<AppState>().logout(),
           icon: const Icon(Icons.logout_rounded),
-          label: const Text('Dang xuat'),
+          label: const Text('Đăng xuất'),
         ),
       ],
+    );
+  }
+
+  Widget _buildStudentSettings(BuildContext context, AppState state) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.settings_rounded, color: Color(0xFF6366F1)),
+                SizedBox(width: 8),
+                Text(
+                  'Cài đặt & Tiện ích',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF4F46E5),
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SwitchListTile(
+              secondary: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0xFFEFF6FF),
+                ),
+                child: const Icon(
+                  Icons.wifi_off_rounded,
+                  color: Color(0xFF2563EB),
+                  size: 20,
+                ),
+              ),
+              title: const Text(
+                'Chế độ ngoại tuyến',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              subtitle: const Text(
+                'Giả lập học tập không có mạng internet',
+                style: TextStyle(fontSize: 12),
+              ),
+              value: state.simulateOffline,
+              onChanged: state.setOfflineMode,
+              activeColor: const Color(0xFF2563EB),
+            ),
+            const Divider(),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0xFFECFDF5),
+                ),
+                child: const Icon(
+                  Icons.download_done_rounded,
+                  color: Color(0xFF10B981),
+                  size: 20,
+                ),
+              ),
+              title: const Text(
+                'Bài học tải xuống',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              subtitle: Text(
+                '${state.downloadedLessons.length} bài học sẵn sàng đọc offline',
+                style: const TextStyle(fontSize: 12),
+              ),
+              trailing: const Icon(
+                Icons.chevron_right_rounded,
+                color: Color(0xFF94A3B8),
+              ),
+              onTap: () => context.go('/offline'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdminSection(BuildContext context, AppState state) {
+    final roleLabel = state.user?.role == 'TEACHER' ? 'Giáo viên' : 'Quản trị viên';
+    final roleColor = state.user?.role == 'TEACHER' ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.admin_panel_settings_rounded, color: roleColor),
+                const SizedBox(width: 8),
+                Text(
+                  'Quản trị hệ thống ($roleLabel)',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: roleColor,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              leading: const Icon(Icons.dashboard_rounded, color: Color(0xFF2563EB)),
+              title: const Text('Bảng điều khiển Admin'),
+              subtitle: const Text('Tổng quan CMS & Quản lý danh sách'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => context.go('/admin'),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.folder_special_rounded, color: Color(0xFFEC4899)),
+              title: const Text('Quản lý Chương học'),
+              subtitle: const Text('Thêm, sửa, xóa các chương học'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => context.go('/admin/chapters'),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.menu_book_rounded, color: Color(0xFF16A34A)),
+              title: const Text('Quản lý Bài học'),
+              subtitle: const Text('Chỉnh sửa lý thuyết & mô phỏng'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => context.go('/admin/lessons'),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.quiz_rounded, color: Color(0xFFEC4899)),
+              title: const Text('Quản lý Câu hỏi'),
+              subtitle: const Text('Ngân hàng câu hỏi trắc nghiệm'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => context.go('/admin/questions'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -157,7 +332,7 @@ class _ProfileHeader extends StatelessWidget {
               : null,
         ),
         title: Text(
-          user.name.isEmpty ? 'Hoc sinh' : user.name,
+          user.name.isEmpty ? 'Học sinh' : user.name,
           style: const TextStyle(fontWeight: FontWeight.w900),
         ),
         subtitle: Text(user.email),
@@ -178,9 +353,9 @@ class _StatsRow extends StatelessWidget {
       runSpacing: 12,
       children: [
         _StatCard(label: 'Xu', value: '${profile.totalCoins}'),
-        _StatCard(label: 'Bai da xong', value: '${profile.completedLessons}'),
+        _StatCard(label: 'Bài đã xong', value: '${profile.completedLessons}'),
         _StatCard(
-          label: 'Diem TB',
+          label: 'Điểm TB',
           value: profile.averageScore.toStringAsFixed(2),
         ),
       ],
@@ -236,7 +411,7 @@ class _RecentScoreChart extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Diem gan day',
+              'Điểm gần đây',
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
@@ -245,7 +420,7 @@ class _RecentScoreChart extends StatelessWidget {
             SizedBox(
               height: 210,
               child: chronological.isEmpty
-                  ? const Center(child: Text('Chua co diem quiz nao.'))
+                  ? const Center(child: Text('Chưa có điểm quiz nào.'))
                   : LineChart(
                       LineChartData(
                         minY: 0,
@@ -324,7 +499,7 @@ class _BadgeGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (badges.isEmpty) {
-      return const EmptyView(message: 'Chua co huy hieu nao.');
+      return const EmptyView(message: 'Chưa có huy hiệu nào.');
     }
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -430,11 +605,11 @@ void _showBadgeDetail(BuildContext context, AchievementBadge badge) {
           if (badge.isEarned)
             Text(
               badge.achievedAt == null
-                  ? 'Da dat'
-                  : 'Da dat: ${_formatDate(badge.achievedAt!)}',
+                  ? 'Đã đạt'
+                  : 'Đã đạt: ${_formatDate(badge.achievedAt!)}',
             )
           else ...[
-            Text('Tien do: ${badge.progressCurrent}/${badge.progressTarget}'),
+            Text('Tiến độ: ${badge.progressCurrent}/${badge.progressTarget}'),
             const SizedBox(height: 8),
             LinearProgressIndicator(value: badge.progressValue),
           ],
@@ -442,6 +617,279 @@ void _showBadgeDetail(BuildContext context, AchievementBadge badge) {
       ),
     ),
   );
+}
+
+Future<void> _showEditProfileDialog(
+  BuildContext context,
+  String currentName,
+) async {
+  final updated = await showDialog<bool>(
+    context: context,
+    builder: (_) => _EditProfileDialog(currentName: currentName),
+  );
+  if (!context.mounted || updated != true) {
+    return;
+  }
+  ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(const SnackBar(content: Text('Đã cập nhật hồ sơ.')));
+}
+
+class _EditProfileDialog extends StatefulWidget {
+  const _EditProfileDialog({required this.currentName});
+
+  final String currentName;
+
+  @override
+  State<_EditProfileDialog> createState() => _EditProfileDialogState();
+}
+
+class _EditProfileDialogState extends State<_EditProfileDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _controller;
+  bool _isSubmitting = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.currentName);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_isSubmitting || !(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+    final appState = context.read<AppState>();
+    final ok = await appState.updateProfileName(_controller.text);
+    if (!mounted) {
+      return;
+    }
+    if (ok) {
+      Navigator.of(context).pop(true);
+      return;
+    }
+    setState(() {
+      _isSubmitting = false;
+      _errorMessage = appState.profileError ?? 'Cập nhật hồ sơ thất bại.';
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Cập nhật hồ sơ'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextFormField(
+              controller: _controller,
+              autofocus: true,
+              enabled: !_isSubmitting,
+              maxLength: 120,
+              textInputAction: TextInputAction.done,
+              decoration: const InputDecoration(labelText: 'Họ tên'),
+              validator: (value) =>
+                  value == null || value.trim().isEmpty ? 'Bắt buộc' : null,
+              onFieldSubmitted: (_) => _submit(),
+            ),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _errorMessage!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
+          child: const Text('Hủy'),
+        ),
+        FilledButton(
+          onPressed: _isSubmitting ? null : _submit,
+          child: _isSubmitting
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Lưu'),
+        ),
+      ],
+    );
+  }
+}
+
+Future<void> _showChangePasswordDialog(BuildContext context) async {
+  final appState = context.read<AppState>();
+  final dialogDisposed = Completer<void>();
+  final changed = await showDialog<bool>(
+    context: context,
+    builder: (_) => _ChangePasswordDialog(
+      onDisposed: () {
+        if (!dialogDisposed.isCompleted) {
+          dialogDisposed.complete();
+        }
+      },
+    ),
+  );
+  if (changed != true) {
+    return;
+  }
+  await dialogDisposed.future;
+  await appState.signOutAfterPasswordChange();
+}
+
+String? _passwordValidator(String? value) {
+  if (value == null || value.isEmpty) {
+    return 'Bắt buộc';
+  }
+  if (value.length < 6) {
+    return 'Tối thiểu 6 ký tự';
+  }
+  return null;
+}
+
+class _ChangePasswordDialog extends StatefulWidget {
+  const _ChangePasswordDialog({required this.onDisposed});
+
+  final VoidCallback onDisposed;
+
+  @override
+  State<_ChangePasswordDialog> createState() => _ChangePasswordDialogState();
+}
+
+class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _currentPassword = TextEditingController();
+  final _newPassword = TextEditingController();
+  final _confirmNewPassword = TextEditingController();
+  bool _isSubmitting = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _currentPassword.dispose();
+    _newPassword.dispose();
+    _confirmNewPassword.dispose();
+    widget.onDisposed();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_isSubmitting || !(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+    final appState = context.read<AppState>();
+    final ok = await appState.changePassword(
+      currentPassword: _currentPassword.text,
+      newPassword: _newPassword.text,
+      confirmNewPassword: _confirmNewPassword.text,
+    );
+    if (!mounted) {
+      return;
+    }
+    if (ok) {
+      Navigator.of(context).pop(true);
+      return;
+    }
+    setState(() {
+      _isSubmitting = false;
+      _errorMessage = appState.profileError ?? 'Đổi mật khẩu thất bại.';
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Đổi mật khẩu'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextFormField(
+              controller: _currentPassword,
+              enabled: !_isSubmitting,
+              obscureText: true,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(labelText: 'Mật khẩu hiện tại'),
+              validator: _passwordValidator,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _newPassword,
+              enabled: !_isSubmitting,
+              obscureText: true,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(labelText: 'Mật khẩu mới'),
+              validator: _passwordValidator,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _confirmNewPassword,
+              enabled: !_isSubmitting,
+              obscureText: true,
+              textInputAction: TextInputAction.done,
+              decoration: const InputDecoration(
+                labelText: 'Xác nhận mật khẩu mới',
+              ),
+              validator: (value) {
+                final passwordError = _passwordValidator(value);
+                if (passwordError != null) return passwordError;
+                return value == _newPassword.text
+                    ? null
+                    : 'Xác nhận mật khẩu không khớp';
+              },
+              onFieldSubmitted: (_) => _submit(),
+            ),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _errorMessage!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
+          child: const Text('Hủy'),
+        ),
+        FilledButton(
+          onPressed: _isSubmitting ? null : _submit,
+          child: _isSubmitting
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Lưu'),
+        ),
+      ],
+    );
+  }
 }
 
 String _formatDate(DateTime date) =>

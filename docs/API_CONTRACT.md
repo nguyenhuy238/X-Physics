@@ -162,7 +162,8 @@ Response:
     "contentMarkdown": "# Chuyen dong deu",
     "formulaLatex": "s = v \\times t",
     "estimatedMinutes": 12,
-    "orderIndex": 1
+    "orderIndex": 1,
+    "updatedAt": "2026-07-14T08:00:00.000Z"
   }
 }
 ```
@@ -239,7 +240,7 @@ Validation:
 - Submitted question IDs must match the current question set for the lesson.
   If Admin changed the question set while a student was taking the quiz, the
   server returns `409` with message
-  `Bộ câu hỏi đã được cập nhật. Vui lòng tải lại quiz.`
+  `B? c�u h?i d� du?c c?p nh?t. Vui l�ng t?i l?i quiz.`
 
 Reward idempotency:
 
@@ -450,6 +451,25 @@ Request:
 }
 ```
 
+### POST /api/sync/downloads
+
+Auth: required. Records a "lesson downloaded for offline" event (owned by
+TV3, `backend/src/modules/offline-sync`). Best-effort from the client: the
+Flutter app calls this after a successful local download but does not fail
+the download if this call errors.
+
+Request:
+
+```json
+{
+  "lessonId": "motion-1",
+  "clientDeviceId": "device-abc123"
+}
+```
+
+`clientDeviceId` is optional. Response data: `{ "recorded": true }`.
+`lessonId` must reference a published lesson (`404` otherwise).
+
 ## Admin
 
 Admin content-management endpoints require an authenticated `ADMIN` or
@@ -633,7 +653,22 @@ on it, prefer removing it or protecting it in a later cleanup.
 
 List endpoints with many rows accept:
 
-- `pageNumber`, default `1`.
-- `pageSize`, default `10`, max `100`.
+- `page`, default `1`.
+- `limit`, default `20`, max `100`.
+
+Paginated list responses return:
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "items": [],
+    "total": 0,
+    "page": 1,
+    "limit": 20
+  }
+}
+```
 
 Do not change response field names without team agreement.

@@ -190,7 +190,7 @@ async function main() {
           JSON.stringify(question.options),
           question.correctOption,
           question.explanation,
-          question.difficulty ?? "MEDIUM",
+          question.difficulty ?? 'MEDIUM',
           (index % 5) + 1,
         ],
       );
