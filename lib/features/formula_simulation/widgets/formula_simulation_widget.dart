@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
+import '../../../core/theme/app_colors.dart';
 import '../../../shared/models/x_models.dart';
 import '../utils/formula_calculator.dart';
 
@@ -20,7 +21,7 @@ class FormulaSimulationWidget extends StatefulWidget {
 class _FormulaSimulationWidgetState extends State<FormulaSimulationWidget> {
   late final Map<String, double> values = {
     for (final variable in widget.config.variables)
-      variable.symbol: variable.defaultValue,
+      variable.symbol: _safeDefaultValue(variable),
   };
 
   double _calculate() =>
@@ -32,6 +33,11 @@ class _FormulaSimulationWidgetState extends State<FormulaSimulationWidget> {
     return divisions > 0 ? divisions : null;
   }
 
+  double _safeDefaultValue(FormulaVariable variable) {
+    if (variable.max <= variable.min) return variable.min;
+    return variable.defaultValue.clamp(variable.min, variable.max).toDouble();
+  }
+
   @override
   Widget build(BuildContext context) {
     final decimalPlaces = widget.config.result.decimalPlaces.clamp(0, 6);
@@ -39,7 +45,24 @@ class _FormulaSimulationWidgetState extends State<FormulaSimulationWidget> {
     final isSupported = FormulaCalculator.isSupported(
       widget.config.result.expression,
     );
-    return Card(
+    final hasValidVariables = widget.config.variables.every(
+      (variable) => variable.max > variable.min,
+    );
+    final canSimulate =
+        isSupported &&
+        hasValidVariables &&
+        widget.config.variables.isNotEmpty &&
+        widget.config.result.expression.trim().isNotEmpty;
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFEFF6FF), Color(0xFFF8FAFC)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.primary.withValues(alpha: .14)),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
@@ -47,24 +70,65 @@ class _FormulaSimulationWidgetState extends State<FormulaSimulationWidget> {
           children: [
             Row(
               children: [
-                const Icon(Icons.science_rounded, color: Color(0xFF7C3AED)),
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: .10),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.science_rounded,
+                    color: AppColors.primary,
+                    size: 19,
+                  ),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    widget.config.title,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                    ),
+                    widget.config.title.isEmpty
+                        ? 'Phòng thí nghiệm bỏ túi'
+                        : widget.config.title,
+                    style: Theme.of(context).textTheme.titleLarge,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            Center(
-              child: Math.tex(
-                widget.config.formula,
-                textStyle: const TextStyle(fontSize: 28),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Center(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: widget.config.formula.trim().isEmpty
+                      ? const Text(
+                          'Chưa có công thức',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        )
+                      : Math.tex(
+                          widget.config.formula,
+                          textStyle: const TextStyle(
+                            fontSize: 26,
+                            color: AppColors.primary,
+                          ),
+                          onErrorFallback: (_) => Text(
+                            widget.config.formula,
+                            style: const TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -79,46 +143,108 @@ class _FormulaSimulationWidgetState extends State<FormulaSimulationWidget> {
                   ),
                   Text(
                     '${values[variable.symbol]!.toStringAsFixed(decimalPlaces)} ${variable.unit}',
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ],
               ),
-              Slider(
-                min: variable.min,
-                max: variable.max,
-                divisions: _divisionsFor(variable),
-                value: values[variable.symbol]!,
-                onChanged: (value) =>
-                    setState(() => values[variable.symbol] = value),
-              ),
+              if (variable.max > variable.min) ...[
+                Slider(
+                  min: variable.min,
+                  max: variable.max,
+                  divisions: _divisionsFor(variable),
+                  value: values[variable.symbol]!,
+                  onChanged: (value) =>
+                      setState(() => values[variable.symbol] = value),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      variable.min.toStringAsFixed(decimalPlaces),
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                    Text(
+                      '${variable.max.toStringAsFixed(decimalPlaces)} ${variable.unit}',
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                  ],
+                ),
+              ] else
+                Text(
+                  'Khoảng giá trị của biến này chưa hợp lệ.',
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              const SizedBox(height: 8),
             ],
-            if (!isSupported)
+            if (!canSimulate)
               Container(
                 width: double.infinity,
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFDECEA),
+                  color: AppColors.danger.withValues(alpha: .08),
                   borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.danger.withValues(alpha: .18),
+                  ),
                 ),
-                child: const Text(
-                  'Cấu hình biểu thức mô phỏng chưa hợp lệ. Kết quả bên dưới '
-                  'tạm thời là 0.',
-                  style: TextStyle(color: Color(0xFFC0392B), fontSize: 13),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.info_outline_rounded,
+                      color: AppColors.danger,
+                      size: 18,
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Cấu hình mô phỏng chưa hợp lệ hoặc còn thiếu biến. Kết quả tạm thời là 0.',
+                        style: TextStyle(color: AppColors.danger, fontSize: 13),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF7E6),
+                color: AppColors.secondary.withValues(alpha: .22),
                 borderRadius: BorderRadius.circular(16),
-              ),
-              child: Text(
-                '${widget.config.result.label}: ${result.toStringAsFixed(decimalPlaces)} ${widget.config.result.unit}',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
+                border: Border.all(
+                  color: AppColors.secondary.withValues(alpha: .42),
                 ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.config.result.label.isEmpty
+                        ? 'Kết quả'
+                        : widget.config.result.label,
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${result.toStringAsFixed(decimalPlaces)} ${widget.config.result.unit}',
+                    style: const TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  if (widget.config.result.expression.trim().isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.config.result.expression,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ],
               ),
             ),
           ],

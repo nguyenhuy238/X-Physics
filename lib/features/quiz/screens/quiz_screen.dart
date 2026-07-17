@@ -5,6 +5,7 @@ import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/theme/app_colors.dart';
 import '../../../shared/models/x_models.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_view.dart';
@@ -112,10 +113,9 @@ class _QuizScreenState extends State<QuizScreen> {
     _timer = null;
   }
 
-  int get _durationSeconds => (QuizScreen.initialSeconds - secondsLeft).clamp(
-    0,
-    QuizScreen.initialSeconds,
-  );
+  int get _durationSeconds => (QuizScreen.initialSeconds - secondsLeft)
+      .clamp(0, QuizScreen.initialSeconds)
+      .toInt();
 
   Future<void> _submit({required bool autoSubmitted}) async {
     if (_isSubmitting || _hasSubmitted) {
@@ -283,7 +283,7 @@ class _QuizScreenState extends State<QuizScreen> {
                     Row(
                       children: [
                         Text(
-                          'Cau ${index + 1}/${_questions.length}',
+                          'Câu ${index + 1}/${_questions.length}',
                           style: const TextStyle(fontWeight: FontWeight.w900),
                         ),
                         const Spacer(),
@@ -301,6 +301,34 @@ class _QuizScreenState extends State<QuizScreen> {
                             ),
                           ),
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    LinearProgressIndicator(
+                      value: (index + 1) / _questions.length,
+                      minHeight: 8,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        for (var i = 0; i < _questions.length; i++)
+                          Expanded(
+                            child: Container(
+                              height: 5,
+                              margin: EdgeInsets.only(
+                                right: i == _questions.length - 1 ? 0 : 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: i < index
+                                    ? AppColors.success
+                                    : i == index
+                                    ? AppColors.primary
+                                    : AppColors.border,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                     if (_submitErrorMessage != null) ...[
@@ -323,40 +351,67 @@ class _QuizScreenState extends State<QuizScreen> {
                       ),
                     ],
                     const SizedBox(height: 16),
-                    _questionText(question.question),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(18),
+                        child: _questionText(question.question),
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     Expanded(
                       child: ListView.builder(
                         itemCount: question.options.length,
                         itemBuilder: (context, optionIndex) {
                           final option = question.options[optionIndex];
+                          final isSelected = selected == optionIndex;
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 10),
-                            child: Card(
+                            child: Material(
+                              color: isSelected
+                                  ? AppColors.primary.withValues(alpha: .06)
+                                  : AppColors.surface,
+                              borderRadius: BorderRadius.circular(16),
+                              clipBehavior: Clip.antiAlias,
                               child: InkWell(
-                                borderRadius: BorderRadius.circular(18),
                                 onTap: _isSubmitting
                                     ? null
                                     : () => setState(
                                         () =>
                                             answers[question.id] = optionIndex,
                                       ),
-                                child: Padding(
+                                child: Container(
                                   padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? AppColors.primary
+                                          : AppColors.border,
+                                      width: isSelected ? 1.6 : 1,
+                                    ),
+                                  ),
                                   child: Row(
                                     children: [
                                       Icon(
-                                        selected == optionIndex
+                                        isSelected
                                             ? Icons.radio_button_checked_rounded
                                             : Icons.radio_button_off_rounded,
-                                        color: selected == optionIndex
-                                            ? Theme.of(
-                                                context,
-                                              ).colorScheme.primary
-                                            : null,
+                                        color: isSelected
+                                            ? AppColors.primary
+                                            : AppColors.textSecondary,
                                       ),
                                       const SizedBox(width: 12),
-                                      Expanded(child: Text(option)),
+                                      Expanded(
+                                        child: Text(
+                                          option,
+                                          style: TextStyle(
+                                            color: isSelected
+                                                ? AppColors.primary
+                                                : AppColors.textPrimary,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),

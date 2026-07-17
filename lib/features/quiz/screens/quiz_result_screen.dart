@@ -3,6 +3,7 @@ import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/theme/app_colors.dart';
 import '../../../shared/models/x_models.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../progress/application/app_state.dart';
@@ -140,59 +141,73 @@ class _ResultHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              attempt.score.toStringAsFixed(1),
-              style: const TextStyle(
-                fontSize: 56,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF2563EB),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${attempt.correctCount}/${attempt.totalQuestions} câu đúng',
-              style: const TextStyle(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                Chip(
-                  avatar: const Icon(Icons.timer_rounded),
-                  label: Text(_formatDuration(attempt.durationSeconds)),
-                ),
-                Chip(
-                  avatar: const Icon(Icons.monetization_on_rounded),
-                  label: Text(
-                    attempt.earnedCoins == 0
-                        ? 'Không nhận thêm xu'
-                        : '+${attempt.earnedCoins} xu',
-                  ),
-                ),
-                if (attempt.totalCoins > 0)
-                  Chip(
-                    avatar: const Icon(Icons.account_balance_wallet_rounded),
-                    label: Text('Tổng ${attempt.totalCoins} xu'),
-                  ),
-              ],
-            ),
-            if (attempt.attemptId.isNotEmpty) ...[
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.primary, AppColors.primaryDark],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: DefaultTextStyle.merge(
+        style: const TextStyle(color: Colors.white),
+        child: IconTheme(
+          data: const IconThemeData(color: AppColors.secondary),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Icon(Icons.emoji_events_rounded, size: 38),
               const SizedBox(height: 8),
               Text(
-                'Attempt ${attempt.attemptId}',
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall,
+                attempt.score.toStringAsFixed(1),
+                style: const TextStyle(
+                  fontSize: 56,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                ),
               ),
+              const SizedBox(height: 4),
+              Text(
+                '${attempt.correctCount}/${attempt.totalQuestions} câu đúng',
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  Chip(
+                    avatar: const Icon(Icons.timer_rounded),
+                    label: Text(_formatDuration(attempt.durationSeconds)),
+                  ),
+                  Chip(
+                    avatar: const Icon(Icons.monetization_on_rounded),
+                    label: Text(
+                      attempt.earnedCoins == 0
+                          ? 'Không nhận thêm xu'
+                          : '+${attempt.earnedCoins} xu',
+                    ),
+                  ),
+                  if (attempt.totalCoins > 0)
+                    Chip(
+                      avatar: const Icon(Icons.account_balance_wallet_rounded),
+                      label: Text('Tổng ${attempt.totalCoins} xu'),
+                    ),
+                ],
+              ),
+              if (attempt.attemptId.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Attempt ${attempt.attemptId}',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Colors.white.withValues(alpha: .70)),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -220,7 +235,7 @@ class _NewBadgesView extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Hủy hieu moi',
+              'Huy hiệu mới',
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),

@@ -74,7 +74,8 @@ class FailingRefreshAdapter implements HttpClientAdapter {
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
   ) async {
-    if (options.path == '/api/auth/refresh') {
+    if (options.path == '/api/auth/refresh' ||
+        options.path == '/api/auth/refresh-token') {
       refreshCalls++;
     } else {
       protectedCalls++;

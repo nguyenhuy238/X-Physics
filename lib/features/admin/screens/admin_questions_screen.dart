@@ -184,8 +184,12 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
 
     return AdminLayout(
       activeRoute: '/admin/questions',
-      title: widget.lessonId != null ? 'Câu hỏi: $lessonTitle' : 'Quản lý Câu hỏi',
-      subtitle: widget.lessonId != null ? 'Danh sách câu hỏi trắc nghiệm' : 'Ngân hàng câu hỏi trắc nghiệm',
+      title: widget.lessonId != null
+          ? 'Câu hỏi: $lessonTitle'
+          : 'Quản lý Câu hỏi',
+      subtitle: widget.lessonId != null
+          ? 'Danh sách câu hỏi trắc nghiệm'
+          : 'Ngân hàng câu hỏi trắc nghiệm',
       onSearchChanged: _onSearchChanged,
       child: RefreshIndicator(
         onRefresh: () => _loadQuestions(refresh: true),
@@ -512,10 +516,11 @@ class _Toolbar extends StatelessWidget {
       selectedLessonId,
       lessons.map((lesson) => lesson.id),
     );
-    final difficultyValue = _validDropdownValue(
-      selectedDifficulty,
-      const ['EASY', 'MEDIUM', 'HARD'],
-    );
+    final difficultyValue = _validDropdownValue(selectedDifficulty, const [
+      'EASY',
+      'MEDIUM',
+      'HARD',
+    ]);
     return Wrap(
       spacing: 12,
       runSpacing: 12,
@@ -525,7 +530,7 @@ class _Toolbar extends StatelessWidget {
           _FilterPill(
             width: 210,
             icon: Icons.filter_alt_outlined,
-            value: selectedChapterId,
+            value: chapterValue,
             hint: 'Tất cả chương',
             items: [
               const DropdownMenuItem<String>(
@@ -540,7 +545,7 @@ class _Toolbar extends StatelessWidget {
           _FilterPill(
             width: 230,
             icon: Icons.filter_alt_outlined,
-            value: selectedLessonId,
+            value: lessonValue,
             hint: 'Tất cả bài học',
             items: [
               const DropdownMenuItem<String>(
@@ -555,10 +560,13 @@ class _Toolbar extends StatelessWidget {
           _FilterPill(
             width: 160,
             icon: Icons.tune_rounded,
-            value: selectedDifficulty,
+            value: difficultyValue,
             hint: 'Độ khó',
             items: const [
-              DropdownMenuItem<String>(value: null, child: Text('Tất cả độ khó')),
+              DropdownMenuItem<String>(
+                value: null,
+                child: Text('Tất cả độ khó'),
+              ),
               DropdownMenuItem(value: 'EASY', child: Text('Dễ')),
               DropdownMenuItem(value: 'MEDIUM', child: Text('Trung bình')),
               DropdownMenuItem(value: 'HARD', child: Text('Khó')),
@@ -895,9 +903,7 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
     );
     final lessons = _chapterId == null
         ? allLessons
-        : allLessons
-              .where((lesson) => lesson.chapterId == _chapterId)
-              .toList();
+        : allLessons.where((lesson) => lesson.chapterId == _chapterId).toList();
     _lessonId = _validDropdownValue(
       _lessonId,
       lessons.map((lesson) => lesson.id),
@@ -925,7 +931,7 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
               children: [
                 if (widget.defaultLessonId == null) ...[
                   DropdownButtonFormField<String>(
-                    initialValue: _chapterId,
+                    initialValue: chapterValue,
                     isExpanded: true,
                     items: [
                       const DropdownMenuItem<String>(
@@ -941,23 +947,27 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
                     onChanged: widget.defaultChapterId != null
                         ? null
                         : (value) => setState(() {
-                              _chapterId = value;
-                              final nextLessons = value == null
-                                  ? state.adminLessons
-                                  : state.adminLessons
-                                      .where((lesson) => lesson.chapterId == value)
+                            _chapterId = value;
+                            final nextLessons = value == null
+                                ? state.adminLessons
+                                : state.adminLessons
+                                      .where(
+                                        (lesson) => lesson.chapterId == value,
+                                      )
                                       .toList();
-                              if (!nextLessons.any((lesson) => lesson.id == _lessonId)) {
-                                _lessonId = nextLessons.isEmpty
-                                    ? null
-                                    : nextLessons.first.id;
-                              }
-                            }),
+                            if (!nextLessons.any(
+                              (lesson) => lesson.id == _lessonId,
+                            )) {
+                              _lessonId = nextLessons.isEmpty
+                                  ? null
+                                  : nextLessons.first.id;
+                            }
+                          }),
                     decoration: const InputDecoration(labelText: 'Chương học'),
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    initialValue: _lessonId,
+                    initialValue: lessonValue,
                     isExpanded: true,
                     items: [
                       for (final lesson in lessons)
@@ -980,7 +990,9 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
                   controller: _question,
                   minLines: 2,
                   maxLines: 4,
-                  decoration: const InputDecoration(labelText: 'Nội dung câu hỏi'),
+                  decoration: const InputDecoration(
+                    labelText: 'Nội dung câu hỏi',
+                  ),
                   validator: _required,
                 ),
                 const SizedBox(height: 12),
@@ -1005,16 +1017,16 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
                   ],
                   onChanged: (value) =>
                       setState(() => _correctOption = value ?? 0),
-                  decoration: const InputDecoration(
-                    labelText: 'Đáp án đúng',
-                  ),
+                  decoration: const InputDecoration(labelText: 'Đáp án đúng'),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _explanation,
                   minLines: 2,
                   maxLines: 4,
-                  decoration: const InputDecoration(labelText: 'Lời giải chi tiết'),
+                  decoration: const InputDecoration(
+                    labelText: 'Lời giải chi tiết',
+                  ),
                   validator: _required,
                 ),
                 const SizedBox(height: 12),
@@ -1037,7 +1049,9 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
                 TextFormField(
                   controller: _order,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Thứ tự hiển thị'),
+                  decoration: const InputDecoration(
+                    labelText: 'Thứ tự hiển thị',
+                  ),
                   validator: (value) {
                     final parsed = int.tryParse(value ?? '');
                     if (parsed == null || parsed < 1) {

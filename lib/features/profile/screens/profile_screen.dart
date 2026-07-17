@@ -39,6 +39,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return XScaffold(
       title: 'Hồ sơ',
       actions: [
+        TextButton(
+          onPressed: () => context.read<AppState>().logout(),
+          child: const Text('Đăng xuất'),
+        ),
         IconButton(
           tooltip: 'Làm mới',
           onPressed: state.isProfileLoading ? null : _refresh,
@@ -131,27 +135,42 @@ class _ProfileContent extends StatelessWidget {
           const SizedBox(height: 16),
           _RecentScoreChart(attempts: profile.recentAttempts),
           const SizedBox(height: 16),
-          _BadgeGrid(badges: [...profile.earnedBadges, ...profile.lockedBadges]),
+          _BadgeGrid(
+            badges: [...profile.earnedBadges, ...profile.lockedBadges],
+          ),
           const SizedBox(height: 16),
           _buildStudentSettings(context, appState),
         ],
         const SizedBox(height: 16),
-        OutlinedButton.icon(
-          onPressed: () => _showEditProfileDialog(context, profile.user.name),
-          icon: const Icon(Icons.edit_rounded),
-          label: const Text('Cập nhật họ tên'),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => _showEditProfileDialog(context, profile.user.name),
+            icon: const Icon(Icons.edit_rounded),
+            label: const Text('Cập nhật họ tên'),
+          ),
         ),
         const SizedBox(height: 8),
-        OutlinedButton.icon(
-          onPressed: () => _showChangePasswordDialog(context),
-          icon: const Icon(Icons.lock_reset_rounded),
-          label: const Text('Đổi mật khẩu'),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => _showChangePasswordDialog(context),
+            icon: const Icon(Icons.lock_reset_rounded),
+            label: const Text('Đổi mật khẩu'),
+          ),
         ),
         const SizedBox(height: 8),
-        OutlinedButton.icon(
-          onPressed: () => context.read<AppState>().logout(),
-          icon: const Icon(Icons.logout_rounded),
-          label: const Text('Đăng xuất'),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => context.read<AppState>().logout(),
+            icon: const Icon(Icons.logout_rounded),
+            label: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => context.read<AppState>().logout(),
+              child: const Text('Thoát tài khoản'),
+            ),
+          ),
         ),
       ],
     );
@@ -205,7 +224,7 @@ class _ProfileContent extends StatelessWidget {
               ),
               value: state.simulateOffline,
               onChanged: state.setOfflineMode,
-              activeColor: const Color(0xFF2563EB),
+              activeThumbColor: const Color(0xFF2563EB),
             ),
             const Divider(),
             ListTile(
@@ -245,8 +264,12 @@ class _ProfileContent extends StatelessWidget {
   }
 
   Widget _buildAdminSection(BuildContext context, AppState state) {
-    final roleLabel = state.user?.role == 'TEACHER' ? 'Giáo viên' : 'Quản trị viên';
-    final roleColor = state.user?.role == 'TEACHER' ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+    final roleLabel = state.user?.role == 'TEACHER'
+        ? 'Giáo viên'
+        : 'Quản trị viên';
+    final roleColor = state.user?.role == 'TEACHER'
+        ? const Color(0xFF10B981)
+        : const Color(0xFFEF4444);
 
     return Card(
       child: Padding(
@@ -270,7 +293,10 @@ class _ProfileContent extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             ListTile(
-              leading: const Icon(Icons.dashboard_rounded, color: Color(0xFF2563EB)),
+              leading: const Icon(
+                Icons.dashboard_rounded,
+                color: Color(0xFF2563EB),
+              ),
               title: const Text('Bảng điều khiển Admin'),
               subtitle: const Text('Tổng quan CMS & Quản lý danh sách'),
               trailing: const Icon(Icons.chevron_right_rounded),
@@ -278,7 +304,10 @@ class _ProfileContent extends StatelessWidget {
             ),
             const Divider(),
             ListTile(
-              leading: const Icon(Icons.folder_special_rounded, color: Color(0xFFEC4899)),
+              leading: const Icon(
+                Icons.folder_special_rounded,
+                color: Color(0xFFEC4899),
+              ),
               title: const Text('Quản lý Chương học'),
               subtitle: const Text('Thêm, sửa, xóa các chương học'),
               trailing: const Icon(Icons.chevron_right_rounded),
@@ -286,7 +315,10 @@ class _ProfileContent extends StatelessWidget {
             ),
             const Divider(),
             ListTile(
-              leading: const Icon(Icons.menu_book_rounded, color: Color(0xFF16A34A)),
+              leading: const Icon(
+                Icons.menu_book_rounded,
+                color: Color(0xFF16A34A),
+              ),
               title: const Text('Quản lý Bài học'),
               subtitle: const Text('Chỉnh sửa lý thuyết & mô phỏng'),
               trailing: const Icon(Icons.chevron_right_rounded),
