@@ -5,13 +5,16 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   Length,
   Max,
+  MaxLength,
   Min,
+  MinLength,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 
@@ -76,7 +79,6 @@ export class CreateAdminQuestionDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   lessonId!: string;
 
-  @IsString()
   @IsNotEmpty()
   @Length(3, 1000)
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
@@ -160,6 +162,37 @@ export class UpdateAdminQuestionDto {
   orderIndex!: number;
 }
 
+export class AdminUsersQueryDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(180)
+  search?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['createdAt', 'name', 'email'])
+  sortBy?: 'createdAt' | 'name' | 'email';
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['ASC', 'DESC'])
+  sortOrder?: 'ASC' | 'DESC';
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  page?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @Type(() => Number)
+  limit?: number;
+}
+
 export class ReorderAdminQuestionsDto {
   @IsString()
   @IsNotEmpty()
@@ -210,3 +243,83 @@ export class AdminQuestionQueryDto {
   @Type(() => Number)
   limit?: number;
 }
+
+export class AdminQuizAttemptQueryDto {
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  search?: string;
+
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  lessonId?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  page?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @Type(() => Number)
+  limit?: number;
+}
+
+export class CreateAdminQuizAttemptDto {
+  @IsString()
+  @IsNotEmpty()
+  userId!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  lessonId!: string;
+
+  @IsInt()
+  @Min(0)
+  @Max(10)
+  @Type(() => Number)
+  score!: number;
+
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  correctCount!: number;
+
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  totalQuestions!: number;
+
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  durationSeconds!: number;
+}
+
+export class UpdateAdminQuizAttemptDto {
+  @IsInt()
+  @Min(0)
+  @Max(10)
+  @Type(() => Number)
+  score!: number;
+
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  correctCount!: number;
+
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  totalQuestions!: number;
+
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  durationSeconds!: number;
+}
+

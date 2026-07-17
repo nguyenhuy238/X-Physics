@@ -93,6 +93,8 @@ class HomeScreen extends StatelessWidget {
                               const Spacer(),
                               Text(
                                 chapter.title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   fontSize: 19,
                                   fontWeight: FontWeight.w900,

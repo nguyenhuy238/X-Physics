@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/models/x_models.dart';
@@ -112,17 +113,28 @@ class _ProfileContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appState = context.watch<AppState>();
+    final isAdmin = appState.canAccessAdmin;
+
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(20),
       children: [
         _ProfileHeader(profile: profile),
-        const SizedBox(height: 16),
-        _StatsRow(profile: profile),
-        const SizedBox(height: 16),
-        _RecentScoreChart(attempts: profile.recentAttempts),
-        const SizedBox(height: 16),
-        _BadgeGrid(badges: [...profile.earnedBadges, ...profile.lockedBadges]),
+        if (isAdmin) ...[
+          const SizedBox(height: 16),
+          _buildAdminSection(context, appState),
+        ],
+        if (!isAdmin) ...[
+          const SizedBox(height: 16),
+          _StatsRow(profile: profile),
+          const SizedBox(height: 16),
+          _RecentScoreChart(attempts: profile.recentAttempts),
+          const SizedBox(height: 16),
+          _BadgeGrid(badges: [...profile.earnedBadges, ...profile.lockedBadges]),
+          const SizedBox(height: 16),
+          _buildStudentSettings(context, appState),
+        ],
         const SizedBox(height: 16),
         OutlinedButton.icon(
           onPressed: () => _showEditProfileDialog(context, profile.user.name),
@@ -142,6 +154,155 @@ class _ProfileContent extends StatelessWidget {
           label: const Text('Đăng xuất'),
         ),
       ],
+    );
+  }
+
+  Widget _buildStudentSettings(BuildContext context, AppState state) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.settings_rounded, color: Color(0xFF6366F1)),
+                SizedBox(width: 8),
+                Text(
+                  'Cài đặt & Tiện ích',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF4F46E5),
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SwitchListTile(
+              secondary: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0xFFEFF6FF),
+                ),
+                child: const Icon(
+                  Icons.wifi_off_rounded,
+                  color: Color(0xFF2563EB),
+                  size: 20,
+                ),
+              ),
+              title: const Text(
+                'Chế độ ngoại tuyến',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              subtitle: const Text(
+                'Giả lập học tập không có mạng internet',
+                style: TextStyle(fontSize: 12),
+              ),
+              value: state.simulateOffline,
+              onChanged: state.setOfflineMode,
+              activeColor: const Color(0xFF2563EB),
+            ),
+            const Divider(),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0xFFECFDF5),
+                ),
+                child: const Icon(
+                  Icons.download_done_rounded,
+                  color: Color(0xFF10B981),
+                  size: 20,
+                ),
+              ),
+              title: const Text(
+                'Bài học tải xuống',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              subtitle: Text(
+                '${state.downloadedLessons.length} bài học sẵn sàng đọc offline',
+                style: const TextStyle(fontSize: 12),
+              ),
+              trailing: const Icon(
+                Icons.chevron_right_rounded,
+                color: Color(0xFF94A3B8),
+              ),
+              onTap: () => context.go('/offline'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdminSection(BuildContext context, AppState state) {
+    final roleLabel = state.user?.role == 'TEACHER' ? 'Giáo viên' : 'Quản trị viên';
+    final roleColor = state.user?.role == 'TEACHER' ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.admin_panel_settings_rounded, color: roleColor),
+                const SizedBox(width: 8),
+                Text(
+                  'Quản trị hệ thống ($roleLabel)',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: roleColor,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              leading: const Icon(Icons.dashboard_rounded, color: Color(0xFF2563EB)),
+              title: const Text('Bảng điều khiển Admin'),
+              subtitle: const Text('Tổng quan CMS & Quản lý danh sách'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => context.go('/admin'),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.folder_special_rounded, color: Color(0xFFEC4899)),
+              title: const Text('Quản lý Chương học'),
+              subtitle: const Text('Thêm, sửa, xóa các chương học'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => context.go('/admin/chapters'),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.menu_book_rounded, color: Color(0xFF16A34A)),
+              title: const Text('Quản lý Bài học'),
+              subtitle: const Text('Chỉnh sửa lý thuyết & mô phỏng'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => context.go('/admin/lessons'),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.quiz_rounded, color: Color(0xFFEC4899)),
+              title: const Text('Quản lý Câu hỏi'),
+              subtitle: const Text('Ngân hàng câu hỏi trắc nghiệm'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => context.go('/admin/questions'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

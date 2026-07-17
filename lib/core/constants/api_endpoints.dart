@@ -1,10 +1,19 @@
+import 'package:flutter/foundation.dart';
+import 'dart:io' show Platform;
+
 class ApiEndpoints {
   const ApiEndpoints._();
 
-  static const baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://localhost:3000',
-  );
+  static String get baseUrl {
+    const defineUrl = String.fromEnvironment('API_BASE_URL');
+    if (defineUrl.isNotEmpty) {
+      return defineUrl;
+    }
+    if (!kIsWeb && Platform.isAndroid) {
+      return 'http://10.0.2.2:3000';
+    }
+    return 'http://localhost:3000';
+  }
 
   static const register = '/api/auth/register';
   static const login = '/api/auth/login';
@@ -29,6 +38,7 @@ class ApiEndpoints {
   static const adminLessons = '/api/admin/lessons';
   static const adminQuestions = '/api/admin/questions';
   static const adminQuestionsReorder = '/api/admin/questions/reorder';
+  static const adminQuizAttempts = '/api/admin/quiz-attempts';
 
   static String chapter(String id) => '/api/chapters/$id';
   static String chapterLessons(String id) => '/api/chapters/$id/lessons';
@@ -38,4 +48,6 @@ class ApiEndpoints {
   static String adminChapter(String id) => '/api/admin/chapters/$id';
   static String adminLesson(String id) => '/api/admin/lessons/$id';
   static String adminQuestion(String id) => '/api/admin/questions/$id';
+  static String adminQuizAttempt(String id) => '/api/admin/quiz-attempts/$id';
+  static String adminUserProgress(String userId) => '/api/admin/users/$userId/progress';
 }
