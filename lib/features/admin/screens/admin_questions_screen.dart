@@ -339,12 +339,14 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
     );
   }
 
-  Future<void> _openForm({Question? question}) async {
+  Future<void> _openForm({Question? question, Question? draft}) async {
+    final isUpdate = question != null;
     final result = await showDialog<Question>(
       context: context,
       barrierDismissible: !_saving,
       builder: (_) => _QuestionFormDialog(
-        question: question,
+        question: draft ?? question,
+        isUpdate: isUpdate,
         saving: _saving,
         defaultChapterId: _chapterId,
         defaultLessonId: _lessonId,
@@ -355,7 +357,7 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
     try {
       await context.read<AppState>().writeAdminQuestion(
         result,
-        isUpdate: question != null,
+        isUpdate: isUpdate,
       );
       if (!mounted) return;
       await _loadQuestions(
@@ -379,7 +381,7 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
           ),
         ),
       );
-      await _openForm(question: result);
+      await _openForm(question: question, draft: result);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -495,11 +497,25 @@ class _Toolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final lessons = selectedChapterId == null
-        ? state.adminLessons
-        : state.adminLessons
-              .where((lesson) => lesson.chapterId == selectedChapterId)
+    final chapters = _uniqueById(state.chapters, (chapter) => chapter.id);
+    final chapterValue = _validDropdownValue(
+      selectedChapterId,
+      chapters.map((chapter) => chapter.id),
+    );
+    final allLessons = _uniqueById(state.adminLessons, (lesson) => lesson.id);
+    final lessons = chapterValue == null
+        ? allLessons
+        : allLessons
+              .where((lesson) => lesson.chapterId == chapterValue)
               .toList();
+    final lessonValue = _validDropdownValue(
+      selectedLessonId,
+      lessons.map((lesson) => lesson.id),
+    );
+    final difficultyValue = _validDropdownValue(
+      selectedDifficulty,
+      const ['EASY', 'MEDIUM', 'HARD'],
+    );
     return Wrap(
       spacing: 12,
       runSpacing: 12,
@@ -808,12 +824,14 @@ class _EmptyQuestionsView extends StatelessWidget {
 class _QuestionFormDialog extends StatefulWidget {
   const _QuestionFormDialog({
     this.question,
+    required this.isUpdate,
     required this.saving,
     this.defaultChapterId,
     this.defaultLessonId,
   });
 
   final Question? question;
+  final bool isUpdate;
   final bool saving;
   final String? defaultChapterId;
   final String? defaultLessonId;
@@ -869,16 +887,34 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
+    final chapters = _uniqueById(state.chapters, (chapter) => chapter.id);
+    final allLessons = _uniqueById(state.adminLessons, (lesson) => lesson.id);
+    _chapterId = _validDropdownValue(
+      _chapterId,
+      chapters.map((chapter) => chapter.id),
+    );
     final lessons = _chapterId == null
-        ? state.adminLessons
-        : state.adminLessons
+        ? allLessons
+        : allLessons
               .where((lesson) => lesson.chapterId == _chapterId)
               .toList();
+    _lessonId = _validDropdownValue(
+      _lessonId,
+      lessons.map((lesson) => lesson.id),
+    );
     if (_lessonId == null && lessons.isNotEmpty) {
       _lessonId = lessons.first.id;
     }
+    final chapterValue = _validDropdownValue(
+      _chapterId,
+      chapters.map((chapter) => chapter.id),
+    );
+    final lessonValue = _validDropdownValue(
+      _lessonId,
+      lessons.map((lesson) => lesson.id),
+    );
     return AlertDialog(
-      title: Text(widget.question == null ? 'Thêm câu hỏi' : 'Sửa câu hỏi'),
+      title: Text(widget.isUpdate ? 'Sửa câu hỏi' : 'Thêm câu hỏi'),
       content: SizedBox(
         width: 620,
         child: Form(
@@ -1064,6 +1100,7 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
         correctOption: _correctOption,
         explanation: _explanation.text.trim(),
         difficulty: _difficulty,
+        chapterId: _chapterId ?? '',
         orderIndex: int.tryParse(_order.text) ?? 1,
       ),
     );
@@ -1282,6 +1319,7 @@ class _FilterPill extends StatelessWidget {
     return SizedBox(
       width: width,
       child: DropdownButtonFormField<String>(
+        key: ValueKey('$hint-${value ?? 'all'}-${items.length}'),
         initialValue: value,
         isExpanded: true,
         items: items,
@@ -1467,6 +1505,29 @@ class _MetaLine extends StatelessWidget {
 String _letter(int index) {
   const letters = ['A', 'B', 'C', 'D'];
   return index >= 0 && index < letters.length ? letters[index] : '?';
+}
+
+List<T> _uniqueById<T>(Iterable<T> items, String Function(T item) idOf) {
+  final seen = <String>{};
+  final result = <T>[];
+  for (final item in items) {
+    final id = idOf(item);
+    if (id.isNotEmpty && seen.add(id)) {
+      result.add(item);
+    }
+  }
+  return result;
+}
+
+String? _validDropdownValue(String? value, Iterable<String> itemValues) {
+  final normalized = _blankToNull(value);
+  if (normalized == null) return null;
+  return itemValues.contains(normalized) ? normalized : null;
+}
+
+String? _blankToNull(String? value) {
+  if (value == null || value.trim().isEmpty) return null;
+  return value;
 }
 
 String _formatDate(DateTime? date) {
