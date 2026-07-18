@@ -52,6 +52,10 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
       title: 'Quản lý Chương học',
       subtitle: 'Tất cả chương học hiện có trên hệ thống',
       activeRoute: '/admin/chapters',
+      breadcrumbs: const [
+        AdminBreadcrumbItem(label: 'Quản lý nội dung'),
+        AdminBreadcrumbItem(label: 'Chương học'),
+      ],
       onSearchChanged: (query) {
         setState(() {
           _searchQuery = query;
@@ -300,6 +304,7 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                         ),
                         const SizedBox(width: 8),
                         IconButton(
+                          tooltip: 'Sửa chương',
                           onPressed: () =>
                               _showChapterFormDialog(context, chapter: chapter),
                           icon: const Icon(
@@ -313,8 +318,9 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                         ),
                         const SizedBox(width: 8),
                         IconButton(
+                          tooltip: 'Xóa chương',
                           onPressed: () =>
-                              _confirmDeleteChapter(context, chapter.id),
+                              _confirmDeleteChapter(context, chapter),
                           icon: const Icon(
                             Icons.delete_rounded,
                             size: 16,
@@ -512,7 +518,7 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                           IconButton(
                             tooltip: 'Xóa',
                             onPressed: () =>
-                                _confirmDeleteChapter(context, chapter.id),
+                                _confirmDeleteChapter(context, chapter),
                             icon: const Icon(
                               Icons.delete_rounded,
                               size: 16,
@@ -585,7 +591,7 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
     await state.updateAdminChapter(updated);
   }
 
-  Future<void> _confirmDeleteChapter(BuildContext context, String id) async {
+  Future<void> _confirmDeleteChapter(BuildContext context, Chapter chapter) async {
     final state = Provider.of<AppState>(context, listen: false);
     final ok =
         await showDialog<bool>(
@@ -595,8 +601,8 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
               borderRadius: BorderRadius.circular(20),
             ),
             title: const Text('Xóa chương học?'),
-            content: const Text(
-              'Tất cả bài học và câu hỏi trong chương này sẽ bị ảnh hưởng.',
+            content: Text(
+              'Bạn sắp xóa "${chapter.title}". Chương còn bài học sẽ không thể xóa.',
             ),
             actions: [
               TextButton(
@@ -615,7 +621,7 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
         ) ??
         false;
     if (ok && context.mounted) {
-      await state.deleteAdminChapter(id);
+      await state.deleteAdminChapter(chapter.id);
     }
   }
 

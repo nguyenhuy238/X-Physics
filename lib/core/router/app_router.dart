@@ -95,21 +95,66 @@ GoRouter buildRouter(AppState appState) {
         path: '/admin/lessons',
         builder: (_, state) {
           final chapterId = state.uri.queryParameters['chapterId'];
-          return AdminLessonsScreen(chapterId: chapterId);
+          final status = state.uri.queryParameters['status'];
+          final search = state.uri.queryParameters['search'];
+          return AdminLessonsScreen(
+            chapterId: chapterId,
+            status: status,
+            search: search,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/admin/chapters/:chapterId/lessons',
+        redirect: (_, state) {
+          final chapterId = state.pathParameters['chapterId']!;
+          final query = Map<String, String>.from(state.uri.queryParameters);
+          query['chapterId'] = chapterId;
+          return Uri(path: '/admin/lessons', queryParameters: query).toString();
         },
       ),
       GoRoute(
         path: '/admin/lessons/:id',
         builder: (_, state) {
           final lessonId = state.pathParameters['id']!;
-          return AdminLessonDetailScreen(lessonId: lessonId);
+          final from = state.uri.queryParameters['from'];
+          final chapterId = state.uri.queryParameters['chapterId'];
+          return AdminLessonDetailScreen(
+            lessonId: lessonId,
+            from: from,
+            chapterId: chapterId,
+          );
         },
       ),
       GoRoute(
         path: '/admin/questions',
         builder: (_, state) {
           final lessonId = state.uri.queryParameters['lessonId'];
-          return AdminQuestionsScreen(lessonId: lessonId);
+          final chapterId = state.uri.queryParameters['chapterId'];
+          final difficulty = state.uri.queryParameters['difficulty'];
+          final search = state.uri.queryParameters['search'];
+          final action = state.uri.queryParameters['action'];
+          final page = int.tryParse(state.uri.queryParameters['page'] ?? '');
+          return AdminQuestionsScreen(
+            chapterId: chapterId,
+            lessonId: lessonId,
+            difficulty: difficulty,
+            search: search,
+            page: page,
+            action: action,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/admin/lessons/:lessonId/questions',
+        redirect: (_, state) {
+          final lessonId = state.pathParameters['lessonId']!;
+          final query = Map<String, String>.from(state.uri.queryParameters);
+          query['lessonId'] = lessonId;
+          return Uri(
+            path: '/admin/questions',
+            queryParameters: query,
+          ).toString();
         },
       ),
       GoRoute(

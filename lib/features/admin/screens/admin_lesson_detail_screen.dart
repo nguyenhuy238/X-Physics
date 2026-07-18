@@ -9,8 +9,16 @@ import '../../progress/application/app_state.dart';
 import '../widgets/admin_layout.dart';
 
 class AdminLessonDetailScreen extends StatefulWidget {
+  const AdminLessonDetailScreen({
+    super.key,
+    required this.lessonId,
+    this.from,
+    this.chapterId,
+  });
+
   final String lessonId;
-  const AdminLessonDetailScreen({super.key, required this.lessonId});
+  final String? from;
+  final String? chapterId;
 
   @override
   State<AdminLessonDetailScreen> createState() =>
@@ -20,6 +28,7 @@ class AdminLessonDetailScreen extends StatefulWidget {
 class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
   bool _editing = false;
   bool _saving = false;
+  int? _quizQuestionCount;
 
   // Controllers – lazily populated once lesson is found
   final _titleCtrl = TextEditingController();
@@ -32,6 +41,15 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
   bool _isPublished = true;
   bool _initialized = false;
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadLessonContext();
+      _loadQuizQuestionCount();
+    });
+  }
+
   void _initControllers(Lesson lesson) {
     if (_initialized) return;
     _titleCtrl.text = lesson.title;
@@ -41,6 +59,29 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
     _orderCtrl.text = '${lesson.orderIndex}';
     _isPublished = lesson.isPublished;
     _initialized = true;
+  }
+
+  Future<void> _loadLessonContext() async {
+    final state = context.read<AppState>();
+    if (state.adminLessons.any((lesson) => lesson.id == widget.lessonId)) {
+      return;
+    }
+    await state.loadAdminLessons();
+  }
+
+  Future<void> _loadQuizQuestionCount() async {
+    try {
+      final page = await context.read<AppState>().fetchAdminQuestions(
+        lessonId: widget.lessonId,
+        page: 1,
+        limit: 1,
+      );
+      if (!mounted) return;
+      setState(() => _quizQuestionCount = page.total);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _quizQuestionCount = null);
+    }
   }
 
   @override
@@ -96,10 +137,11 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
 
     if (lesson == null) {
       if (state.isBusy) {
-        return const AdminLayout(
+        return AdminLayout(
           title: 'Bài học',
           subtitle: '',
           activeRoute: '/admin/lessons',
+          backFallbackRoute: _backRoute(),
           child: LoadingView(message: 'Đang tải bài học...'),
         );
       }
@@ -107,6 +149,7 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
         title: 'Không tìm thấy',
         subtitle: '',
         activeRoute: '/admin/lessons',
+        backFallbackRoute: _backRoute(),
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -123,7 +166,7 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
               ),
               const SizedBox(height: 16),
               FilledButton.icon(
-                onPressed: () => context.pop(),
+                onPressed: () => context.go(_backRoute()),
                 icon: const Icon(Icons.arrow_back_rounded),
                 label: const Text('Quay lại'),
               ),
@@ -144,6 +187,18 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
       title: lesson.title,
       subtitle: 'Chương: ${chapter?.title ?? lesson.chapterId}',
       activeRoute: '/admin/lessons',
+      backFallbackRoute: _backRoute(lesson),
+      breadcrumbs: [
+        const AdminBreadcrumbItem(label: 'Quản lý nội dung'),
+        AdminBreadcrumbItem(
+          label: chapter?.title ?? lesson.chapterId,
+          route: Uri(
+            path: '/admin/lessons',
+            queryParameters: {'chapterId': lesson.chapterId},
+          ).toString(),
+        ),
+        AdminBreadcrumbItem(label: lesson.title),
+      ],
       onBackRequested: () => _requestLeaveIfNeeded(lesson),
       child: ListView(
         padding: const EdgeInsets.all(24),
@@ -151,44 +206,6 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
           // ── Top action bar ──────────────────────────────────────────────
           Row(
             children: [
-              OutlinedButton.icon(
-                onPressed: () async {
-                  if (await _requestLeaveIfNeeded(lesson) && context.mounted) {
-                    context.pop();
-                  }
-                },
-                icon: const Icon(Icons.arrow_back_rounded, size: 16),
-                label: const Text('Quay lại'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF64748B),
-                  side: const BorderSide(color: Color(0xFFE2E8F0)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              OutlinedButton.icon(
-                onPressed: () =>
-                    context.push('/admin/questions?lessonId=${lesson.id}'),
-                icon: const Icon(Icons.quiz_rounded, size: 16),
-                label: const Text('Câu hỏi Quiz'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFF59E0B),
-                  side: const BorderSide(color: Color(0xFFFDE68A)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                ),
-              ),
               const Spacer(),
               if (!_editing)
                 FilledButton.icon(
@@ -311,6 +328,38 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
       _isPublished = lesson.isPublished;
       _editing = false;
     });
+  }
+
+  String _backRoute([Lesson? lesson]) {
+    final chapterId = widget.chapterId ?? lesson?.chapterId;
+    if (widget.from == 'questions' && lesson != null) {
+      return Uri(
+        path: '/admin/questions',
+        queryParameters: {
+          'lessonId': lesson.id,
+          if (chapterId != null && chapterId.isNotEmpty)
+            'chapterId': chapterId,
+        },
+      ).toString();
+    }
+    if (chapterId != null && chapterId.isNotEmpty) {
+      return Uri(
+        path: '/admin/lessons',
+        queryParameters: {'chapterId': chapterId},
+      ).toString();
+    }
+    return '/admin/lessons';
+  }
+
+  String _questionsRoute(Lesson lesson, {bool add = false}) {
+    return Uri(
+      path: '/admin/questions',
+      queryParameters: {
+        'lessonId': lesson.id,
+        'chapterId': lesson.chapterId,
+        if (add) 'action': 'add',
+      },
+    ).toString();
   }
 
   // ── View Mode ──────────────────────────────────────────────────────────
@@ -474,7 +523,9 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
                       ),
                     ),
                     Text(
-                      '${lesson.questions.length} câu hỏi trong bài học này',
+                      _quizQuestionCount == null
+                          ? 'Đang tải số câu hỏi...'
+                          : '$_quizQuestionCount câu hỏi trong bài học này',
                       style: const TextStyle(
                         fontSize: 13,
                         color: Color(0xFF64748B),
@@ -483,22 +534,43 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
                   ],
                 ),
               ),
-              OutlinedButton.icon(
-                onPressed: () =>
-                    context.push('/admin/questions?lessonId=${lesson.id}'),
-                icon: const Icon(Icons.open_in_new_rounded, size: 14),
-                label: const Text('Quản lý'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFF59E0B),
-                  side: const BorderSide(color: Color(0xFFFDE68A)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () => context.push(_questionsRoute(lesson)),
+                    icon: const Icon(Icons.list_alt_rounded, size: 14),
+                    label: const Text('Xem danh sách câu hỏi'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFF59E0B),
+                      side: const BorderSide(color: Color(0xFFFDE68A)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                    ),
                   ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
+                  FilledButton.icon(
+                    onPressed: () =>
+                        context.push(_questionsRoute(lesson, add: true)),
+                    icon: const Icon(Icons.add_rounded, size: 14),
+                    label: const Text('Thêm câu hỏi'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFF59E0B),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ],
           ),
