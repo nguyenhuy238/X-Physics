@@ -569,6 +569,18 @@ describe("QuizService submit", () => {
 });
 
 describe("LessonsService questions", () => {
+  it("returns five questions for an existing lesson", async () => {
+    const database = new FakeDatabase();
+    const service = new LessonsService(database as any);
+
+    const questions = await service.questions("lesson-1");
+
+    expect(questions).toHaveLength(5);
+    expect(
+      questions.every((question: any) => question.lessonId === "lesson-1"),
+    ).toBe(true);
+  });
+
   it("does not leak correctOption or explanation", async () => {
     const database = new FakeDatabase();
     const service = new LessonsService(database as any);

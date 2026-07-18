@@ -39,7 +39,8 @@ class AdminLayout extends StatelessWidget {
         label: 'Quản lý nội dung',
         icon: Icons.auto_stories_rounded,
         route: '/admin/chapters',
-        isActive: activeRoute.startsWith('/admin/chapters') ||
+        isActive:
+            activeRoute.startsWith('/admin/chapters') ||
             activeRoute.startsWith('/admin/lessons') ||
             activeRoute.startsWith('/admin/questions'),
       ),
@@ -86,10 +87,7 @@ class AdminLayout extends StatelessWidget {
                   ),
                   Text(
                     'Admin Panel',
-                    style: TextStyle(
-                      color: Color(0xFF94A3B8),
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
                   ),
                 ],
               ),
@@ -114,12 +112,10 @@ class AdminLayout extends StatelessWidget {
                 final item = menuItems[index];
                 return InkWell(
                   onTap: () {
-                    try {
-                      final scaffold = Scaffold.maybeOf(context);
-                      if (scaffold != null && scaffold.isDrawerOpen) {
-                        Navigator.pop(context);
-                      }
-                    } catch (_) {}
+                    final scaffold = Scaffold.maybeOf(context);
+                    if (scaffold != null && scaffold.isDrawerOpen) {
+                      Navigator.pop(context);
+                    }
                     context.go(item.route);
                   },
                   borderRadius: BorderRadius.circular(10),
@@ -138,8 +134,9 @@ class AdminLayout extends StatelessWidget {
                       children: [
                         Icon(
                           item.icon,
-                          color:
-                              item.isActive ? Colors.white : const Color(0xFF94A3B8),
+                          color: item.isActive
+                              ? Colors.white
+                              : const Color(0xFF94A3B8),
                           size: 20,
                         ),
                         const SizedBox(width: 12),
@@ -257,9 +254,8 @@ class AdminLayout extends StatelessWidget {
       drawer: isDesktop
           ? null
           : Builder(
-              builder: (drawerContext) => Drawer(
-                child: _buildSidebar(drawerContext),
-              ),
+              builder: (drawerContext) =>
+                  Drawer(child: _buildSidebar(drawerContext)),
             ),
       floatingActionButton: floatingActionButton,
       body: Builder(
@@ -272,9 +268,7 @@ class AdminLayout extends StatelessWidget {
                 child: Column(
                   children: [
                     _buildTopbar(bodyContext, !isDesktop),
-                    Expanded(
-                      child: child,
-                    ),
+                    Expanded(child: child),
                   ],
                 ),
               ),
@@ -293,8 +287,23 @@ class AdminLayout extends StatelessWidget {
         children: [
           if (showMenu) ...[
             IconButton(
+              tooltip: 'Mở menu',
               icon: const Icon(Icons.menu_rounded),
               onPressed: () => Scaffold.of(context).openDrawer(),
+            ),
+            const SizedBox(width: 12),
+          ],
+          if (activeRoute != '/admin') ...[
+            IconButton(
+              tooltip: 'Quay lại',
+              icon: const Icon(Icons.arrow_back_rounded),
+              onPressed: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/admin');
+                }
+              },
             ),
             const SizedBox(width: 12),
           ],
@@ -334,8 +343,15 @@ class AdminLayout extends StatelessWidget {
                 onChanged: onSearchChanged,
                 decoration: InputDecoration(
                   hintText: 'Tìm kiếm...',
-                  hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-                  prefixIcon: const Icon(Icons.search_rounded, size: 20, color: Color(0xFF94A3B8)),
+                  hintStyle: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF94A3B8),
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    size: 20,
+                    color: Color(0xFF94A3B8),
+                  ),
                   fillColor: const Color(0xFFF1F5F9),
                   filled: true,
                   border: OutlineInputBorder(

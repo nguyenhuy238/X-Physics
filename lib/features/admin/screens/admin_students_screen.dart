@@ -93,17 +93,17 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
               onDeleteAttempt: (id) => _deleteAttempt(id, state),
             )
           : _selectedStudent != null
-              ? _ProgressView(
-                  student: _selectedStudent!,
-                  state: state,
-                  onBack: _back,
-                  onChapterTap: _openChapter,
-                )
-              : _StudentsView(
-                  state: state,
-                  searchQuery: _searchQuery,
-                  onStudentTap: _openStudent,
-                ),
+          ? _ProgressView(
+              student: _selectedStudent!,
+              state: state,
+              onBack: _back,
+              onChapterTap: _openChapter,
+            )
+          : _StudentsView(
+              state: state,
+              searchQuery: _searchQuery,
+              onStudentTap: _openStudent,
+            ),
     );
   }
 
@@ -113,16 +113,18 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Xác nhận xóa'),
-        content:
-            const Text('Bạn có chắc muốn xóa lượt làm bài Quiz này không?'),
+        content: const Text(
+          'Bạn có chắc muốn xóa lượt làm bài Quiz này không?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Hủy'),
           ),
           FilledButton(
-            style:
-                FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+            ),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Xóa'),
           ),
@@ -138,19 +140,17 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
         setState(() {
           // refresh _selectedChapter reference
           final updated = state.adminUserProgressData;
-          final found = updated
-              .cast<Map<String, dynamic>?>()
-              .firstWhere(
-                (c) => c?['id'] == _selectedChapter?['id'],
-                orElse: () => null,
-              );
+          final found = updated.cast<Map<String, dynamic>?>().firstWhere(
+            (c) => c?['id'] == _selectedChapter?['id'],
+            orElse: () => null,
+          );
           _selectedChapter = found;
         });
       }
     } else if (state.errorMessage != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(state.errorMessage!)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(state.errorMessage!)));
     }
   }
 }
@@ -221,20 +221,20 @@ class _StudentsView extends StatelessWidget {
   }
 
   Widget _emptyState(String msg) => Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 48),
-          child: Column(
-            children: [
-              Icon(Icons.people_outline_rounded,
-                  size: 52, color: Colors.grey[300]),
-              const SizedBox(height: 12),
-              Text(msg,
-                  style: const TextStyle(
-                      fontSize: 14, color: Color(0xFF64748B))),
-            ],
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 48),
+      child: Column(
+        children: [
+          Icon(Icons.people_outline_rounded, size: 52, color: Colors.grey[300]),
+          const SizedBox(height: 12),
+          Text(
+            msg,
+            style: const TextStyle(fontSize: 14, color: Color(0xFF64748B)),
           ),
-        ),
-      );
+        ],
+      ),
+    ),
+  );
 }
 
 // Desktop table
@@ -264,15 +264,17 @@ class _DesktopTable extends StatelessWidget {
           children: [
             // Header
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               color: const Color(0xFFF8FAFC),
               child: const Row(
                 children: [
                   Expanded(flex: 3, child: _Header('HỌC SINH')),
                   Expanded(flex: 3, child: _Header('EMAIL')),
                   Expanded(flex: 1, child: _Header('XU', center: true)),
-                  SizedBox(width: 120, child: _Header('THAO TÁC', center: true)),
+                  SizedBox(
+                    width: 120,
+                    child: _Header('THAO TÁC', center: true),
+                  ),
                 ],
               ),
             ),
@@ -324,7 +326,8 @@ class _DesktopRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         decoration: const BoxDecoration(
           border: Border(
-              bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
+            bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1),
+          ),
         ),
         child: Row(
           children: [
@@ -352,8 +355,7 @@ class _DesktopRow extends StatelessWidget {
               flex: 3,
               child: Text(
                 student.email,
-                style: const TextStyle(
-                    fontSize: 13, color: Color(0xFF64748B)),
+                style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -362,11 +364,16 @@ class _DesktopRow extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.monetization_on_rounded,
-                      color: Colors.amber, size: 16),
+                  const Icon(
+                    Icons.monetization_on_rounded,
+                    color: Colors.amber,
+                    size: 16,
+                  ),
                   const SizedBox(width: 4),
-                  Text('${student.coins}',
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    '${student.coins}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ],
               ),
             ),
@@ -381,15 +388,16 @@ class _DesktopRow extends StatelessWidget {
                     'coins': student.coins,
                   }),
                   icon: const Icon(Icons.trending_up_rounded, size: 14),
-                  label: const Text('Tiến độ',
-                      style: TextStyle(fontSize: 12)),
+                  label: const Text('Tiến độ', style: TextStyle(fontSize: 12)),
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF2563EB),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
@@ -442,22 +450,33 @@ class _MobileCards extends StatelessWidget {
             ),
             child: Row(
               children: [
-                _Avatar(name: s.name, color: const Color(0xFF2563EB), radius: 22),
+                _Avatar(
+                  name: s.name,
+                  color: const Color(0xFF2563EB),
+                  radius: 22,
+                ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(s.name,
-                          style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF1E293B))),
+                      Text(
+                        s.name,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1E293B),
+                        ),
+                      ),
                       const SizedBox(height: 2),
-                      Text(s.email,
-                          style: const TextStyle(
-                              fontSize: 12, color: Color(0xFF64748B)),
-                          overflow: TextOverflow.ellipsis),
+                      Text(
+                        s.email,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
                 ),
@@ -467,23 +486,37 @@ class _MobileCards extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.monetization_on_rounded,
-                            color: Colors.amber, size: 14),
+                        const Icon(
+                          Icons.monetization_on_rounded,
+                          color: Colors.amber,
+                          size: 14,
+                        ),
                         const SizedBox(width: 3),
-                        Text('${s.coins}',
-                            style: const TextStyle(
-                                fontSize: 13, fontWeight: FontWeight.bold)),
+                        Text(
+                          '${s.coins}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 4),
                     const Row(
                       children: [
-                        Text('Tiến độ',
-                            style: TextStyle(
-                                fontSize: 12, color: Color(0xFF2563EB),
-                                fontWeight: FontWeight.bold)),
-                        Icon(Icons.chevron_right_rounded,
-                            color: Color(0xFF2563EB), size: 16),
+                        Text(
+                          'Tiến độ',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF2563EB),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          color: Color(0xFF2563EB),
+                          size: 16,
+                        ),
                       ],
                     ),
                   ],
@@ -531,8 +564,7 @@ class _ProgressView extends StatelessWidget {
         if (state.errorMessage != null && chapters.isEmpty)
           ErrorView(
             message: state.errorMessage!,
-            onRetry: () =>
-                state.loadAdminUserProgress(student['id'] as String),
+            onRetry: () => state.loadAdminUserProgress(student['id'] as String),
           )
         else if (chapters.isEmpty)
           _emptyState('Học sinh chưa có tiến độ học tập nào.')
@@ -540,33 +572,42 @@ class _ProgressView extends StatelessWidget {
           Text(
             '${chapters.length} chương học',
             style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF64748B),
-                fontWeight: FontWeight.w600),
+              fontSize: 13,
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 14),
-          ...chapters.map((chapter) =>
-              _ChapterCard(chapter: chapter, onTap: () => onChapterTap(chapter))),
+          ...chapters.map(
+            (chapter) => _ChapterCard(
+              chapter: chapter,
+              onTap: () => onChapterTap(chapter),
+            ),
+          ),
         ],
       ],
     );
   }
 
   Widget _emptyState(String msg) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 48),
-        child: Center(
-          child: Column(
-            children: [
-              Icon(Icons.assignment_late_outlined,
-                  size: 52, color: Colors.grey[300]),
-              const SizedBox(height: 12),
-              Text(msg,
-                  style: const TextStyle(
-                      fontSize: 14, color: Color(0xFF64748B))),
-            ],
+    padding: const EdgeInsets.symmetric(vertical: 48),
+    child: Center(
+      child: Column(
+        children: [
+          Icon(
+            Icons.assignment_late_outlined,
+            size: 52,
+            color: Colors.grey[300],
           ),
-        ),
-      );
+          const SizedBox(height: 12),
+          Text(
+            msg,
+            style: const TextStyle(fontSize: 14, color: Color(0xFF64748B)),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _StudentBanner extends StatelessWidget {
@@ -590,8 +631,11 @@ class _StudentBanner extends StatelessWidget {
         children: [
           IconButton(
             onPressed: onBack,
-            icon: const Icon(Icons.arrow_back_rounded,
-                color: Colors.white, size: 20),
+            icon: const Icon(
+              Icons.arrow_back_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
             style: IconButton.styleFrom(
               backgroundColor: Colors.white.withValues(alpha: 0.15),
               padding: const EdgeInsets.all(6),
@@ -599,10 +643,11 @@ class _StudentBanner extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           _Avatar(
-              name: student['name'] as String? ?? 'S',
-              color: Colors.white,
-              textColor: const Color(0xFF2563EB),
-              radius: 24),
+            name: student['name'] as String? ?? 'S',
+            color: Colors.white,
+            textColor: const Color(0xFF2563EB),
+            radius: 24,
+          ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -611,36 +656,41 @@ class _StudentBanner extends StatelessWidget {
                 Text(
                   student['name'] as String? ?? '',
                   style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white),
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
                 Text(
                   student['email'] as String? ?? '',
-                  style:
-                      const TextStyle(fontSize: 13, color: Colors.white70),
+                  style: const TextStyle(fontSize: 13, color: Colors.white70),
                 ),
               ],
             ),
           ),
           if (student['coins'] != null)
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.monetization_on_rounded,
-                      color: Colors.amber, size: 16),
+                  const Icon(
+                    Icons.monetization_on_rounded,
+                    color: Colors.amber,
+                    size: 16,
+                  ),
                   const SizedBox(width: 4),
-                  Text('${student['coins']}',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          fontSize: 13)),
+                  Text(
+                    '${student['coins']}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontSize: 13,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -689,8 +739,11 @@ class _ChapterCard extends StatelessWidget {
                   color: const Color(0xFFEFF6FF),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.auto_stories_rounded,
-                    color: Color(0xFF2563EB), size: 20),
+                child: const Icon(
+                  Icons.auto_stories_rounded,
+                  color: Color(0xFF2563EB),
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -700,15 +753,18 @@ class _ChapterCard extends StatelessWidget {
                     Text(
                       chapter['title'] as String? ?? 'N/A',
                       style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1E293B)),
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1E293B),
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '$completed/$total bài đã hoàn thành',
                       style: const TextStyle(
-                          fontSize: 12, color: Color(0xFF64748B)),
+                        fontSize: 12,
+                        color: Color(0xFF64748B),
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Row(
@@ -719,13 +775,12 @@ class _ChapterCard extends StatelessWidget {
                             child: LinearProgressIndicator(
                               value: rate,
                               backgroundColor: const Color(0xFFF1F5F9),
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(
+                              valueColor: AlwaysStoppedAnimation<Color>(
                                 rate >= 1.0
                                     ? const Color(0xFF10B981)
                                     : rate > 0
-                                        ? const Color(0xFF2563EB)
-                                        : const Color(0xFFCBD5E1),
+                                    ? const Color(0xFF2563EB)
+                                    : const Color(0xFFCBD5E1),
                               ),
                               minHeight: 5,
                             ),
@@ -748,8 +803,7 @@ class _ChapterCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              const Icon(Icons.chevron_right_rounded,
-                  color: Color(0xFF94A3B8)),
+              const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8)),
             ],
           ),
         ),
@@ -784,42 +838,46 @@ class _LessonsView extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       children: [
         // Back banner
-        _ChapterBanner(
-            chapter: chapter, student: student, onBack: onBack),
+        _ChapterBanner(chapter: chapter, student: student, onBack: onBack),
         const SizedBox(height: 20),
 
         if (lessons.isEmpty)
           _emptyState('Chương này không có bài học nào.')
         else
-          ...lessons.map((lesson) => _LessonCard(
-                lesson: lesson,
-                formatDate: formatDate,
-                onDeleteAttempt: onDeleteAttempt,
-              )),
+          ...lessons.map(
+            (lesson) => _LessonCard(
+              lesson: lesson,
+              formatDate: formatDate,
+              onDeleteAttempt: onDeleteAttempt,
+            ),
+          ),
       ],
     );
   }
 
   Widget _emptyState(String msg) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 48),
-        child: Center(
-          child: Column(
-            children: [
-              Icon(Icons.library_books_outlined,
-                  size: 52, color: Colors.grey[300]),
-              const SizedBox(height: 12),
-              Text(msg,
-                  style: const TextStyle(
-                      fontSize: 14, color: Color(0xFF64748B))),
-            ],
+    padding: const EdgeInsets.symmetric(vertical: 48),
+    child: Center(
+      child: Column(
+        children: [
+          Icon(Icons.library_books_outlined, size: 52, color: Colors.grey[300]),
+          const SizedBox(height: 12),
+          Text(
+            msg,
+            style: const TextStyle(fontSize: 14, color: Color(0xFF64748B)),
           ),
-        ),
-      );
+        ],
+      ),
+    ),
+  );
 }
 
 class _ChapterBanner extends StatelessWidget {
-  const _ChapterBanner(
-      {required this.chapter, required this.student, required this.onBack});
+  const _ChapterBanner({
+    required this.chapter,
+    required this.student,
+    required this.onBack,
+  });
   final Map<String, dynamic> chapter;
   final Map<String, dynamic> student;
   final VoidCallback onBack;
@@ -840,8 +898,11 @@ class _ChapterBanner extends StatelessWidget {
         children: [
           IconButton(
             onPressed: onBack,
-            icon: const Icon(Icons.arrow_back_rounded,
-                color: Colors.white, size: 20),
+            icon: const Icon(
+              Icons.arrow_back_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
             style: IconButton.styleFrom(
               backgroundColor: Colors.white.withValues(alpha: 0.15),
               padding: const EdgeInsets.all(6),
@@ -854,8 +915,11 @@ class _ChapterBanner extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.auto_stories_rounded,
-                color: Colors.white, size: 20),
+            child: const Icon(
+              Icons.auto_stories_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -865,14 +929,14 @@ class _ChapterBanner extends StatelessWidget {
                 Text(
                   chapter['title'] as String? ?? '',
                   style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white),
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
                 Text(
                   'Học sinh: ${student['name']}',
-                  style:
-                      const TextStyle(fontSize: 13, color: Colors.white70),
+                  style: const TextStyle(fontSize: 13, color: Colors.white70),
                 ),
               ],
             ),
@@ -929,8 +993,11 @@ class _LessonCard extends StatelessWidget {
                       color: const Color(0xFFFEF3C7),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.menu_book_rounded,
-                        color: Color(0xFFD97706), size: 18),
+                    child: const Icon(
+                      Icons.menu_book_rounded,
+                      color: Color(0xFFD97706),
+                      size: 18,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -939,9 +1006,10 @@ class _LessonCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1E293B)),
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1E293B),
+                      ),
                     ),
                   ),
                   _StatusBadge(status: status),
@@ -954,17 +1022,24 @@ class _LessonCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
-                  const Icon(Icons.read_more_rounded,
-                      size: 14, color: Color(0xFF64748B)),
+                  const Icon(
+                    Icons.read_more_rounded,
+                    size: 14,
+                    color: Color(0xFF64748B),
+                  ),
                   const SizedBox(width: 6),
-                  const Text('Đọc bài: ',
-                      style:
-                          TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-                  Text('$progress%',
-                      style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF334155))),
+                  const Text(
+                    'Đọc bài: ',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  ),
+                  Text(
+                    '$progress%',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF334155),
+                    ),
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: ClipRRect(
@@ -973,7 +1048,8 @@ class _LessonCard extends StatelessWidget {
                         value: progress / 100,
                         backgroundColor: const Color(0xFFF1F5F9),
                         valueColor: const AlwaysStoppedAnimation<Color>(
-                            Color(0xFF2563EB)),
+                          Color(0xFF2563EB),
+                        ),
                         minHeight: 4,
                       ),
                     ),
@@ -988,14 +1064,20 @@ class _LessonCard extends StatelessWidget {
                 padding: EdgeInsets.fromLTRB(16, 14, 16, 8),
                 child: Row(
                   children: [
-                    Icon(Icons.quiz_rounded,
-                        size: 14, color: Color(0xFF64748B)),
+                    Icon(
+                      Icons.quiz_rounded,
+                      size: 14,
+                      color: Color(0xFF64748B),
+                    ),
                     SizedBox(width: 6),
-                    Text('Lịch sử làm Quiz',
-                        style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF475569))),
+                    Text(
+                      'Lịch sử làm Quiz',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1003,23 +1085,27 @@ class _LessonCard extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 child: Column(
                   children: attempts
-                      .map((a) => _AttemptTile(
-                            attempt: a,
-                            formatDate: formatDate,
-                            onDelete: () =>
-                                onDeleteAttempt(a['id'] as String),
-                          ))
+                      .map(
+                        (a) => _AttemptTile(
+                          attempt: a,
+                          formatDate: formatDate,
+                          onDelete: () => onDeleteAttempt(a['id'] as String),
+                        ),
+                      )
                       .toList(),
                 ),
               ),
             ] else
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                child: Text('Chưa làm Quiz.',
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[400],
-                        fontStyle: FontStyle.italic)),
+                child: Text(
+                  'Chưa làm Quiz.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[400],
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
               ),
           ],
         ),
@@ -1050,13 +1136,13 @@ class _AttemptTile extends StatelessWidget {
     final Color scoreColor = score >= 8
         ? const Color(0xFF10B981)
         : score >= 5
-            ? const Color(0xFFF59E0B)
-            : const Color(0xFFEF4444);
+        ? const Color(0xFFF59E0B)
+        : const Color(0xFFEF4444);
     final Color scoreBg = score >= 8
         ? const Color(0xFFD1FAE5)
         : score >= 5
-            ? const Color(0xFFFEF3C7)
-            : const Color(0xFFFEE2E2);
+        ? const Color(0xFFFEF3C7)
+        : const Color(0xFFFEE2E2);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -1069,8 +1155,7 @@ class _AttemptTile extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
               color: scoreBg,
               borderRadius: BorderRadius.circular(10),
@@ -1078,9 +1163,10 @@ class _AttemptTile extends StatelessWidget {
             child: Text(
               score.toStringAsFixed(1),
               style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: scoreColor),
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: scoreColor,
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -1088,20 +1174,30 @@ class _AttemptTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('$correct/$total câu đúng',
-                    style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF334155))),
-                Text('${duration}s • ${formatDate(date)}',
-                    style: const TextStyle(
-                        fontSize: 11, color: Color(0xFF94A3B8))),
+                Text(
+                  '$correct/$total câu đúng',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF334155),
+                  ),
+                ),
+                Text(
+                  '${duration}s • ${formatDate(date)}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF94A3B8),
+                  ),
+                ),
               ],
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.delete_rounded,
-                color: Color(0xFFEF4444), size: 18),
+            icon: const Icon(
+              Icons.delete_rounded,
+              color: Color(0xFFEF4444),
+              size: 18,
+            ),
             tooltip: 'Xóa lượt làm',
             onPressed: onDelete,
             style: IconButton.styleFrom(
@@ -1150,8 +1246,11 @@ class _Avatar extends StatelessWidget {
 }
 
 class _StatChip extends StatelessWidget {
-  const _StatChip(
-      {required this.icon, required this.label, required this.color});
+  const _StatChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
 
   final IconData icon;
   final String label;
@@ -1171,11 +1270,14 @@ class _StatChip extends StatelessWidget {
         children: [
           Icon(icon, size: 15, color: color),
           const SizedBox(width: 6),
-          Text(label,
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: color)),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
         ],
       ),
     );
@@ -1190,29 +1292,28 @@ class _StatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final (Color bg, Color fg, String label) = switch (status) {
       'COMPLETED' => (
-          const Color(0xFFD1FAE5),
-          const Color(0xFF065F46),
-          'Hoàn thành',
-        ),
+        const Color(0xFFD1FAE5),
+        const Color(0xFF065F46),
+        'Hoàn thành',
+      ),
       'IN_PROGRESS' => (
-          const Color(0xFFEFF6FF),
-          const Color(0xFF1D4ED8),
-          'Đang học',
-        ),
-      _ => (
-          const Color(0xFFF1F5F9),
-          const Color(0xFF64748B),
-          'Chưa học',
-        ),
+        const Color(0xFFEFF6FF),
+        const Color(0xFF1D4ED8),
+        'Đang học',
+      ),
+      _ => (const Color(0xFFF1F5F9), const Color(0xFF64748B), 'Chưa học'),
     };
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-          color: bg, borderRadius: BorderRadius.circular(12)),
-      child: Text(label,
-          style: TextStyle(
-              fontSize: 11, fontWeight: FontWeight.bold, color: fg)),
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: fg),
+      ),
     );
   }
 }

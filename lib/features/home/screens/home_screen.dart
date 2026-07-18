@@ -11,8 +11,36 @@ import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../progress/application/app_state.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  bool _isRefreshing = false;
+
+  Future<void> _refresh({bool showFeedback = false}) async {
+    if (_isRefreshing) {
+      return;
+    }
+    setState(() => _isRefreshing = true);
+    final state = context.read<AppState>();
+    await state.loadHomeData();
+    if (!mounted) {
+      return;
+    }
+    setState(() => _isRefreshing = false);
+    if (showFeedback) {
+      final message = state.errorMessage == null
+          ? 'Đã làm mới dữ liệu học tập.'
+          : state.errorMessage!;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,27 +58,35 @@ class HomeScreen extends StatelessWidget {
           : state.chapters.isEmpty
           ? const EmptyView(message: 'Chưa có chương học nào.')
           : RefreshIndicator(
-              onRefresh: () => context.read<AppState>().loadHomeData(),
+              onRefresh: _refresh,
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final horizontalPadding = constraints.maxWidth > 720
                       ? 32.0
                       : 20.0;
+                  final bottomPadding =
+                      MediaQuery.viewPaddingOf(context).bottom +
+                      XScaffold.bottomNavigationHeight +
+                      24;
                   return ListView(
+                    key: const PageStorageKey<String>('home-scroll'),
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: EdgeInsets.fromLTRB(
                       horizontalPadding,
                       0,
                       horizontalPadding,
-                      20,
+                      bottomPadding,
                     ),
                     children: [
                       _HomeHero(userName: user?.name, state: state),
                       const SizedBox(height: 18),
+                      _ContinueLearningCard(state: state),
+                      const SizedBox(height: 18),
                       _SectionHeader(
                         title: 'Chương học',
                         actionLabel: 'Làm mới',
-                        onAction: () => context.read<AppState>().loadHomeData(),
+                        isLoading: _isRefreshing || state.isBusy,
+                        onAction: () => _refresh(showFeedback: true),
                       ),
                       const SizedBox(height: 10),
                       _ChapterGrid(chapters: state.chapters),
@@ -264,16 +300,124 @@ class _HeroMetric extends StatelessWidget {
   }
 }
 
+class _ContinueLearningCard extends StatelessWidget {
+  const _ContinueLearningCard({required this.state});
+
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final lessons = state.lessonsById.values.toList()
+      ..sort((left, right) => left.orderIndex.compareTo(right.orderIndex));
+    final nextLesson = lessons
+        .where((lesson) => !state.completedLessons.contains(lesson.id))
+        .firstOrNull;
+    final fallbackLesson = lessons.firstOrNull;
+    final targetLesson = nextLesson ?? fallbackLesson;
+
+    if (targetLesson == null) {
+      final firstChapter = state.chapters.firstOrNull;
+      if (firstChapter == null || state.completedLessons.isNotEmpty) {
+        return const SizedBox.shrink();
+      }
+      return AppCard(
+        onTap: () => context.push('/chapters/${firstChapter.id}'),
+        padding: const EdgeInsets.all(18),
+        child: Row(
+          children: [
+            const Icon(Icons.flag_rounded, color: AppColors.primary, size: 32),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Bắt đầu bài đầu tiên',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    firstChapter.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded),
+          ],
+        ),
+      );
+    }
+
+    final completed = state.completedLessons.contains(targetLesson.id);
+    final progress = completed ? 1.0 : 0.0;
+    return AppCard(
+      onTap: () => context.push('/lessons/${targetLesson.id}'),
+      padding: const EdgeInsets.all(18),
+      child: Semantics(
+        button: true,
+        label:
+            'Tiếp tục học ${targetLesson.title}, tiến độ ${(progress * 100).round()} phần trăm',
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: .10),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(
+                Icons.play_circle_fill_rounded,
+                color: AppColors.primary,
+                size: 30,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    completed ? 'Ôn lại bài học' : 'Tiếp tục học',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    targetLesson.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 10),
+                  LinearProgressIndicator(value: progress),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            FilledButton(
+              onPressed: () => context.push('/lessons/${targetLesson.id}'),
+              child: const Text('Học tiếp'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({
     required this.title,
     required this.actionLabel,
     required this.onAction,
+    this.isLoading = false,
   });
 
   final String title;
   final String actionLabel;
   final VoidCallback onAction;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -282,7 +426,17 @@ class _SectionHeader extends StatelessWidget {
         Expanded(
           child: Text(title, style: Theme.of(context).textTheme.titleMedium),
         ),
-        TextButton(onPressed: onAction, child: Text(actionLabel)),
+        TextButton.icon(
+          onPressed: isLoading ? null : onAction,
+          icon: isLoading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.refresh_rounded),
+          label: Text(isLoading ? 'Đang làm mới' : actionLabel),
+        ),
       ],
     );
   }
@@ -317,79 +471,86 @@ class _ChapterGrid extends StatelessWidget {
             final chapter = chapters[index];
             final progress = state.chapterProgress(chapter.id);
             final color = Color(chapter.color);
-            return AppCard(
-              onTap: () => context.go('/chapters/${chapter.id}'),
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: .10),
-                      borderRadius: BorderRadius.circular(16),
+            return Semantics(
+              button: true,
+              label:
+                  '${chapter.title}, ${chapter.lessonCount} bài học, tiến độ ${(progress * 100).round()} phần trăm',
+              child: AppCard(
+                onTap: () => context.push('/chapters/${chapter.id}'),
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: .10),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Icon(
+                        Icons.auto_stories_rounded,
+                        color: color,
+                        size: 28,
+                      ),
                     ),
-                    child: Icon(
-                      Icons.auto_stories_rounded,
-                      color: color,
-                      size: 28,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                chapter.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                            ),
-                            const Icon(Icons.chevron_right_rounded),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          chapter.lessonCount > 0
-                              ? '${chapter.lessonCount} bài học'
-                              : chapter.description,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: LinearProgressIndicator(
-                                value: progress,
-                                minHeight: 7,
-                                borderRadius: BorderRadius.circular(999),
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  color,
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  chapter.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium,
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              '${(progress * 100).round()}%',
-                              style: TextStyle(
-                                color: color,
-                                fontWeight: FontWeight.w900,
+                              const Icon(Icons.chevron_right_rounded),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            chapter.lessonCount > 0
+                                ? '${chapter.lessonCount} bài học'
+                                : chapter.description,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: LinearProgressIndicator(
+                                  value: progress,
+                                  minHeight: 7,
+                                  borderRadius: BorderRadius.circular(999),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    color,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                              const SizedBox(width: 10),
+                              Text(
+                                '${(progress * 100).round()}%',
+                                style: TextStyle(
+                                  color: color,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           },

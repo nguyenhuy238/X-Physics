@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class XUser {
   const XUser({
     required this.id,
@@ -51,6 +53,28 @@ DateTime? _jsonDate(
 ]) {
   final value = _jsonString(json, camelKey, snakeKey);
   return value.isEmpty ? null : DateTime.tryParse(value);
+}
+
+List<String> _jsonStringList(
+  Map<dynamic, dynamic> json,
+  String camelKey, [
+  String? snakeKey,
+]) {
+  final value = json[camelKey] ?? (snakeKey == null ? null : json[snakeKey]);
+  if (value is List) {
+    return value.map((item) => item.toString()).toList();
+  }
+  if (value is String) {
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is List) {
+        return decoded.map((item) => item.toString()).toList();
+      }
+    } on FormatException {
+      throw FormatException('Invalid JSON list for $camelKey');
+    }
+  }
+  throw FormatException('Missing JSON list for $camelKey');
 }
 
 class XBadge {
@@ -303,9 +327,10 @@ class FormulaSimulationConfig {
     return FormulaSimulationConfig(
       title: json['title'] as String? ?? '',
       formula: json['formula'] as String? ?? '',
-      variables: ((json['variables'] ?? config['variables']) as List? ?? const [])
-          .map((v) => FormulaVariable.fromJson(v as Map))
-          .toList(),
+      variables:
+          ((json['variables'] ?? config['variables']) as List? ?? const [])
+              .map((v) => FormulaVariable.fromJson(v as Map))
+              .toList(),
       result: FormulaResult.fromJson(result),
     );
   }
@@ -357,8 +382,10 @@ class Question {
   factory Question.fromJson(Map<dynamic, dynamic> json) => Question(
     id: json['id'] as String,
     lessonId: (json['lessonId'] ?? json['lesson_id']) as String? ?? '',
-    question: (json['question'] ?? json['questionText']) as String,
-    options: List<String>.from(json['options'] as List),
+    question: _jsonString(json, 'question').isNotEmpty
+        ? _jsonString(json, 'question')
+        : _jsonString(json, 'questionText', 'question_text'),
+    options: _jsonStringList(json, 'options', 'options_json'),
     correctOption: (json['correctOption'] ?? json['correct_option'] as num?)
         ?.toInt(),
     explanation: json['explanation'] as String? ?? '',

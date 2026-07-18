@@ -59,101 +59,125 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
       child: state.isBusy && state.adminLessons.isEmpty
           ? const LoadingView(message: 'Đang tải bài học...')
           : state.errorMessage != null && state.adminLessons.isEmpty
-              ? ErrorView(
-                  message: state.errorMessage!,
-                  onRetry: () => Provider.of<AppState>(context, listen: false).loadAdminLessons(),
-                )
-              : LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isDesktop = constraints.maxWidth > 760;
-                    return ListView(
-                      padding: const EdgeInsets.all(24),
+          ? ErrorView(
+              message: state.errorMessage!,
+              onRetry: () => Provider.of<AppState>(
+                context,
+                listen: false,
+              ).loadAdminLessons(),
+            )
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final isDesktop = constraints.maxWidth > 760;
+                return ListView(
+                  padding: const EdgeInsets.all(24),
+                  children: [
+                    // Subtitle, Dropdown Filter & "+ Thêm bài học" row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Subtitle, Dropdown Filter & "+ Thêm bài học" row
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                                  ),
-                                  child: DropdownButtonHideUnderline(
-                                    child: DropdownButton<String?>(
-                                      value: _selectedChapterId,
-                                      icon: const Icon(Icons.arrow_drop_down_rounded, color: Color(0xFF64748B)),
-                                      items: [
-                                        const DropdownMenuItem<String?>(
-                                          value: null,
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.filter_list_rounded, color: Color(0xFF64748B), size: 16),
-                                              SizedBox(width: 8),
-                                              Text('Tất cả chương'),
-                                            ],
-                                          ),
-                                        ),
-                                        ...state.chapters.map((chapter) => DropdownMenuItem<String?>(
-                                          value: chapter.id,
-                                          child: Text(chapter.title),
-                                        )),
-                                      ],
-                                      onChanged: (value) {
-                                        setState(() {
-                                          _selectedChapterId = value;
-                                        });
-                                      },
-                                    ),
-                                  ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color(0xFFE2E8F0),
                                 ),
-                                const SizedBox(width: 16),
-                                Text(
-                                  '${filteredLessons.length} bài học',
-                                  style: const TextStyle(
-                                    fontSize: 14,
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String?>(
+                                  value: _selectedChapterId,
+                                  icon: const Icon(
+                                    Icons.arrow_drop_down_rounded,
                                     color: Color(0xFF64748B),
-                                    fontWeight: FontWeight.bold,
                                   ),
+                                  items: [
+                                    const DropdownMenuItem<String?>(
+                                      value: null,
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.filter_list_rounded,
+                                            color: Color(0xFF64748B),
+                                            size: 16,
+                                          ),
+                                          SizedBox(width: 8),
+                                          Text('Tất cả chương'),
+                                        ],
+                                      ),
+                                    ),
+                                    ...state.chapters.map(
+                                      (chapter) => DropdownMenuItem<String?>(
+                                        value: chapter.id,
+                                        child: Text(chapter.title),
+                                      ),
+                                    ),
+                                  ],
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _selectedChapterId = value;
+                                    });
+                                  },
                                 ),
-                              ],
+                              ),
                             ),
-                            FilledButton.icon(
-                              onPressed: state.chapters.isEmpty
-                                  ? null
-                                  : () => _showLessonDialog(context),
-                              icon: const Icon(Icons.add_rounded, size: 18),
-                              label: const Text('Thêm bài học'),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: const Color(0xFF2563EB),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 10,
-                                ),
+                            const SizedBox(width: 16),
+                            Text(
+                              '${filteredLessons.length} bài học',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 18),
-
-                        // List content
-                        isDesktop
-                            ? _buildDesktopTable(filteredLessons, state, constraints.maxWidth)
-                            : _buildMobileCards(filteredLessons, state),
+                        FilledButton.icon(
+                          onPressed: state.chapters.isEmpty
+                              ? null
+                              : () => _showLessonDialog(context),
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          label: const Text('Thêm bài học'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF2563EB),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                          ),
+                        ),
                       ],
-                    );
-                  },
-                ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // List content
+                    isDesktop
+                        ? _buildDesktopTable(
+                            filteredLessons,
+                            state,
+                            constraints.maxWidth,
+                          )
+                        : _buildMobileCards(filteredLessons, state),
+                  ],
+                );
+              },
+            ),
     );
   }
 
-  Widget _buildDesktopTable(List<Lesson> lessons, AppState state, double maxWidth) {
+  Widget _buildDesktopTable(
+    List<Lesson> lessons,
+    AppState state,
+    double maxWidth,
+  ) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -169,15 +193,13 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: ConstrainedBox(
-          constraints: BoxConstraints(
-            minWidth: maxWidth - 48,
-          ),
+          constraints: BoxConstraints(minWidth: maxWidth - 48),
           child: Table(
             columnWidths: const {
               0: FlexColumnWidth(2.5), // Tên bài học
-              1: FlexColumnWidth(2),   // Chương
+              1: FlexColumnWidth(2), // Chương
               2: FlexColumnWidth(1.5), // Số thứ tự
-              3: FixedColumnWidth(80),  // Thời gian
+              3: FixedColumnWidth(80), // Thời gian
               4: FixedColumnWidth(130), // Trạng thái
               5: FixedColumnWidth(130), // Ngày tạo
               6: FixedColumnWidth(180), // Thao tác
@@ -188,10 +210,7 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
               TableRow(
                 decoration: const BoxDecoration(
                   border: Border(
-                    bottom: BorderSide(
-                      color: Color(0xFFF1F5F9),
-                      width: 1.5,
-                    ),
+                    bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1.5),
                   ),
                 ),
                 children: [
@@ -210,10 +229,7 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                 TableRow(
                   decoration: const BoxDecoration(
                     border: Border(
-                      bottom: BorderSide(
-                        color: Color(0xFFF1F5F9),
-                        width: 1,
-                      ),
+                      bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1),
                     ),
                   ),
                   children: [
@@ -224,7 +240,9 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                         vertical: 16,
                       ),
                       child: InkWell(
-                        onTap: () => context.push('/admin/questions?lessonId=${lesson.id}'),
+                        onTap: () => context.push(
+                          '/admin/questions?lessonId=${lesson.id}',
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -246,7 +264,10 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                               'ID: ${lesson.id}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF64748B),
+                              ),
                             ),
                           ],
                         ),
@@ -272,16 +293,24 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
-                            onPressed: () => _updateLessonOrder(context, lesson, true),
-                            icon: const Icon(Icons.keyboard_arrow_up_rounded, size: 18),
+                            onPressed: () =>
+                                _updateLessonOrder(context, lesson, true),
+                            icon: const Icon(
+                              Icons.keyboard_arrow_up_rounded,
+                              size: 18,
+                            ),
                           ),
                           Text(
                             '${lesson.orderIndex}',
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           IconButton(
-                            onPressed: () => _updateLessonOrder(context, lesson, false),
-                            icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+                            onPressed: () =>
+                                _updateLessonOrder(context, lesson, false),
+                            icon: const Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              size: 18,
+                            ),
                           ),
                         ],
                       ),
@@ -340,7 +369,8 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                         // View details button (Eye icon)
                         IconButton(
                           tooltip: 'Xem học sinh',
-                          onPressed: () => context.push('/lessons/${lesson.id}'),
+                          onPressed: () =>
+                              context.push('/lessons/${lesson.id}'),
                           icon: const Icon(Icons.visibility_rounded),
                           iconSize: 15,
                           color: const Color(0xFF64748B),
@@ -355,7 +385,9 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                         // Quiz questions edit button
                         IconButton(
                           tooltip: 'Câu hỏi Quiz',
-                          onPressed: () => context.push('/admin/questions?lessonId=${lesson.id}'),
+                          onPressed: () => context.push(
+                            '/admin/questions?lessonId=${lesson.id}',
+                          ),
                           icon: const Icon(Icons.quiz_rounded),
                           iconSize: 15,
                           color: const Color(0xFFF59E0B),
@@ -370,7 +402,8 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                         // View content button
                         IconButton(
                           tooltip: 'Xem nội dung',
-                          onPressed: () => context.push('/admin/lessons/${lesson.id}'),
+                          onPressed: () =>
+                              context.push('/admin/lessons/${lesson.id}'),
                           icon: const Icon(Icons.description_rounded),
                           iconSize: 15,
                           color: const Color(0xFF2563EB),
@@ -478,7 +511,10 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: lesson.isPublished
                               ? const Color(0xFFD1FAE5)
@@ -531,8 +567,12 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                             tooltip: 'Lên',
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
-                            onPressed: () => _updateLessonOrder(context, lesson, true),
-                            icon: const Icon(Icons.keyboard_arrow_up_rounded, size: 20),
+                            onPressed: () =>
+                                _updateLessonOrder(context, lesson, true),
+                            icon: const Icon(
+                              Icons.keyboard_arrow_up_rounded,
+                              size: 20,
+                            ),
                           ),
                           const SizedBox(width: 4),
                           Text(
@@ -544,8 +584,12 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                             tooltip: 'Xuống',
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
-                            onPressed: () => _updateLessonOrder(context, lesson, false),
-                            icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 20),
+                            onPressed: () =>
+                                _updateLessonOrder(context, lesson, false),
+                            icon: const Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              size: 20,
+                            ),
                           ),
                         ],
                       ),
@@ -553,8 +597,13 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                         children: [
                           IconButton(
                             tooltip: 'Xem nội dung',
-                            onPressed: () => context.push('/admin/lessons/${lesson.id}'),
-                            icon: const Icon(Icons.description_rounded, size: 16, color: Color(0xFF2563EB)),
+                            onPressed: () =>
+                                context.push('/admin/lessons/${lesson.id}'),
+                            icon: const Icon(
+                              Icons.description_rounded,
+                              size: 16,
+                              color: Color(0xFF2563EB),
+                            ),
                             constraints: const BoxConstraints(),
                             style: IconButton.styleFrom(
                               backgroundColor: const Color(0xFFEFF6FF),
@@ -565,7 +614,11 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                           IconButton(
                             tooltip: 'Xóa',
                             onPressed: () => _confirmDelete(context, lesson.id),
-                            icon: const Icon(Icons.delete_rounded, size: 16, color: Color(0xFFEF4444)),
+                            icon: const Icon(
+                              Icons.delete_rounded,
+                              size: 16,
+                              color: Color(0xFFEF4444),
+                            ),
                             constraints: const BoxConstraints(),
                             style: IconButton.styleFrom(
                               backgroundColor: const Color(0xFFFEF2F2),
@@ -574,15 +627,23 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                           ),
                           const SizedBox(width: 8),
                           FilledButton.icon(
-                            onPressed: () => context.push('/admin/questions?lessonId=${lesson.id}'),
+                            onPressed: () => context.push(
+                              '/admin/questions?lessonId=${lesson.id}',
+                            ),
                             icon: const Icon(Icons.quiz_rounded, size: 12),
-                            label: const Text('Quiz', style: TextStyle(fontSize: 12)),
+                            label: const Text(
+                              'Quiz',
+                              style: TextStyle(fontSize: 12),
+                            ),
                             style: FilledButton.styleFrom(
                               backgroundColor: const Color(0xFFF59E0B),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
                               minimumSize: Size.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
@@ -600,7 +661,10 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
     );
   }
 
-  Widget _buildHeaderCell(String label, {TextAlign alignment = TextAlign.center}) {
+  Widget _buildHeaderCell(
+    String label, {
+    TextAlign alignment = TextAlign.center,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
       child: Text(
@@ -634,7 +698,11 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
     }
   }
 
-  Future<void> _updateLessonOrder(BuildContext context, Lesson lesson, bool isUp) async {
+  Future<void> _updateLessonOrder(
+    BuildContext context,
+    Lesson lesson,
+    bool isUp,
+  ) async {
     final state = Provider.of<AppState>(context, listen: false);
     final newOrder = lesson.orderIndex + (isUp ? -1 : 1);
     if (newOrder < 0) return;
@@ -656,12 +724,17 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
   }
 
   Future<void> _confirmDelete(BuildContext context, String id) async {
-    final ok = await showDialog<bool>(
+    final ok =
+        await showDialog<bool>(
           context: context,
           builder: (_) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
             title: const Text('Xóa bài học?'),
-            content: const Text('Bài học và toàn bộ tài nguyên liên quan sẽ bị xóa hoặc ẩn.'),
+            content: const Text(
+              'Bài học và toàn bộ tài nguyên liên quan sẽ bị xóa hoặc ẩn.',
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
@@ -692,18 +765,24 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
     final title = TextEditingController(text: lesson?.title ?? '');
     final content = TextEditingController(text: lesson?.content ?? '');
     final formula = TextEditingController(text: lesson?.formulaLatex ?? '');
-    final minutes = TextEditingController(text: '${lesson?.estimatedMinutes ?? 10}');
-    
-    var chapterId = lesson?.chapterId ?? _selectedChapterId ?? (state.chapters.isNotEmpty ? state.chapters.first.id : '');
-    final maxOrder = state.adminLessons.where((l) => l.chapterId == chapterId).isEmpty
+    final minutes = TextEditingController(
+      text: '${lesson?.estimatedMinutes ?? 10}',
+    );
+
+    var chapterId =
+        lesson?.chapterId ??
+        _selectedChapterId ??
+        (state.chapters.isNotEmpty ? state.chapters.first.id : '');
+    final maxOrder =
+        state.adminLessons.where((l) => l.chapterId == chapterId).isEmpty
         ? 0
         : state.adminLessons
-            .where((l) => l.chapterId == chapterId)
-            .map((l) => l.orderIndex)
-            .reduce((a, b) => a > b ? a : b);
+              .where((l) => l.chapterId == chapterId)
+              .map((l) => l.orderIndex)
+              .reduce((a, b) => a > b ? a : b);
     final defaultOrder = lesson?.orderIndex ?? (maxOrder + 1);
     final order = TextEditingController(text: '$defaultOrder');
-    
+
     var isPublished = lesson?.isPublished ?? true;
     final formKey = GlobalKey<FormState>();
     var simulationEnabled = lesson?.simulation.title.isNotEmpty ?? false;
@@ -715,8 +794,9 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
     final resultSymbol = TextEditingController(text: simulation.result.symbol);
     final resultLabel = TextEditingController(text: simulation.result.label);
     final resultUnit = TextEditingController(text: simulation.result.unit);
-    final resultExpression =
-        TextEditingController(text: simulation.result.expression);
+    final resultExpression = TextEditingController(
+      text: simulation.result.expression,
+    );
     final decimalPlaces = TextEditingController(
       text: '${simulation.result.decimalPlaces}',
     );
@@ -732,7 +812,10 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
         final max = double.tryParse(variable.max.text.trim());
         final step = double.tryParse(variable.step.text.trim());
         final defaultValue = double.tryParse(variable.defaultValue.text.trim());
-        if (min == null || max == null || step == null || defaultValue == null) {
+        if (min == null ||
+            max == null ||
+            step == null ||
+            defaultValue == null) {
           return null;
         }
         variables.add(
@@ -787,7 +870,9 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            lesson == null ? 'Thêm Bài học mới' : 'Cập nhật Bài học',
+                            lesson == null
+                                ? 'Thêm Bài học mới'
+                                : 'Cập nhật Bài học',
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w900,
@@ -834,37 +919,55 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                                 TextFormField(
                                   controller: id,
                                   enabled: lesson == null,
-                                  style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A), fontWeight: FontWeight.bold),
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Color(0xFF0F172A),
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                   decoration: InputDecoration(
                                     hintText: 'VD: force-1',
                                     filled: true,
-                                    fillColor: lesson == null ? const Color(0xFFF8FAFC) : const Color(0xFFE2E8F0),
+                                    fillColor: lesson == null
+                                        ? const Color(0xFFF8FAFC)
+                                        : const Color(0xFFE2E8F0),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
                                       borderSide: BorderSide.none,
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.5),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFF2563EB),
+                                        width: 1.5,
+                                      ),
                                     ),
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 14,
+                                    ),
                                   ),
                                   validator: (value) {
-                                     if (value == null || value.trim().isEmpty) {
-                                       return 'Mã bài học là bắt buộc';
-                                     }
-                                     final trimmed = value.trim();
-                                     if (trimmed.length < 3 || trimmed.length > 50) {
-                                       return 'Độ bài học phải từ 3 đến 50 ký tự';
-                                     }
-                                     if (!RegExp(r'^[a-z0-9\-]+$').hasMatch(trimmed)) {
-                                       return 'Chỉ dùng chữ thường (a-z), số (0-9) và dấu gạch ngang (-)';
-                                     }
-                                     if (lesson == null && state.adminLessons.any((l) => l.id == trimmed)) {
-                                       return 'Mã bài học đã tồn tại';
-                                     }
-                                     return null;
-                                   },
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Mã bài học là bắt buộc';
+                                    }
+                                    final trimmed = value.trim();
+                                    if (trimmed.length < 3 ||
+                                        trimmed.length > 50) {
+                                      return 'Độ bài học phải từ 3 đến 50 ký tự';
+                                    }
+                                    if (!RegExp(
+                                      r'^[a-z0-9\-]+$',
+                                    ).hasMatch(trimmed)) {
+                                      return 'Chỉ dùng chữ thường (a-z), số (0-9) và dấu gạch ngang (-)';
+                                    }
+                                    if (lesson == null &&
+                                        state.adminLessons.any(
+                                          (l) => l.id == trimmed,
+                                        )) {
+                                      return 'Mã bài học đã tồn tại';
+                                    }
+                                    return null;
+                                  },
                                 ),
                               ],
                             ),
@@ -885,7 +988,9 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFF8FAFC),
                                     borderRadius: BorderRadius.circular(12),
@@ -897,11 +1002,20 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                                         for (final chapter in state.chapters)
                                           DropdownMenuItem(
                                             value: chapter.id,
-                                            child: Text(chapter.title, style: const TextStyle(fontSize: 14)),
+                                            child: Text(
+                                              chapter.title,
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                              ),
+                                            ),
                                           ),
                                       ],
-                                      onChanged: widget.chapterId != null ? null : (value) =>
-                                          setDialogState(() => chapterId = value ?? chapterId),
+                                      onChanged: widget.chapterId != null
+                                          ? null
+                                          : (value) => setDialogState(
+                                              () => chapterId =
+                                                  value ?? chapterId,
+                                            ),
                                       decoration: const InputDecoration(
                                         border: InputBorder.none,
                                         contentPadding: EdgeInsets.zero,
@@ -928,7 +1042,11 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: title,
-                        style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A), fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF0F172A),
+                          fontWeight: FontWeight.bold,
+                        ),
                         decoration: InputDecoration(
                           hintText: 'Nhập tiêu đề bài học',
                           filled: true,
@@ -939,9 +1057,15 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.5),
+                            borderSide: const BorderSide(
+                              color: Color(0xFF2563EB),
+                              width: 1.5,
+                            ),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
                         ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
@@ -969,7 +1093,10 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                       TextFormField(
                         controller: content,
                         maxLines: 5,
-                        style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF0F172A),
+                        ),
                         decoration: InputDecoration(
                           hintText: 'Nhập nội dung giảng dạy của bài học...',
                           filled: true,
@@ -980,9 +1107,15 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.5),
+                            borderSide: const BorderSide(
+                              color: Color(0xFF2563EB),
+                              width: 1.5,
+                            ),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
                         ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
@@ -1009,7 +1142,11 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: formula,
-                        style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A), fontFamily: 'monospace'),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF0F172A),
+                          fontFamily: 'monospace',
+                        ),
                         decoration: InputDecoration(
                           hintText: 'VD: p = F / S',
                           filled: true,
@@ -1020,9 +1157,15 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.5),
+                            borderSide: const BorderSide(
+                              color: Color(0xFF2563EB),
+                              width: 1.5,
+                            ),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
                         ),
                         validator: (value) {
                           if (value != null && value.trim().length > 500) {
@@ -1070,7 +1213,11 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                                 TextFormField(
                                   controller: minutes,
                                   keyboardType: TextInputType.number,
-                                  style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A), fontWeight: FontWeight.bold),
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Color(0xFF0F172A),
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                   decoration: InputDecoration(
                                     filled: true,
                                     fillColor: const Color(0xFFF8FAFC),
@@ -1080,9 +1227,15 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.5),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFF2563EB),
+                                        width: 1.5,
+                                      ),
                                     ),
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 14,
+                                    ),
                                   ),
                                   validator: (value) {
                                     if (value == null || value.trim().isEmpty) {
@@ -1119,7 +1272,11 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                                 TextFormField(
                                   controller: order,
                                   keyboardType: TextInputType.number,
-                                  style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A), fontWeight: FontWeight.bold),
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Color(0xFF0F172A),
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                   decoration: InputDecoration(
                                     filled: true,
                                     fillColor: const Color(0xFFF8FAFC),
@@ -1129,9 +1286,15 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.5),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFF2563EB),
+                                        width: 1.5,
+                                      ),
                                     ),
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 14,
+                                    ),
                                   ),
                                   validator: (value) {
                                     if (value == null || value.trim().isEmpty) {
@@ -1166,27 +1329,36 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFF8FAFC),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
                                         isPublished ? 'Xuất bản' : 'Nháp',
                                         style: TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold,
-                                          color: isPublished ? const Color(0xFF065F46) : const Color(0xFF92400E),
+                                          color: isPublished
+                                              ? const Color(0xFF065F46)
+                                              : const Color(0xFF92400E),
                                         ),
                                       ),
                                       Switch(
                                         value: isPublished,
-                                        activeThumbColor: const Color(0xFF2563EB),
-                                        onChanged: (value) =>
-                                            setDialogState(() => isPublished = value),
+                                        activeThumbColor: const Color(
+                                          0xFF2563EB,
+                                        ),
+                                        onChanged: (value) => setDialogState(
+                                          () => isPublished = value,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -1209,7 +1381,10 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 14,
+                              ),
                             ),
                             child: const Text(
                               'Hủy bỏ',
@@ -1243,7 +1418,8 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                                   title: title.text.trim(),
                                   content: content.text.trim(),
                                   formulaLatex: formula.text.trim(),
-                                  estimatedMinutes: int.tryParse(minutes.text) ?? 10,
+                                  estimatedMinutes:
+                                      int.tryParse(minutes.text) ?? 10,
                                   simulation: simulationEnabled
                                       ? simulationConfig
                                       : FormulaSimulationConfig.empty(),
@@ -1258,7 +1434,10 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 14,
+                              ),
                             ),
                             child: const Text(
                               'Lưu bài học',
@@ -1278,10 +1457,10 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
     );
 
     if (result == null || !context.mounted) return;
-    await Provider.of<AppState>(context, listen: false).saveAdminLesson(
-      result,
-      isUpdate: lesson != null,
-    );
+    await Provider.of<AppState>(
+      context,
+      listen: false,
+    ).saveAdminLesson(result, isUpdate: lesson != null);
   }
 
   Widget _buildSimulationSection({
@@ -1339,10 +1518,9 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
           .map((variable) => variable.symbol.text.trim())
           .where((symbol) => symbol.isNotEmpty)
           .toSet();
-      final identifiers = RegExp(r'[A-Za-z_][A-Za-z0-9_]*')
-          .allMatches(expression)
-          .map((match) => match.group(0)!)
-          .toSet();
+      final identifiers = RegExp(
+        r'[A-Za-z_][A-Za-z0-9_]*',
+      ).allMatches(expression).map((match) => match.group(0)!).toSet();
       final unknown = identifiers.where((symbol) => !symbols.contains(symbol));
       return unknown.isEmpty
           ? null
@@ -1404,12 +1582,12 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                     controller: resultSymbol,
                     decoration: _simulationInputDecoration('Ký hiệu KQ'),
                     validator: (value) {
-                      final required =
-                          requiredWhenEnabled(value, 'Bắt buộc');
+                      final required = requiredWhenEnabled(value, 'Bắt buộc');
                       if (required != null) return required;
                       if (!enabled) return null;
-                      return RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$')
-                              .hasMatch(value!.trim())
+                      return RegExp(
+                            r'^[A-Za-z_][A-Za-z0-9_]*$',
+                          ).hasMatch(value!.trim())
                           ? null
                           : 'Symbol không hợp lệ';
                     },
@@ -1534,9 +1712,8 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                         ),
                         IconButton(
                           tooltip: 'Xóa biến',
-                          onPressed: () => setDialogState(
-                            () => variables.remove(variable),
-                          ),
+                          onPressed: () =>
+                              setDialogState(() => variables.remove(variable)),
                           icon: const Icon(Icons.delete_outline_rounded),
                         ),
                       ],
@@ -1589,16 +1766,15 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
   }
 
   InputDecoration _simulationInputDecoration(String label) => InputDecoration(
-        labelText: label,
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
-        ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      );
+    labelText: label,
+    filled: true,
+    fillColor: Colors.white,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: BorderSide.none,
+    ),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+  );
 
   String? _validateSimulationDraft({
     required bool enabled,
@@ -1636,7 +1812,8 @@ class _AdminSimulationVariableDraft {
     required this.defaultValue,
   });
 
-  factory _AdminSimulationVariableDraft.empty() => _AdminSimulationVariableDraft(
+  factory _AdminSimulationVariableDraft.empty() =>
+      _AdminSimulationVariableDraft(
         symbol: TextEditingController(),
         label: TextEditingController(),
         unit: TextEditingController(),
@@ -1646,16 +1823,17 @@ class _AdminSimulationVariableDraft {
         defaultValue: TextEditingController(text: '0'),
       );
 
-  factory _AdminSimulationVariableDraft.fromVariable(FormulaVariable variable) =>
-      _AdminSimulationVariableDraft(
-        symbol: TextEditingController(text: variable.symbol),
-        label: TextEditingController(text: variable.label),
-        unit: TextEditingController(text: variable.unit),
-        min: TextEditingController(text: '${variable.min}'),
-        max: TextEditingController(text: '${variable.max}'),
-        step: TextEditingController(text: '${variable.step}'),
-        defaultValue: TextEditingController(text: '${variable.defaultValue}'),
-      );
+  factory _AdminSimulationVariableDraft.fromVariable(
+    FormulaVariable variable,
+  ) => _AdminSimulationVariableDraft(
+    symbol: TextEditingController(text: variable.symbol),
+    label: TextEditingController(text: variable.label),
+    unit: TextEditingController(text: variable.unit),
+    min: TextEditingController(text: '${variable.min}'),
+    max: TextEditingController(text: '${variable.max}'),
+    step: TextEditingController(text: '${variable.step}'),
+    defaultValue: TextEditingController(text: '${variable.defaultValue}'),
+  );
 
   final TextEditingController symbol;
   final TextEditingController label;

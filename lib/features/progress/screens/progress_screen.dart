@@ -117,6 +117,7 @@ class _DashboardView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
+      key: const PageStorageKey<String>('progress-scroll'),
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(20),
       children: [
@@ -264,7 +265,7 @@ class _RecentAttemptsChart extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '5 quiz gan nhat',
+              '5 quiz gần nhất',
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),

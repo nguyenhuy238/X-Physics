@@ -5,10 +5,7 @@ import 'package:x_physics/shared/models/x_models.dart';
 void main() {
   group('FormulaCalculator.calculate', () {
     test('v * t (s = v x t)', () {
-      expect(
-        FormulaCalculator.calculate('v * t', {'v': 5, 't': 10}),
-        50,
-      );
+      expect(FormulaCalculator.calculate('v * t', {'v': 5, 't': 10}), 50);
     });
 
     test('s / t (v = s / t), division by zero returns 0', () {
@@ -21,23 +18,23 @@ void main() {
     });
 
     test('unknown expression returns 0 instead of throwing', () {
-      expect(
-        FormulaCalculator.calculate('A / t', {'A': 10}),
-        0,
-      );
+      expect(FormulaCalculator.calculate('A / t', {'A': 10}), 0);
     });
 
-    test('supports addition, subtraction, multiplication, division and parentheses', () {
-      expect(
-        FormulaCalculator.calculate('(a + b) / c - d * 2', {
-          'a': 10,
-          'b': 5,
-          'c': 3,
-          'd': 1,
-        }),
-        3,
-      );
-    });
+    test(
+      'supports addition, subtraction, multiplication, division and parentheses',
+      () {
+        expect(
+          FormulaCalculator.calculate('(a + b) / c - d * 2', {
+            'a': 10,
+            'b': 5,
+            'c': 3,
+            'd': 1,
+          }),
+          3,
+        );
+      },
+    );
   });
 
   group('FormulaCalculator.isSupported', () {

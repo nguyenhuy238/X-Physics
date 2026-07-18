@@ -27,6 +27,7 @@ class _LessonScreenState extends State<LessonScreen> {
   double progress = 0;
   Lesson? lesson;
   bool _readingProgressReported = false;
+  bool _isDownloading = false;
 
   @override
   void initState() {
@@ -104,20 +105,23 @@ class _LessonScreenState extends State<LessonScreen> {
       title: currentLesson.title,
       actions: [
         IconButton(
-          tooltip: 'Tải bài học',
-          onPressed: () async {
-            await context.read<AppState>().downloadLesson(currentLesson.id);
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Đã lưu bài học để đọc offline.')),
-              );
-            }
-          },
-          icon: Icon(
-            state.downloadedLessons.contains(currentLesson.id)
-                ? Icons.download_done_rounded
-                : Icons.download_rounded,
-          ),
+          tooltip: state.downloadedLessons.contains(currentLesson.id)
+              ? 'Đã tải offline'
+              : 'Tải bài học offline',
+          onPressed: _isDownloading
+              ? null
+              : () => _downloadLesson(context, currentLesson.id),
+          icon: _isDownloading
+              ? const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Icon(
+                  state.downloadedLessons.contains(currentLesson.id)
+                      ? Icons.download_done_rounded
+                      : Icons.download_rounded,
+                ),
         ),
         IconButton(
           tooltip: 'Bookmark',
@@ -132,6 +136,7 @@ class _LessonScreenState extends State<LessonScreen> {
             minHeight: 5,
             borderRadius: BorderRadius.circular(999),
           ),
+          if (state.effectiveOffline) const _OfflineReadingBanner(),
           if (state.offlineLessonUpdateAvailable(currentLesson.id))
             _OfflineUpdateBanner(
               lessonId: currentLesson.id,
@@ -139,6 +144,7 @@ class _LessonScreenState extends State<LessonScreen> {
             ),
           Expanded(
             child: ListView(
+              key: PageStorageKey<String>('lesson-${currentLesson.id}-scroll'),
               controller: scroll,
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 110),
               children: [
@@ -228,14 +234,66 @@ class _LessonScreenState extends State<LessonScreen> {
             ),
             child: SafeArea(
               top: false,
-              child: FilledButton.icon(
-                onPressed: () => context.go('/quiz/${currentLesson.id}'),
-                icon: const Icon(Icons.quiz_rounded),
-                label: const Text('Làm bài tập'),
-              ),
+              child: currentLesson.questions.isEmpty
+                  ? OutlinedButton.icon(
+                      onPressed: null,
+                      icon: const Icon(Icons.quiz_outlined),
+                      label: const Text('Bài học này chưa có quiz'),
+                    )
+                  : FilledButton.icon(
+                      onPressed: () =>
+                          context.push('/quiz/${currentLesson.id}'),
+                      icon: const Icon(Icons.quiz_rounded),
+                      label: const Text('Làm bài tập'),
+                    ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _downloadLesson(BuildContext context, String lessonId) async {
+    setState(() => _isDownloading = true);
+    try {
+      await context.read<AppState>().downloadLesson(lessonId);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(content: Text('Đã lưu bài học để đọc offline.')),
+          );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isDownloading = false);
+      }
+    }
+  }
+}
+
+class _OfflineReadingBanner extends StatelessWidget {
+  const _OfflineReadingBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFFE0F2FE),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: const [
+            Icon(Icons.cloud_off_rounded, color: AppColors.info),
+            SizedBox(width: 10),
+            Expanded(child: Text('Đang dùng dữ liệu bài học đã tải offline.')),
+          ],
+        ),
       ),
     );
   }

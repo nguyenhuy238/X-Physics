@@ -35,7 +35,9 @@ GoRouter buildRouter(AppState appState) {
       }
       if (!appState.loading &&
           appState.user != null &&
-          (location == '/login' || location == '/register' || location == '/splash')) {
+          (location == '/login' ||
+              location == '/register' ||
+              location == '/splash')) {
         return appState.canAccessAdmin ? '/admin' : '/';
       }
       if (location == '/' &&

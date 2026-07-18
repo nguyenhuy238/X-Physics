@@ -37,7 +37,13 @@ class _OfflineDownloadsScreenState extends State<OfflineDownloadsScreen> {
     return XScaffold(
       title: 'Bài học offline',
       child: ListView(
-        padding: const EdgeInsets.all(20),
+        key: const PageStorageKey<String>('offline-scroll'),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          MediaQuery.viewPaddingOf(context).bottom + 24,
+        ),
         children: [
           _SyncStatusBanner(state: state),
           if (state.chapters.isNotEmpty) ...[
@@ -90,6 +96,7 @@ class _OfflineLessonTile extends StatefulWidget {
 
 class _OfflineLessonTileState extends State<_OfflineLessonTile> {
   bool _updating = false;
+  bool _deleting = false;
 
   Future<void> _update() async {
     setState(() => _updating = true);
@@ -121,6 +128,52 @@ class _OfflineLessonTileState extends State<_OfflineLessonTile> {
     }
   }
 
+  Future<void> _delete() async {
+    final confirmed =
+        await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Xóa bài offline?'),
+            content: Text(
+              'Bài "${widget.lesson.title}" sẽ bị xóa khỏi thiết bị này.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Hủy'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('Xóa'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed || !mounted) {
+      return;
+    }
+    setState(() => _deleting = true);
+    try {
+      await context.read<AppState>().deleteOfflineLesson(widget.lesson.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(const SnackBar(content: Text('Đã xóa bài offline.')));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _deleting = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
@@ -128,8 +181,12 @@ class _OfflineLessonTileState extends State<_OfflineLessonTile> {
       widget.lesson.id,
     );
     final bytes = state.estimatedOfflineSizeBytes(widget.lesson.id);
+    final snapshot = state.loadOfflineLessonSnapshot(widget.lesson.id);
+    final metadata = snapshot?.metadata;
     final subtitleParts = <String>[
       if (bytes != null) _formatSize(bytes),
+      if (metadata != null) 'Tải ngày ${_formatDate(metadata.downloadedAt)}',
+      if (metadata?.serverVersion != null) 'v${metadata!.serverVersion}',
       if (updateAvailable) 'Có bản cập nhật',
     ];
 
@@ -148,8 +205,11 @@ class _OfflineLessonTileState extends State<_OfflineLessonTile> {
         subtitle: subtitleParts.isEmpty
             ? null
             : Text(subtitleParts.join(' • ')),
-        trailing: updateAvailable
-            ? _updating
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (updateAvailable)
+              _updating
                   ? const SizedBox(
                       width: 20,
                       height: 20,
@@ -159,9 +219,21 @@ class _OfflineLessonTileState extends State<_OfflineLessonTile> {
                       tooltip: 'Cập nhật bản offline',
                       icon: const Icon(Icons.update_rounded),
                       onPressed: state.effectiveOffline ? null : _update,
+                    ),
+            IconButton(
+              tooltip: 'Xóa bài offline',
+              icon: _deleting
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     )
-            : null,
-        onTap: () => context.go('/lessons/${widget.lesson.id}'),
+                  : const Icon(Icons.delete_outline_rounded),
+              onPressed: _deleting ? null : _delete,
+            ),
+          ],
+        ),
+        onTap: () => context.push('/lessons/${widget.lesson.id}'),
       ),
     );
   }
@@ -172,6 +244,11 @@ String _formatSize(int bytes) {
     return '$bytes B';
   }
   return '${(bytes / 1024).toStringAsFixed(1)} KB';
+}
+
+String _formatDate(DateTime value) {
+  final local = value.toLocal();
+  return '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')}/${local.year}';
 }
 
 class _SyncStatusBanner extends StatelessWidget {
@@ -240,6 +317,19 @@ class _ChapterDownloadTileState extends State<_ChapterDownloadTile> {
     setState(() => _downloading = true);
     try {
       await context.read<AppState>().downloadChapter(widget.chapter.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(content: Text('Đã tải chương ${widget.chapter.title}.')),
+          );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(error.toString())));
+      }
     } finally {
       if (mounted) {
         setState(() => _downloading = false);

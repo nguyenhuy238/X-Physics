@@ -34,9 +34,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ),
       );
     }
-    
+
     final stats = state.adminStatistics;
-    
+
     return AdminLayout(
       title: 'Dashboard',
       subtitle: 'Tổng quan hệ thống X-Physics',
@@ -44,50 +44,47 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       child: state.isBusy && stats == null
           ? const LoadingView(message: 'Đang tải thống kê...')
           : state.errorMessage != null && stats == null
-              ? ErrorView(
-                  message: state.errorMessage!,
-                  onRetry: () => context.read<AppState>().loadAdminDashboard(),
-                )
-              : LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isWide = constraints.maxWidth > 950;
-                    
-                    return ListView(
-                      padding: const EdgeInsets.all(24),
-                      children: [
-                        // Top row of 4 stat cards
-                        _buildStatCards(stats, constraints.maxWidth),
-                        const SizedBox(height: 24),
-                        
-                        // Second row (Active Users Chart + Hardest Lessons)
-                        if (isWide)
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: _buildActiveUsersChart(stats),
-                              ),
-                              const SizedBox(width: 24),
-                              Expanded(
-                                flex: 1,
-                                child: _buildHardestLessons(stats),
-                              ),
-                            ],
-                          )
-                        else ...[
-                          _buildActiveUsersChart(stats),
-                          const SizedBox(height: 24),
-                          _buildHardestLessons(stats),
+          ? ErrorView(
+              message: state.errorMessage!,
+              onRetry: () => context.read<AppState>().loadAdminDashboard(),
+            )
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth > 950;
+
+                return ListView(
+                  padding: const EdgeInsets.all(24),
+                  children: [
+                    // Top row of 4 stat cards
+                    _buildStatCards(stats, constraints.maxWidth),
+                    const SizedBox(height: 24),
+
+                    // Second row (Active Users Chart + Hardest Lessons)
+                    if (isWide)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: _buildActiveUsersChart(stats),
+                          ),
+                          const SizedBox(width: 24),
+                          Expanded(flex: 1, child: _buildHardestLessons(stats)),
                         ],
-                        const SizedBox(height: 24),
-                        
-                        // Third row: Recent Activity List
-                        _buildRecentActivity(context, stats),
-                      ],
-                    );
-                  },
-                ),
+                      )
+                    else ...[
+                      _buildActiveUsersChart(stats),
+                      const SizedBox(height: 24),
+                      _buildHardestLessons(stats),
+                    ],
+                    const SizedBox(height: 24),
+
+                    // Third row: Recent Activity List
+                    _buildRecentActivity(context, stats),
+                  ],
+                );
+              },
+            ),
     );
   }
 
@@ -95,8 +92,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final columns = maxWidth > 1100
         ? 4
         : maxWidth > 700
-            ? 2
-            : 1;
+        ? 2
+        : 1;
 
     final cardData = [
       _StatCardItem(
@@ -136,14 +133,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (columns == 4) {
       return Row(
         children: cardData
-            .map((item) => Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      right: item == cardData.last ? 0 : 16,
-                    ),
-                    child: _buildStatCard(item),
+            .map(
+              (item) => Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    right: item == cardData.last ? 0 : 16,
                   ),
-                ))
+                  child: _buildStatCard(item),
+                ),
+              ),
+            )
             .toList(),
       );
     } else if (columns == 2) {
@@ -169,10 +168,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     } else {
       return Column(
         children: cardData
-            .map((item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _buildStatCard(item),
-                ))
+            .map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _buildStatCard(item),
+              ),
+            )
             .toList(),
       );
     }
@@ -233,11 +234,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               color: item.bgColor,
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              item.icon,
-              color: item.iconColor,
-              size: 24,
-            ),
+            child: Icon(item.icon, color: item.iconColor, size: 24),
           ),
         ],
       ),
@@ -296,10 +293,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   SizedBox(height: 4),
                   Text(
                     '7 ngày gần nhất',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF94A3B8),
-                    ),
+                    style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
                   ),
                 ],
               ),
@@ -312,7 +306,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.trending_up_rounded, color: Color(0xFF10B981), size: 14),
+                    Icon(
+                      Icons.trending_up_rounded,
+                      color: Color(0xFF10B981),
+                      size: 14,
+                    ),
                     SizedBox(width: 4),
                     Text(
                       '+18%',
@@ -366,11 +364,31 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             );
           }).toList()
         : [
-            _DifficultyItem(title: 'Tính tương đối', percentage: 0.40, color: const Color(0xFFEF4444)),
-            _DifficultyItem(title: 'Áp suất chất lỏng', percentage: 0.55, color: const Color(0xFFF97316)),
-            _DifficultyItem(title: 'Định luật Ohm', percentage: 0.60, color: const Color(0xFFF59E0B)),
-            _DifficultyItem(title: 'Chuyển động KĐ', percentage: 0.70, color: const Color(0xFFEAB308)),
-            _DifficultyItem(title: 'Lực ma sát', percentage: 0.80, color: const Color(0xFFF59E0B)),
+            _DifficultyItem(
+              title: 'Tính tương đối',
+              percentage: 0.40,
+              color: const Color(0xFFEF4444),
+            ),
+            _DifficultyItem(
+              title: 'Áp suất chất lỏng',
+              percentage: 0.55,
+              color: const Color(0xFFF97316),
+            ),
+            _DifficultyItem(
+              title: 'Định luật Ohm',
+              percentage: 0.60,
+              color: const Color(0xFFF59E0B),
+            ),
+            _DifficultyItem(
+              title: 'Chuyển động KĐ',
+              percentage: 0.70,
+              color: const Color(0xFFEAB308),
+            ),
+            _DifficultyItem(
+              title: 'Lực ma sát',
+              percentage: 0.80,
+              color: const Color(0xFFF59E0B),
+            ),
           ];
 
     return Container(
@@ -400,55 +418,58 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           const SizedBox(height: 4),
           const Text(
             'Theo điểm trung bình',
-            style: TextStyle(
-              fontSize: 12,
-              color: Color(0xFF94A3B8),
-            ),
+            style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
           ),
           const SizedBox(height: 20),
-          ...hardestLessons.map((item) => Padding(
-                padding: const EdgeInsets.only(bottom: 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          item.title,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF475569),
-                          ),
+          ...hardestLessons.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        item.title,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF475569),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: item.percentage,
-                        backgroundColor: const Color(0xFFF1F5F9),
-                        valueColor: AlwaysStoppedAnimation<Color>(item.color),
-                        minHeight: 8,
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: item.percentage,
+                      backgroundColor: const Color(0xFFF1F5F9),
+                      valueColor: AlwaysStoppedAnimation<Color>(item.color),
+                      minHeight: 8,
                     ),
-                  ],
-                ),
-              )),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildRecentActivity(BuildContext context, Map<String, dynamic>? stats) {
-    final List<dynamic>? dbActivities = stats?['recentActivities'] as List<dynamic>?;
+  Widget _buildRecentActivity(
+    BuildContext context,
+    Map<String, dynamic>? stats,
+  ) {
+    final List<dynamic>? dbActivities =
+        stats?['recentActivities'] as List<dynamic>?;
     final activities = dbActivities != null && dbActivities.isNotEmpty
         ? dbActivities.map((item) {
             final map = item as Map<dynamic, dynamic>;
             final type = map['type'] as String? ?? '';
-            
+
             IconData icon = Icons.info_outline_rounded;
             Color iconColor = const Color(0xFF3B82F6);
             Color iconBg = const Color(0xFFEFF6FF);
@@ -582,10 +603,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: activities.length,
-            separatorBuilder: (context, index) => const Divider(
-              color: Color(0xFFF1F5F9),
-              height: 24,
-            ),
+            separatorBuilder: (context, index) =>
+                const Divider(color: Color(0xFFF1F5F9), height: 24),
             itemBuilder: (context, index) {
               final item = activities[index];
               return Row(
@@ -596,11 +615,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       color: item.bgColor,
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      item.icon,
-                      color: item.color,
-                      size: 20,
-                    ),
+                    child: Icon(item.icon, color: item.color, size: 20),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -616,7 +631,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             children: [
                               TextSpan(
                                 text: item.userName,
-                                style: const TextStyle(fontWeight: FontWeight.w800),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
                               const TextSpan(text: ' — '),
                               TextSpan(text: item.action),
@@ -738,14 +755,15 @@ class LineChartPainter extends CustomPainter {
       ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
 
-    final textPainter = TextPainter(
-      textDirection: TextDirection.ltr,
-    );
+    final textPainter = TextPainter(textDirection: TextDirection.ltr);
 
     // Draw horizontal grid lines and Y labels
     for (var tick in yTicks) {
-      final y = size.height - paddingBottom - ((tick / maxY) * (size.height - paddingTop - paddingBottom));
-      
+      final y =
+          size.height -
+          paddingBottom -
+          ((tick / maxY) * (size.height - paddingTop - paddingBottom));
+
       // Draw grid line
       canvas.drawLine(
         Offset(paddingLeft, y),
@@ -769,12 +787,16 @@ class LineChartPainter extends CustomPainter {
       );
     }
 
-    final double widthBetweenPoints = (size.width - paddingLeft - paddingRight) / (dataPoints.length - 1);
+    final double widthBetweenPoints =
+        (size.width - paddingLeft - paddingRight) / (dataPoints.length - 1);
     final List<Offset> points = [];
 
     for (int i = 0; i < dataPoints.length; i++) {
       final x = paddingLeft + i * widthBetweenPoints;
-      final y = size.height - paddingBottom - ((dataPoints[i] / maxY) * (size.height - paddingTop - paddingBottom));
+      final y =
+          size.height -
+          paddingBottom -
+          ((dataPoints[i] / maxY) * (size.height - paddingTop - paddingBottom));
       points.add(Offset(x, y));
     }
 
@@ -791,7 +813,10 @@ class LineChartPainter extends CustomPainter {
       textPainter.layout();
       textPainter.paint(
         canvas,
-        Offset(points[i].dx - textPainter.width / 2, size.height - paddingBottom + 8),
+        Offset(
+          points[i].dx - textPainter.width / 2,
+          size.height - paddingBottom + 8,
+        ),
       );
     }
 
@@ -799,18 +824,21 @@ class LineChartPainter extends CustomPainter {
     if (points.isNotEmpty) {
       final fillPath = Path()
         ..moveTo(points.first.dx, size.height - paddingBottom);
-      
+
       for (int i = 0; i < points.length - 1; i++) {
         final p1 = points[i];
         final p2 = points[i + 1];
         final controlPointX = p1.dx + (p2.dx - p1.dx) / 2;
         fillPath.cubicTo(
-          controlPointX, p1.dy,
-          controlPointX, p2.dy,
-          p2.dx, p2.dy,
+          controlPointX,
+          p1.dy,
+          controlPointX,
+          p2.dy,
+          p2.dx,
+          p2.dy,
         );
       }
-      
+
       fillPath.lineTo(points.last.dx, size.height - paddingBottom);
       fillPath.close();
 
@@ -836,15 +864,18 @@ class LineChartPainter extends CustomPainter {
     // Draw smooth curved line
     if (points.isNotEmpty) {
       final strokePath = Path()..moveTo(points.first.dx, points.first.dy);
-      
+
       for (int i = 0; i < points.length - 1; i++) {
         final p1 = points[i];
         final p2 = points[i + 1];
         final controlPointX = p1.dx + (p2.dx - p1.dx) / 2;
         strokePath.cubicTo(
-          controlPointX, p1.dy,
-          controlPointX, p2.dy,
-          p2.dx, p2.dy,
+          controlPointX,
+          p1.dy,
+          controlPointX,
+          p2.dy,
+          p2.dx,
+          p2.dy,
         );
       }
       canvas.drawPath(strokePath, paintLine);
