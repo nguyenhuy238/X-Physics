@@ -604,6 +604,29 @@ describe("AdminService lesson simulations", () => {
     );
   });
 
+  it("does not remove non-formula simulations when formula simulation is disabled", async () => {
+    await service.createLesson({
+      ...validLessonDto,
+      simulation: validSimulation,
+    } as any);
+    database.simulations.set("sim-custom", {
+      id: "sim-custom",
+      lessonId: "electric-new",
+      type: "external_lab",
+      title: "External lab",
+      orderIndex: 1,
+    });
+
+    await service.updateLesson("electric-new", {
+      ...validLessonDto,
+      simulation: null,
+    } as any);
+
+    expect(await database.listSimulationsByLesson("electric-new")).toEqual([
+      expect.objectContaining({ id: "sim-custom", type: "external_lab" }),
+    ]);
+  });
+
   it("rejects duplicate symbols, invalid expression, bad defaults, and rolls back", async () => {
     await expect(
       service.createLesson({

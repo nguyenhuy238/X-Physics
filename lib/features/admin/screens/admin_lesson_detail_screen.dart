@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../shared/models/x_models.dart';
 import '../../../shared/widgets/loading_view.dart';
 import '../../../shared/widgets/unsaved_changes_dialog.dart';
+import '../../formula_simulation/widgets/formula_simulation_widget.dart';
 import '../../progress/application/app_state.dart';
 import '../widgets/admin_layout.dart';
 
@@ -201,7 +202,9 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
       ],
       onBackRequested: () => _requestLeaveIfNeeded(lesson),
       child: ListView(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(
+          MediaQuery.of(context).size.width < 600 ? 16 : 24,
+        ),
         children: [
           // ── Top action bar ──────────────────────────────────────────────
           Row(
@@ -209,7 +212,15 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
               const Spacer(),
               if (!_editing)
                 FilledButton.icon(
-                  onPressed: () => setState(() => _editing = true),
+                  onPressed: () => context.push(
+                    Uri(
+                      path: '/admin/lessons/${lesson.id}/edit',
+                      queryParameters: {
+                        if ((widget.chapterId ?? lesson.chapterId).isNotEmpty)
+                          'chapterId': widget.chapterId ?? lesson.chapterId,
+                      },
+                    ).toString(),
+                  ),
                   icon: const Icon(Icons.edit_rounded, size: 16),
                   label: const Text('Chỉnh sửa'),
                   style: FilledButton.styleFrom(
@@ -364,50 +375,41 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
 
   // ── View Mode ──────────────────────────────────────────────────────────
   Widget _buildViewContent(Lesson lesson, Chapter? chapter) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 640;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
         // Meta info row
         _buildCard(
-          child: Column(
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: _buildMetaItem(
+          child: _buildMetaSummary(
+            [
+              _LessonMetaItem(
                       icon: Icons.book_rounded,
                       label: 'Tên bài học',
                       value: lesson.title,
                       color: const Color(0xFF2563EB),
                     ),
-                  ),
-                  Expanded(
-                    child: _buildMetaItem(
+              _LessonMetaItem(
                       icon: Icons.folder_rounded,
                       label: 'Chương học',
                       value: chapter?.title ?? lesson.chapterId,
                       color: const Color(0xFF7C3AED),
                     ),
-                  ),
-                  Expanded(
-                    child: _buildMetaItem(
+              _LessonMetaItem(
                       icon: Icons.timer_rounded,
                       label: 'Thời lượng',
                       value: '${lesson.estimatedMinutes} phút',
                       color: const Color(0xFFF59E0B),
                     ),
-                  ),
-                  Expanded(
-                    child: _buildMetaItem(
+              _LessonMetaItem(
                       icon: Icons.sort_rounded,
                       label: 'Thứ tự',
                       value: '${lesson.orderIndex}',
                       color: const Color(0xFF10B981),
                     ),
-                  ),
-                  Expanded(
-                    child: _buildMetaItem(
+              _LessonMetaItem(
                       icon: lesson.isPublished
                           ? Icons.public_rounded
                           : Icons.public_off_rounded,
@@ -417,9 +419,6 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
                           ? const Color(0xFF10B981)
                           : const Color(0xFFF59E0B),
                     ),
-                  ),
-                ],
-              ),
             ],
           ),
         ),
@@ -441,13 +440,16 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
-                  child: Text(
-                    lesson.formulaLatex,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 15,
-                      color: Color(0xFF7C3AED),
-                      fontWeight: FontWeight.w600,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Text(
+                      lesson.formulaLatex,
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 15,
+                        color: Color(0xFF7C3AED),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
@@ -493,89 +495,30 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
         ),
         const SizedBox(height: 16),
 
+        if (lesson.simulation.title.isNotEmpty) ...[
+          _buildCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSectionLabel(
+                  'MÔ PHỎNG TƯƠNG TÁC',
+                  Icons.science_rounded,
+                ),
+                const SizedBox(height: 12),
+                FormulaSimulationWidget(config: lesson.simulation),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
         // Quiz summary
         _buildCard(
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFFBEB),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.quiz_rounded,
-                  color: Color(0xFFF59E0B),
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Câu hỏi Quiz',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    Text(
-                      _quizQuestionCount == null
-                          ? 'Đang tải số câu hỏi...'
-                          : '$_quizQuestionCount câu hỏi trong bài học này',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: () => context.push(_questionsRoute(lesson)),
-                    icon: const Icon(Icons.list_alt_rounded, size: 14),
-                    label: const Text('Xem danh sách câu hỏi'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFF59E0B),
-                      side: const BorderSide(color: Color(0xFFFDE68A)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                    ),
-                  ),
-                  FilledButton.icon(
-                    onPressed: () =>
-                        context.push(_questionsRoute(lesson, add: true)),
-                    icon: const Icon(Icons.add_rounded, size: 14),
-                    label: const Text('Thêm câu hỏi'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFFF59E0B),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+          child: _buildQuizSummary(lesson, isCompact: isCompact),
         ),
-      ],
+          ],
+        );
+      },
     );
   }
 
@@ -764,12 +707,13 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
 
   // ── Helpers ──────────────────────────────────────────────────────────
   Widget _buildCard({required Widget child}) {
+    final isNarrow = MediaQuery.of(context).size.width < 600;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(isNarrow ? 16 : 20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(isNarrow ? 14 : 16),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF0F172A).withValues(alpha: .03),
@@ -788,15 +732,147 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
       children: [
         Icon(icon, size: 16, color: const Color(0xFF2563EB)),
         const SizedBox(width: 8),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF64748B),
-            letterSpacing: 1.1,
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF64748B),
+              letterSpacing: 1.1,
+            ),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildMetaSummary(List<_LessonMetaItem> items) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 12.0;
+        final width = constraints.maxWidth;
+        final columns = width >= 900
+            ? items.length
+            : width >= 620
+                ? 3
+                : width >= 360
+                    ? 2
+                    : 1;
+        final itemWidth = (width - spacing * (columns - 1)) / columns;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (final item in items)
+              SizedBox(
+                width: itemWidth,
+                child: _buildMetaItem(
+                  icon: item.icon,
+                  label: item.label,
+                  value: item.value,
+                  color: item.color,
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildQuizSummary(Lesson lesson, {required bool isCompact}) {
+    final countText = _quizQuestionCount == null
+        ? 'Đang tải số câu hỏi...'
+        : '$_quizQuestionCount câu hỏi trong bài học này';
+    final actions = [
+      OutlinedButton.icon(
+        onPressed: () => context.push(_questionsRoute(lesson)),
+        icon: const Icon(Icons.list_alt_rounded, size: 14),
+        label: const Text('Xem danh sách câu hỏi'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFFF59E0B),
+          side: const BorderSide(color: Color(0xFFFDE68A)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        ),
+      ),
+      FilledButton.icon(
+        onPressed: () => context.push(_questionsRoute(lesson, add: true)),
+        icon: const Icon(Icons.add_rounded, size: 14),
+        label: const Text('Thêm câu hỏi'),
+        style: FilledButton.styleFrom(
+          backgroundColor: const Color(0xFFF59E0B),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        ),
+      ),
+    ];
+
+    final summary = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFBEB),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Icon(
+            Icons.quiz_rounded,
+            color: Color(0xFFF59E0B),
+            size: 24,
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Câu hỏi Quiz',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                countText,
+                style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    if (isCompact) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          summary,
+          const SizedBox(height: 16),
+          Wrap(spacing: 8, runSpacing: 8, children: actions),
+        ],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: summary),
+        const SizedBox(width: 16),
+        Wrap(spacing: 8, runSpacing: 8, children: actions),
       ],
     );
   }
@@ -819,8 +895,9 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
     required String value,
     required Color color,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+    return Container(
+      constraints: const BoxConstraints(minHeight: 58),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -828,13 +905,17 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
             children: [
               Icon(icon, size: 13, color: color),
               const SizedBox(width: 5),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF94A3B8),
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF94A3B8),
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
                 ),
               ),
             ],
@@ -842,6 +923,8 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
           const SizedBox(height: 6),
           Text(
             value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
@@ -876,4 +959,18 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
     ),
     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
   );
+}
+
+class _LessonMetaItem {
+  const _LessonMetaItem({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
 }

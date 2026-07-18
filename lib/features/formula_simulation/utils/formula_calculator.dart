@@ -1,10 +1,19 @@
 class FormulaCalculator {
   const FormulaCalculator._();
 
+  static const supportedSyntax =
+      'Dùng số, biến dạng A-Z/a-z/_, ngoặc tròn và toán tử +, -, *, /.';
+
+  static String normalizeExpression(String expression) => expression
+      .replaceAll('×', '*')
+      .replaceAll('÷', '/')
+      .replaceAll('−', '-')
+      .trim();
+
   static bool isSupported(String expression) {
     try {
       _Parser(
-        _Tokenizer(expression).tokens,
+        _Tokenizer(normalizeExpression(expression)).tokens,
         const {},
         fallbackIdentifierValue: 1,
       ).parse();
@@ -15,13 +24,49 @@ class FormulaCalculator {
   }
 
   static double calculate(String expression, Map<String, double> values) {
+    final result = tryCalculate(expression, values);
+    return result.value ?? 0;
+  }
+
+  static FormulaCalculationResult tryCalculate(
+    String expression,
+    Map<String, double> values,
+  ) {
     try {
-      final result = _Parser(_Tokenizer(expression).tokens, values).parse();
-      return result.isFinite ? result : 0;
-    } catch (_) {
-      return 0;
+      final result = _Parser(
+        _Tokenizer(normalizeExpression(expression)).tokens,
+        values,
+      ).parse();
+      if (!result.isFinite) {
+        return const FormulaCalculationResult(error: 'Kết quả không hữu hạn.');
+      }
+      return FormulaCalculationResult(value: result);
+    } on FormatException catch (error) {
+      return FormulaCalculationResult(error: error.message);
+    } catch (error) {
+      return FormulaCalculationResult(error: error.toString());
     }
   }
+
+  static Set<String> referencedSymbols(String expression) {
+    try {
+      return _Tokenizer(normalizeExpression(expression)).tokens
+          .whereType<_IdentifierToken>()
+          .map((token) => token.value)
+          .toSet();
+    } catch (_) {
+      return const {};
+    }
+  }
+}
+
+class FormulaCalculationResult {
+  const FormulaCalculationResult({this.value, this.error});
+
+  final double? value;
+  final String? error;
+
+  bool get isValid => value != null && error == null;
 }
 
 sealed class _Token {
