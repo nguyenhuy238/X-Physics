@@ -26,3 +26,23 @@ Future<bool> showUnsavedChangesDialog({
       ) ??
       false;
 }
+
+Future<bool> confirmDiscardChanges({
+  required BuildContext context,
+  required bool hasChanges,
+  String title = 'Hủy thay đổi?',
+  String message = 'Dữ liệu đã nhập chưa được lưu.',
+  String stayLabel = 'Tiếp tục chỉnh sửa',
+  String leaveLabel = 'Hủy thay đổi',
+}) async {
+  if (!hasChanges) {
+    return true;
+  }
+  return showUnsavedChangesDialog(
+    context: context,
+    title: title,
+    message: message,
+    stayLabel: stayLabel,
+    leaveLabel: leaveLabel,
+  );
+}

@@ -5,22 +5,41 @@ import 'x_design_system.dart';
 
 class AppTheme {
   static ThemeData light() {
+    return _build(brightness: Brightness.light);
+  }
+
+  static ThemeData dark() {
+    return _build(brightness: Brightness.dark);
+  }
+
+  static ThemeData _build({required Brightness brightness}) {
+    final isDark = brightness == Brightness.dark;
     const seed = AppColors.primary;
-    const textColor = AppColors.textPrimary;
+    final textColor = isDark ? const Color(0xFFE5E7EB) : AppColors.textPrimary;
+    final secondaryTextColor = isDark
+        ? const Color(0xFFCBD5E1)
+        : AppColors.textSecondary;
+    final background = isDark ? const Color(0xFF0F172A) : AppColors.background;
+    final surface = isDark ? const Color(0xFF111827) : AppColors.surface;
+    final surfaceVariant = isDark
+        ? const Color(0xFF1F2937)
+        : AppColors.surfaceVariant;
+    final border = isDark ? const Color(0xFF334155) : AppColors.border;
     return ThemeData(
       useMaterial3: true,
       fontFamily: 'Roboto',
       colorScheme: ColorScheme.fromSeed(
         seedColor: seed,
+        brightness: brightness,
         primary: seed,
         secondary: AppColors.secondary,
         tertiary: AppColors.info,
-        surface: AppColors.surface,
+        surface: surface,
         error: AppColors.danger,
       ),
-      scaffoldBackgroundColor: AppColors.background,
+      scaffoldBackgroundColor: background,
       extensions: const [XSpacing(), XRadius(), XGradients()],
-      textTheme: const TextTheme(
+      textTheme: TextTheme(
         displaySmall: TextStyle(
           fontSize: 32,
           height: 1.18,
@@ -49,7 +68,7 @@ class AppTheme {
         bodyMedium: TextStyle(
           fontSize: 14,
           height: 1.5,
-          color: AppColors.textSecondary,
+          color: secondaryTextColor,
         ),
         labelLarge: TextStyle(
           fontSize: 14,
@@ -59,30 +78,30 @@ class AppTheme {
         ),
       ),
       cardTheme: CardThemeData(
-        color: AppColors.surface,
+        color: surface,
         elevation: 0,
         margin: EdgeInsets.zero,
         surfaceTintColor: Colors.transparent,
-        shadowColor: Colors.black.withValues(alpha: .06),
+        shadowColor: Colors.black.withValues(alpha: isDark ? .18 : .06),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppColors.border),
+          side: BorderSide(color: border),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.surfaceVariant,
+        fillColor: surfaceVariant,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 14,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.border),
+          borderSide: BorderSide(color: border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.border),
+          borderSide: BorderSide(color: border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
@@ -107,7 +126,7 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(48, 48),
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-          side: const BorderSide(color: AppColors.border),
+          side: BorderSide(color: border),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -115,18 +134,18 @@ class AppTheme {
         ),
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: AppColors.surfaceVariant,
+        backgroundColor: surfaceVariant,
         selectedColor: AppColors.accent,
-        side: const BorderSide(color: AppColors.border),
+        side: BorderSide(color: border),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
         labelStyle: const TextStyle(fontWeight: FontWeight.w700),
       ),
-      progressIndicatorTheme: const ProgressIndicatorThemeData(
+      progressIndicatorTheme: ProgressIndicatorThemeData(
         color: AppColors.primary,
-        linearTrackColor: AppColors.border,
+        linearTrackColor: border,
       ),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.background,
+      appBarTheme: AppBarTheme(
+        backgroundColor: background,
         surfaceTintColor: Colors.transparent,
         centerTitle: false,
         titleTextStyle: TextStyle(
@@ -135,7 +154,7 @@ class AppTheme {
           fontWeight: FontWeight.w900,
         ),
       ),
-      dividerTheme: const DividerThemeData(color: AppColors.border),
+      dividerTheme: DividerThemeData(color: border),
     );
   }
 }

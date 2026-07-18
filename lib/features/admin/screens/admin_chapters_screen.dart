@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../shared/models/x_models.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
+import '../../../shared/widgets/unsaved_changes_dialog.dart';
 import '../../progress/application/app_state.dart';
 import '../widgets/admin_layout.dart';
 
@@ -51,6 +52,10 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
       title: 'Quản lý Chương học',
       subtitle: 'Tất cả chương học hiện có trên hệ thống',
       activeRoute: '/admin/chapters',
+      breadcrumbs: const [
+        AdminBreadcrumbItem(label: 'Quản lý nội dung'),
+        AdminBreadcrumbItem(label: 'Chương học'),
+      ],
       onSearchChanged: (query) {
         setState(() {
           _searchQuery = query;
@@ -299,6 +304,7 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                         ),
                         const SizedBox(width: 8),
                         IconButton(
+                          tooltip: 'Sửa chương',
                           onPressed: () =>
                               _showChapterFormDialog(context, chapter: chapter),
                           icon: const Icon(
@@ -312,8 +318,9 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                         ),
                         const SizedBox(width: 8),
                         IconButton(
+                          tooltip: 'Xóa chương',
                           onPressed: () =>
-                              _confirmDeleteChapter(context, chapter.id),
+                              _confirmDeleteChapter(context, chapter),
                           icon: const Icon(
                             Icons.delete_rounded,
                             size: 16,
@@ -511,7 +518,7 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                           IconButton(
                             tooltip: 'Xóa',
                             onPressed: () =>
-                                _confirmDeleteChapter(context, chapter.id),
+                                _confirmDeleteChapter(context, chapter),
                             icon: const Icon(
                               Icons.delete_rounded,
                               size: 16,
@@ -584,7 +591,7 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
     await state.updateAdminChapter(updated);
   }
 
-  Future<void> _confirmDeleteChapter(BuildContext context, String id) async {
+  Future<void> _confirmDeleteChapter(BuildContext context, Chapter chapter) async {
     final state = Provider.of<AppState>(context, listen: false);
     final ok =
         await showDialog<bool>(
@@ -594,8 +601,8 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
               borderRadius: BorderRadius.circular(20),
             ),
             title: const Text('Xóa chương học?'),
-            content: const Text(
-              'Tất cả bài học và câu hỏi trong chương này sẽ bị ảnh hưởng.',
+            content: Text(
+              'Bạn sắp xóa "${chapter.title}". Chương còn bài học sẽ không thể xóa.',
             ),
             actions: [
               TextButton(
@@ -614,7 +621,7 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
         ) ??
         false;
     if (ok && context.mounted) {
-      await state.deleteAdminChapter(id);
+      await state.deleteAdminChapter(chapter.id);
     }
   }
 
@@ -636,326 +643,358 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
     final order = TextEditingController(text: '$defaultOrder');
     var isPublished = chapter?.isPublished ?? true;
     final formKey = GlobalKey<FormState>();
+    final initialId = id.text.trim();
+    final initialTitle = title.text.trim();
+    final initialDescription = description.text.trim();
+    final initialOrder = order.text.trim();
+    final initialPublished = isPublished;
+    bool hasChanges() =>
+        id.text.trim() != initialId ||
+        title.text.trim() != initialTitle ||
+        description.text.trim() != initialDescription ||
+        order.text.trim() != initialOrder ||
+        isPublished != initialPublished;
+    Future<void> requestClose(BuildContext dialogContext) async {
+      final canClose = await confirmDiscardChanges(
+        context: dialogContext,
+        hasChanges: hasChanges(),
+        title: chapter == null ? 'Hủy thêm chương?' : 'Hủy sửa chương?',
+        message: 'Thông tin chương học đã nhập chưa được lưu.',
+      );
+      if (canClose && dialogContext.mounted) {
+        Navigator.pop(dialogContext);
+      }
+    }
 
     final result = await showDialog<Chapter>(
       context: context,
+      barrierDismissible: false,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              child: Form(
-                key: formKey,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            chapter == null
-                                ? 'Thêm Chương học'
-                                : 'Cập nhật Chương học',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF0F172A),
+        builder: (dialogContext, setDialogState) => PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) async {
+            if (!didPop) {
+              await requestClose(dialogContext);
+            }
+          },
+          child: Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                child: Form(
+                  key: formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              chapter == null
+                                  ? 'Thêm Chương học'
+                                  : 'Cập nhật Chương học',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () => requestClose(dialogContext),
+                              icon: const Icon(Icons.close_rounded),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Tạo mới hoặc chỉnh sửa chương để chứa các bài học.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                        const Divider(color: Color(0xFFF1F5F9), height: 32),
+                        const Text(
+                          'MÃ CHƯƠNG (ID)',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF94A3B8),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: id,
+                          enabled: chapter == null,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'VD: motion, force, electric',
+                            filled: true,
+                            fillColor: chapter == null
+                                ? const Color(0xFFF8FAFC)
+                                : const Color(0xFFE2E8F0),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF2563EB),
+                                width: 1.5,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
                             ),
                           ),
-                          IconButton(
-                            onPressed: () => Navigator.pop(dialogContext),
-                            icon: const Icon(Icons.close_rounded),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Mã chương là bắt buộc';
+                            }
+                            final trimmed = value.trim();
+                            if (trimmed.length < 3 || trimmed.length > 50) {
+                              return 'Độ dài mã chương phải từ 3 đến 50 ký tự';
+                            }
+                            if (!RegExp(r'^[a-z0-9\-]+$').hasMatch(trimmed)) {
+                              return 'Chỉ dùng chữ thường (a-z), số (0-9) và dấu gạch ngang (-)';
+                            }
+                            if (chapter == null &&
+                                state.chapters.any((c) => c.id == trimmed)) {
+                              return 'Mã chương đã tồn tại';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 18),
+                        const Text(
+                          'TÊN CHƯƠNG HỌC',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF94A3B8),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Tạo mới hoặc chỉnh sửa chương để chứa các bài học.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF64748B),
                         ),
-                      ),
-                      const Divider(color: Color(0xFFF1F5F9), height: 32),
-                      const Text(
-                        'MÃ CHƯƠNG (ID)',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF94A3B8),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: id,
-                        enabled: chapter == null,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'VD: motion, force, electric',
-                          filled: true,
-                          fillColor: chapter == null
-                              ? const Color(0xFFF8FAFC)
-                              : const Color(0xFFE2E8F0),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: title,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
                           ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: Color(0xFF2563EB),
-                              width: 1.5,
+                          decoration: InputDecoration(
+                            hintText: 'VD: Chuyển động cơ học',
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF2563EB),
+                                width: 1.5,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
                             ),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Tên chương là bắt buộc';
+                            }
+                            final trimmed = value.trim();
+                            if (trimmed.length < 3 || trimmed.length > 100) {
+                              return 'Tên chương học phải từ 3 đến 100 ký tự';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 18),
+                        const Text(
+                          'MÔ TẢ',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF94A3B8),
                           ),
                         ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Mã chương là bắt buộc';
-                          }
-                          final trimmed = value.trim();
-                          if (trimmed.length < 3 || trimmed.length > 50) {
-                            return 'Độ dài mã chương phải từ 3 đến 50 ký tự';
-                          }
-                          if (!RegExp(r'^[a-z0-9\-]+$').hasMatch(trimmed)) {
-                            return 'Chỉ dùng chữ thường (a-z), số (0-9) và dấu gạch ngang (-)';
-                          }
-                          if (chapter == null &&
-                              state.chapters.any((c) => c.id == trimmed)) {
-                            return 'Mã chương đã tồn tại';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 18),
-                      const Text(
-                        'TÊN CHƯƠNG HỌC',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF94A3B8),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: title,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'VD: Chuyển động cơ học',
-                          filled: true,
-                          fillColor: const Color(0xFFF8FAFC),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: Color(0xFF2563EB),
-                              width: 1.5,
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: description,
+                          maxLines: 3,
+                          style: const TextStyle(fontSize: 14),
+                          decoration: InputDecoration(
+                            hintText: 'Nhập mô tả tóm tắt nội dung chương',
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF2563EB),
+                                width: 1.5,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
                             ),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Mô tả là bắt buộc';
+                            }
+                            final trimmed = value.trim();
+                            if (trimmed.length < 5 || trimmed.length > 500) {
+                              return 'Mô tả phải từ 5 đến 500 ký tự';
+                            }
+                            return null;
+                          },
                         ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Tên chương là bắt buộc';
-                          }
-                          final trimmed = value.trim();
-                          if (trimmed.length < 3 || trimmed.length > 100) {
-                            return 'Tên chương học phải từ 3 đến 100 ký tự';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 18),
-                      const Text(
-                        'MÔ TẢ',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF94A3B8),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: description,
-                        maxLines: 3,
-                        style: const TextStyle(fontSize: 14),
-                        decoration: InputDecoration(
-                          hintText: 'Nhập mô tả tóm tắt nội dung chương',
-                          filled: true,
-                          fillColor: const Color(0xFFF8FAFC),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: Color(0xFF2563EB),
-                              width: 1.5,
-                            ),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Mô tả là bắt buộc';
-                          }
-                          final trimmed = value.trim();
-                          if (trimmed.length < 5 || trimmed.length > 500) {
-                            return 'Mô tả phải từ 5 đến 500 ký tự';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 18),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'THƯ TỰ SẮP XẾP',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF94A3B8),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                TextFormField(
-                                  controller: order,
-                                  keyboardType: TextInputType.number,
-                                  decoration: InputDecoration(
-                                    filled: true,
-                                    fillColor: const Color(0xFFF8FAFC),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide.none,
+                        const SizedBox(height: 18),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'THƯ TỰ SẮP XẾP',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF94A3B8),
                                     ),
                                   ),
-                                  validator: (value) {
-                                    if (value == null || value.trim().isEmpty) {
-                                      return 'Bắt buộc';
-                                    }
-                                    final val = int.tryParse(value.trim());
-                                    if (val == null) {
-                                      return 'Phải là số nguyên';
-                                    }
-                                    if (val < 0) {
-                                      return 'Phải >= 0';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'TRẠNG THÁI',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF94A3B8),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF8FAFC),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        isPublished ? 'Xuất bản' : 'Nháp',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                          color: isPublished
-                                              ? Colors.green
-                                              : Colors.orange,
-                                        ),
+                                  const SizedBox(height: 8),
+                                  TextFormField(
+                                    controller: order,
+                                    keyboardType: TextInputType.number,
+                                    decoration: InputDecoration(
+                                      filled: true,
+                                      fillColor: const Color(0xFFF8FAFC),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide.none,
                                       ),
-                                      Switch(
-                                        value: isPublished,
-                                        onChanged: (val) => setDialogState(
-                                          () => isPublished = val,
-                                        ),
-                                      ),
-                                    ],
+                                    ),
+                                    validator: (value) {
+                                      if (value == null ||
+                                          value.trim().isEmpty) {
+                                        return 'Bắt buộc';
+                                      }
+                                      final val = int.tryParse(value.trim());
+                                      if (val == null) {
+                                        return 'Phải là số nguyên';
+                                      }
+                                      if (val < 0) {
+                                        return 'Phải >= 0';
+                                      }
+                                      return null;
+                                    },
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          OutlinedButton(
-                            onPressed: () => Navigator.pop(dialogContext),
-                            child: const Text('Hủy'),
-                          ),
-                          const SizedBox(width: 12),
-                          FilledButton(
-                            onPressed: () {
-                              if (formKey.currentState?.validate() != true) {
-                                return;
-                              }
-                              Navigator.pop(
-                                dialogContext,
-                                Chapter(
-                                  id: id.text.trim(),
-                                  title: title.text.trim(),
-                                  description: description.text.trim(),
-                                  orderIndex: int.tryParse(order.text) ?? 0,
-                                  isPublished: isPublished,
-                                ),
-                              );
-                            },
-                            child: const Text('Lưu'),
-                          ),
-                        ],
-                      ),
-                    ],
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'TRẠNG THÁI',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF94A3B8),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF8FAFC),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          isPublished ? 'Xuất bản' : 'Nháp',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: isPublished
+                                                ? Colors.green
+                                                : Colors.orange,
+                                          ),
+                                        ),
+                                        Switch(
+                                          value: isPublished,
+                                          onChanged: (val) => setDialogState(
+                                            () => isPublished = val,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            OutlinedButton(
+                              onPressed: () => requestClose(dialogContext),
+                              child: const Text('Hủy'),
+                            ),
+                            const SizedBox(width: 12),
+                            FilledButton(
+                              onPressed: () {
+                                if (formKey.currentState?.validate() != true) {
+                                  return;
+                                }
+                                Navigator.pop(
+                                  dialogContext,
+                                  Chapter(
+                                    id: id.text.trim(),
+                                    title: title.text.trim(),
+                                    description: description.text.trim(),
+                                    orderIndex: int.tryParse(order.text) ?? 0,
+                                    isPublished: isPublished,
+                                  ),
+                                );
+                              },
+                              child: const Text('Lưu'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

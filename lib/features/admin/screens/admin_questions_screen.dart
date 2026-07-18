@@ -1,19 +1,35 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/models/x_models.dart';
 import '../../../shared/widgets/empty_view.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
+import '../../../shared/widgets/unsaved_changes_dialog.dart';
 import '../../progress/application/app_state.dart';
 import '../widgets/admin_design.dart';
 import '../widgets/admin_layout.dart';
 
 class AdminQuestionsScreen extends StatefulWidget {
+  const AdminQuestionsScreen({
+    super.key,
+    this.chapterId,
+    this.lessonId,
+    this.difficulty,
+    this.search,
+    this.page,
+    this.action,
+  });
+
+  final String? chapterId;
   final String? lessonId;
-  const AdminQuestionsScreen({super.key, this.lessonId});
+  final String? difficulty;
+  final String? search;
+  final int? page;
+  final String? action;
 
   @override
   State<AdminQuestionsScreen> createState() => _AdminQuestionsScreenState();
@@ -37,6 +53,7 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
   String? _lessonId;
   String? _difficulty;
   String? _deletingQuestionId;
+  bool _handledInitialAction = false;
 
   bool get _hasFilters =>
       _chapterId != null ||
@@ -47,10 +64,49 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
   @override
   void initState() {
     super.initState();
+    _chapterId = _blankToNull(widget.chapterId);
     _lessonId = widget.lessonId;
+    _difficulty = _validDifficulty(widget.difficulty);
+    _page = widget.page == null || widget.page! < 1 ? 1 : widget.page!;
+    _search.text = widget.search ?? '';
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadInitialData();
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant AdminQuestionsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final nextChapterId = _blankToNull(widget.chapterId);
+    final nextLessonId = _blankToNull(widget.lessonId);
+    final nextDifficulty = _validDifficulty(widget.difficulty);
+    final nextSearch = widget.search ?? '';
+    final nextPage = widget.page == null || widget.page! < 1 ? 1 : widget.page!;
+    if (oldWidget.action != widget.action) {
+      _handledInitialAction = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _handleInitialAction();
+      });
+    }
+    final changed =
+        nextChapterId != _chapterId ||
+        nextLessonId != _lessonId ||
+        nextDifficulty != _difficulty ||
+        nextSearch != _search.text ||
+        nextPage != _page;
+    if (!changed) return;
+    _chapterId = nextChapterId;
+    _lessonId = nextLessonId;
+    _difficulty = nextDifficulty;
+    _page = nextPage;
+    if (_search.text != nextSearch) {
+      _search.text = nextSearch;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       _loadReferenceData();
-      _loadQuestions(initial: true);
+      _loadQuestions(refresh: _questions.isNotEmpty, initial: _questions.isEmpty);
     });
   }
 
@@ -69,28 +125,51 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
     if (state.adminLessons.isEmpty) {
       await state.loadAdminLessons();
     }
+    final lesson = _lessonId == null
+        ? null
+        : state.adminLessons.cast<Lesson?>().firstWhere(
+            (item) => item?.id == _lessonId,
+            orElse: () => null,
+          );
+    var changed = false;
+    if (_lessonId != null && lesson == null) {
+      _lessonId = null;
+      changed = true;
+    }
+    if (lesson != null && _chapterId != null && lesson.chapterId != _chapterId) {
+      _lessonId = null;
+      changed = true;
+    }
     if (_lessonId != null && _chapterId == null) {
-      final lesson = state.adminLessons.firstWhere(
-        (l) => l.id == _lessonId,
-        orElse: () => Lesson(
-          id: '',
-          chapterId: '',
-          title: '',
-          content: '',
-          formulaLatex: '',
-          estimatedMinutes: 0,
-          simulation: FormulaSimulationConfig.empty(),
-          questions: const [],
-          orderIndex: 0,
-          isPublished: false,
-        ),
-      );
-      if (lesson.id.isNotEmpty && mounted) {
-        setState(() {
-          _chapterId = lesson.chapterId;
-        });
+      final resolvedLesson = lesson;
+      if (resolvedLesson != null) {
+        _chapterId = resolvedLesson.chapterId;
+        changed = true;
       }
     }
+    if (changed && mounted) {
+      setState(() {});
+      _updateLocation();
+    }
+  }
+
+  Future<void> _loadInitialData() async {
+    await _loadReferenceData();
+    if (!mounted) return;
+    await _loadQuestions(initial: true);
+    if (!mounted) return;
+    _handleInitialAction();
+  }
+
+  void _handleInitialAction() {
+    if (_handledInitialAction || widget.action != 'add') return;
+    _handledInitialAction = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await _openForm();
+      if (!mounted) return;
+      _updateLocation();
+    });
   }
 
   Future<void> _loadQuestions({
@@ -141,6 +220,7 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 420), () {
       _page = 1;
+      _updateLocation();
       _loadQuestions(refresh: _questions.isNotEmpty);
     });
   }
@@ -153,6 +233,7 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
       _search.clear();
       _page = 1;
     });
+    _updateLocation();
     _loadQuestions(refresh: _questions.isNotEmpty, initial: _questions.isEmpty);
   }
 
@@ -166,7 +247,7 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
     }
 
     final lesson = state.adminLessons.firstWhere(
-      (l) => l.id == widget.lessonId,
+      (l) => l.id == _lessonId,
       orElse: () => Lesson(
         id: '',
         chapterId: '',
@@ -181,15 +262,40 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
       ),
     );
     final lessonTitle = lesson.title.isNotEmpty ? lesson.title : 'Bài học';
+    final chapter = state.chapters.cast<Chapter?>().firstWhere(
+      (item) => item?.id == (_chapterId ?? lesson.chapterId),
+      orElse: () => null,
+    );
 
     return AdminLayout(
       activeRoute: '/admin/questions',
-      title: widget.lessonId != null
+      title: _lessonId != null
           ? 'Câu hỏi: $lessonTitle'
           : 'Quản lý Câu hỏi',
-      subtitle: widget.lessonId != null
-          ? 'Danh sách câu hỏi trắc nghiệm'
+      subtitle: _lessonId != null
+          ? 'Danh sách câu hỏi trắc nghiệm thuộc ${chapter?.title ?? lesson.chapterId}'
           : 'Ngân hàng câu hỏi trắc nghiệm',
+      backFallbackRoute: _lessonId != null
+          ? _lessonBackRoute(lesson)
+          : '/admin',
+      breadcrumbs: [
+        const AdminBreadcrumbItem(label: 'Quản lý nội dung'),
+        if (chapter != null)
+          AdminBreadcrumbItem(
+            label: chapter.title,
+            route: Uri(
+              path: '/admin/lessons',
+              queryParameters: {'chapterId': chapter.id},
+            ).toString(),
+          ),
+        if (_lessonId != null)
+          AdminBreadcrumbItem(
+            label: lessonTitle,
+            route: _lessonDetailRoute(lesson),
+          ),
+        const AdminBreadcrumbItem(label: 'Câu hỏi Quiz'),
+      ],
+      searchController: _search,
       onSearchChanged: _onSearchChanged,
       child: RefreshIndicator(
         onRefresh: () => _loadQuestions(refresh: true),
@@ -212,7 +318,6 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
               onReorder: _lessonId == null || _questions.isEmpty
                   ? null
                   : () => _openReorderDialog(),
-              hideLessonFilters: widget.lessonId != null,
             ),
             const SizedBox(height: 22),
             if (_initialLoading)
@@ -251,12 +356,14 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
                     onPrevious: _page > 1
                         ? () {
                             setState(() => _page -= 1);
+                            _updateLocation();
                             _loadQuestions(pageChange: true);
                           }
                         : null,
                     onNext: _page < _totalPages
                         ? () {
                             setState(() => _page += 1);
+                            _updateLocation();
                             _loadQuestions(pageChange: true);
                           }
                         : null,
@@ -294,14 +401,23 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
       }
       _page = 1;
     });
+    _updateLocation();
     _loadQuestions(refresh: _questions.isNotEmpty, initial: _questions.isEmpty);
   }
 
   void _setLesson(String? value) {
     setState(() {
       _lessonId = value;
+      final lesson = context.read<AppState>().adminLessons.cast<Lesson?>().firstWhere(
+            (item) => item?.id == value,
+            orElse: () => null,
+          );
+      if (lesson != null) {
+        _chapterId = lesson.chapterId;
+      }
       _page = 1;
     });
+    _updateLocation();
     _loadQuestions(refresh: _questions.isNotEmpty, initial: _questions.isEmpty);
   }
 
@@ -310,7 +426,52 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
       _difficulty = value;
       _page = 1;
     });
+    _updateLocation();
     _loadQuestions(refresh: _questions.isNotEmpty, initial: _questions.isEmpty);
+  }
+
+  void _updateLocation() {
+    if (!mounted) return;
+    final query = <String, String>{
+      if (_chapterId != null && _chapterId!.isNotEmpty)
+        'chapterId': _chapterId!,
+      if (_lessonId != null && _lessonId!.isNotEmpty) 'lessonId': _lessonId!,
+      if (_difficulty != null && _difficulty!.isNotEmpty)
+        'difficulty': _difficulty!,
+      if (_search.text.trim().isNotEmpty) 'search': _search.text.trim(),
+      if (_page > 1) 'page': '$_page',
+    };
+    context.go(Uri(path: '/admin/questions', queryParameters: query).toString());
+  }
+
+  String _lessonBackRoute(Lesson lesson) {
+    if (lesson.id.isNotEmpty) {
+      return _lessonDetailRoute(lesson);
+    }
+    final query = <String, String>{
+      if (_chapterId != null && _chapterId!.isNotEmpty)
+        'chapterId': _chapterId!,
+    };
+    return Uri(path: '/admin/lessons', queryParameters: query).toString();
+  }
+
+  String _lessonDetailRoute(Lesson lesson) {
+    if (lesson.id.isEmpty) {
+      final query = <String, String>{
+        if (_chapterId != null && _chapterId!.isNotEmpty)
+          'chapterId': _chapterId!,
+      };
+      return Uri(path: '/admin/lessons', queryParameters: query).toString();
+    }
+    final query = <String, String>{
+      'from': 'questions',
+      if (_chapterId != null && _chapterId!.isNotEmpty)
+        'chapterId': _chapterId!,
+    };
+    return Uri(
+      path: '/admin/lessons/${lesson.id}',
+      queryParameters: query,
+    ).toString();
   }
 
   List<Lesson> _filteredLessonsFor(String? chapterId) {
@@ -347,7 +508,7 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
     final isUpdate = question != null;
     final result = await showDialog<Question>(
       context: context,
-      barrierDismissible: !_saving,
+      barrierDismissible: false,
       builder: (_) => _QuestionFormDialog(
         question: draft ?? question,
         isUpdate: isUpdate,
@@ -480,7 +641,6 @@ class _Toolbar extends StatelessWidget {
     required this.onSearchChanged,
     required this.reorderEnabled,
     required this.onReorder,
-    this.hideLessonFilters = false,
   });
 
   final int total;
@@ -496,7 +656,6 @@ class _Toolbar extends StatelessWidget {
   final ValueChanged<String> onSearchChanged;
   final bool reorderEnabled;
   final VoidCallback? onReorder;
-  final bool hideLessonFilters;
 
   @override
   Widget build(BuildContext context) {
@@ -526,54 +685,52 @@ class _Toolbar extends StatelessWidget {
       runSpacing: 12,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        if (!hideLessonFilters) ...[
-          _FilterPill(
-            width: 210,
-            icon: Icons.filter_alt_outlined,
-            value: chapterValue,
-            hint: 'Tất cả chương',
-            items: [
-              const DropdownMenuItem<String>(
-                value: null,
-                child: Text('Tất cả chương'),
-              ),
-              for (final chapter in state.chapters)
-                DropdownMenuItem(value: chapter.id, child: Text(chapter.title)),
-            ],
-            onChanged: onChapterChanged,
-          ),
-          _FilterPill(
-            width: 230,
-            icon: Icons.filter_alt_outlined,
-            value: lessonValue,
-            hint: 'Tất cả bài học',
-            items: [
-              const DropdownMenuItem<String>(
-                value: null,
-                child: Text('Tất cả bài học'),
-              ),
-              for (final lesson in lessons)
-                DropdownMenuItem(value: lesson.id, child: Text(lesson.title)),
-            ],
-            onChanged: onLessonChanged,
-          ),
-          _FilterPill(
-            width: 160,
-            icon: Icons.tune_rounded,
-            value: difficultyValue,
-            hint: 'Độ khó',
-            items: const [
-              DropdownMenuItem<String>(
-                value: null,
-                child: Text('Tất cả độ khó'),
-              ),
-              DropdownMenuItem(value: 'EASY', child: Text('Dễ')),
-              DropdownMenuItem(value: 'MEDIUM', child: Text('Trung bình')),
-              DropdownMenuItem(value: 'HARD', child: Text('Khó')),
-            ],
-            onChanged: onDifficultyChanged,
-          ),
-        ],
+        _FilterPill(
+          width: 210,
+          icon: Icons.filter_alt_outlined,
+          value: chapterValue,
+          hint: 'Tất cả chương',
+          items: [
+            const DropdownMenuItem<String>(
+              value: null,
+              child: Text('Tất cả chương'),
+            ),
+            for (final chapter in state.chapters)
+              DropdownMenuItem(value: chapter.id, child: Text(chapter.title)),
+          ],
+          onChanged: onChapterChanged,
+        ),
+        _FilterPill(
+          width: 230,
+          icon: Icons.filter_alt_outlined,
+          value: lessonValue,
+          hint: 'Tất cả bài học',
+          items: [
+            const DropdownMenuItem<String>(
+              value: null,
+              child: Text('Tất cả bài học'),
+            ),
+            for (final lesson in lessons)
+              DropdownMenuItem(value: lesson.id, child: Text(lesson.title)),
+          ],
+          onChanged: onLessonChanged,
+        ),
+        _FilterPill(
+          width: 160,
+          icon: Icons.tune_rounded,
+          value: difficultyValue,
+          hint: 'Độ khó',
+          items: const [
+            DropdownMenuItem<String>(
+              value: null,
+              child: Text('Tất cả độ khó'),
+            ),
+            DropdownMenuItem(value: 'EASY', child: Text('Dễ')),
+            DropdownMenuItem(value: 'MEDIUM', child: Text('Trung bình')),
+            DropdownMenuItem(value: 'HARD', child: Text('Khó')),
+          ],
+          onChanged: onDifficultyChanged,
+        ),
         SizedBox(
           width: 240,
           height: 48,
@@ -604,7 +761,7 @@ class _Toolbar extends StatelessWidget {
             fontWeight: FontWeight.w800,
           ),
         ),
-        if (!hideLessonFilters && onClear != null)
+        if (onClear != null)
           TextButton.icon(
             onPressed: onClear,
             icon: const Icon(Icons.close_rounded, size: 18),
@@ -858,6 +1015,8 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
   late String? _lessonId;
   late int _correctOption;
   late String _difficulty;
+  var _initialFingerprint = '';
+  var _baselineCaptured = false;
   var _saving = false;
 
   @override
@@ -911,6 +1070,10 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
     if (_lessonId == null && lessons.isNotEmpty) {
       _lessonId = lessons.first.id;
     }
+    if (!_baselineCaptured) {
+      _initialFingerprint = _fingerprint();
+      _baselineCaptured = true;
+    }
     final chapterValue = _validDropdownValue(
       _chapterId,
       chapters.map((chapter) => chapter.id),
@@ -919,172 +1082,182 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
       _lessonId,
       lessons.map((lesson) => lesson.id),
     );
-    return AlertDialog(
-      title: Text(widget.isUpdate ? 'Sửa câu hỏi' : 'Thêm câu hỏi'),
-      content: SizedBox(
-        width: 620,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (widget.defaultLessonId == null) ...[
-                  DropdownButtonFormField<String>(
-                    initialValue: chapterValue,
-                    isExpanded: true,
-                    items: [
-                      const DropdownMenuItem<String>(
-                        value: null,
-                        child: Text('Tất cả chương'),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (!didPop) {
+          await _requestClose();
+        }
+      },
+      child: AlertDialog(
+        title: Text(widget.isUpdate ? 'Sửa câu hỏi' : 'Thêm câu hỏi'),
+        content: SizedBox(
+          width: 620,
+          child: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.defaultLessonId == null) ...[
+                    DropdownButtonFormField<String>(
+                      initialValue: chapterValue,
+                      isExpanded: true,
+                      items: [
+                        const DropdownMenuItem<String>(
+                          value: null,
+                          child: Text('Tất cả chương'),
+                        ),
+                        for (final chapter in state.chapters)
+                          DropdownMenuItem(
+                            value: chapter.id,
+                            child: Text(chapter.title),
+                          ),
+                      ],
+                      onChanged: widget.defaultChapterId != null
+                          ? null
+                          : (value) => setState(() {
+                              _chapterId = value;
+                              final nextLessons = value == null
+                                  ? state.adminLessons
+                                  : state.adminLessons
+                                        .where(
+                                          (lesson) => lesson.chapterId == value,
+                                        )
+                                        .toList();
+                              if (!nextLessons.any(
+                                (lesson) => lesson.id == _lessonId,
+                              )) {
+                                _lessonId = nextLessons.isEmpty
+                                    ? null
+                                    : nextLessons.first.id;
+                              }
+                            }),
+                      decoration: const InputDecoration(
+                        labelText: 'Chương học',
                       ),
-                      for (final chapter in state.chapters)
-                        DropdownMenuItem(
-                          value: chapter.id,
-                          child: Text(chapter.title),
-                        ),
-                    ],
-                    onChanged: widget.defaultChapterId != null
-                        ? null
-                        : (value) => setState(() {
-                            _chapterId = value;
-                            final nextLessons = value == null
-                                ? state.adminLessons
-                                : state.adminLessons
-                                      .where(
-                                        (lesson) => lesson.chapterId == value,
-                                      )
-                                      .toList();
-                            if (!nextLessons.any(
-                              (lesson) => lesson.id == _lessonId,
-                            )) {
-                              _lessonId = nextLessons.isEmpty
-                                  ? null
-                                  : nextLessons.first.id;
-                            }
-                          }),
-                    decoration: const InputDecoration(labelText: 'Chương học'),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: lessonValue,
-                    isExpanded: true,
-                    items: [
-                      for (final lesson in lessons)
-                        DropdownMenuItem(
-                          value: lesson.id,
-                          child: Text(lesson.title),
-                        ),
-                    ],
-                    validator: (value) => value == null || value.isEmpty
-                        ? 'Phải chọn bài học'
-                        : null,
-                    onChanged: widget.defaultLessonId != null
-                        ? null
-                        : (value) => setState(() => _lessonId = value),
-                    decoration: const InputDecoration(labelText: 'Bài học'),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                TextFormField(
-                  controller: _question,
-                  minLines: 2,
-                  maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Nội dung câu hỏi',
-                  ),
-                  validator: _required,
-                ),
-                const SizedBox(height: 12),
-                for (var i = 0; i < 4; i++) ...[
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: lessonValue,
+                      isExpanded: true,
+                      items: [
+                        for (final lesson in lessons)
+                          DropdownMenuItem(
+                            value: lesson.id,
+                            child: Text(lesson.title),
+                          ),
+                      ],
+                      validator: (value) => value == null || value.isEmpty
+                          ? 'Phải chọn bài học'
+                          : null,
+                      onChanged: widget.defaultLessonId != null
+                          ? null
+                          : (value) => setState(() => _lessonId = value),
+                      decoration: const InputDecoration(labelText: 'Bài học'),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   TextFormField(
-                    controller: _options[i],
-                    decoration: InputDecoration(
-                      labelText: 'Đáp án ${_letter(i)}',
+                    controller: _question,
+                    minLines: 2,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'Nội dung câu hỏi',
                     ),
                     validator: _required,
                   ),
                   const SizedBox(height: 12),
-                ],
-                DropdownButtonFormField<int>(
-                  initialValue: _correctOption,
-                  isExpanded: true,
-                  items: const [
-                    DropdownMenuItem(value: 0, child: Text('A')),
-                    DropdownMenuItem(value: 1, child: Text('B')),
-                    DropdownMenuItem(value: 2, child: Text('C')),
-                    DropdownMenuItem(value: 3, child: Text('D')),
-                  ],
-                  onChanged: (value) =>
-                      setState(() => _correctOption = value ?? 0),
-                  decoration: const InputDecoration(labelText: 'Đáp án đúng'),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _explanation,
-                  minLines: 2,
-                  maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Lời giải chi tiết',
-                  ),
-                  validator: _required,
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: _difficulty,
-                  isExpanded: true,
-                  items: const [
-                    DropdownMenuItem(value: 'EASY', child: Text('Dễ')),
-                    DropdownMenuItem(
-                      value: 'MEDIUM',
-                      child: Text('Trung bình'),
+                  for (var i = 0; i < 4; i++) ...[
+                    TextFormField(
+                      controller: _options[i],
+                      decoration: InputDecoration(
+                        labelText: 'Đáp án ${_letter(i)}',
+                      ),
+                      validator: _required,
                     ),
-                    DropdownMenuItem(value: 'HARD', child: Text('Khó')),
+                    const SizedBox(height: 12),
                   ],
-                  onChanged: (value) =>
-                      setState(() => _difficulty = value ?? 'MEDIUM'),
-                  decoration: const InputDecoration(labelText: 'Độ khó'),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _order,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Thứ tự hiển thị',
+                  DropdownButtonFormField<int>(
+                    initialValue: _correctOption,
+                    isExpanded: true,
+                    items: const [
+                      DropdownMenuItem(value: 0, child: Text('A')),
+                      DropdownMenuItem(value: 1, child: Text('B')),
+                      DropdownMenuItem(value: 2, child: Text('C')),
+                      DropdownMenuItem(value: 3, child: Text('D')),
+                    ],
+                    onChanged: (value) =>
+                        setState(() => _correctOption = value ?? 0),
+                    decoration: const InputDecoration(labelText: 'Đáp án đúng'),
                   ),
-                  validator: (value) {
-                    final parsed = int.tryParse(value ?? '');
-                    if (parsed == null || parsed < 1) {
-                      return 'Thứ tự hiển thị phải >= 1';
-                    }
-                    return null;
-                  },
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _explanation,
+                    minLines: 2,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'Lời giải chi tiết',
+                    ),
+                    validator: _required,
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: _difficulty,
+                    isExpanded: true,
+                    items: const [
+                      DropdownMenuItem(value: 'EASY', child: Text('Dễ')),
+                      DropdownMenuItem(
+                        value: 'MEDIUM',
+                        child: Text('Trung bình'),
+                      ),
+                      DropdownMenuItem(value: 'HARD', child: Text('Khó')),
+                    ],
+                    onChanged: (value) =>
+                        setState(() => _difficulty = value ?? 'MEDIUM'),
+                    decoration: const InputDecoration(labelText: 'Độ khó'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _order,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Thứ tự hiển thị',
+                    ),
+                    validator: (value) {
+                      final parsed = int.tryParse(value ?? '');
+                      if (parsed == null || parsed < 1) {
+                        return 'Thứ tự hiển thị phải >= 1';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: _saving ? null : _requestClose,
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: _saving ? null : _submit,
+            style: FilledButton.styleFrom(backgroundColor: AdminDesign.primary),
+            child: _saving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Text('Lưu'),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: _saving ? null : () => Navigator.pop(context),
-          child: const Text('Hủy'),
-        ),
-        FilledButton(
-          onPressed: _saving ? null : _submit,
-          style: FilledButton.styleFrom(backgroundColor: AdminDesign.primary),
-          child: _saving
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : const Text('Lưu'),
-        ),
-      ],
     );
   }
 
@@ -1118,6 +1291,34 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
         orderIndex: int.tryParse(_order.text) ?? 1,
       ),
     );
+  }
+
+  bool get _hasChanges => _fingerprint() != _initialFingerprint;
+
+  String _fingerprint() => [
+    _chapterId ?? '',
+    _lessonId ?? '',
+    _question.text.trim(),
+    ..._options.map((controller) => controller.text.trim()),
+    '$_correctOption',
+    _explanation.text.trim(),
+    _difficulty,
+    _order.text.trim(),
+  ].join('\n');
+
+  Future<void> _requestClose() async {
+    if (_saving) {
+      return;
+    }
+    final canClose = await confirmDiscardChanges(
+      context: context,
+      hasChanges: _hasChanges,
+      title: widget.isUpdate ? 'Hủy sửa câu hỏi?' : 'Hủy thêm câu hỏi?',
+      message: 'Thông tin câu hỏi đã nhập chưa được lưu.',
+    );
+    if (canClose && mounted) {
+      Navigator.pop(context);
+    }
   }
 }
 
@@ -1537,6 +1738,10 @@ String? _validDropdownValue(String? value, Iterable<String> itemValues) {
   final normalized = _blankToNull(value);
   if (normalized == null) return null;
   return itemValues.contains(normalized) ? normalized : null;
+}
+
+String? _validDifficulty(String? value) {
+  return _validDropdownValue(value, const ['EASY', 'MEDIUM', 'HARD']);
 }
 
 String? _blankToNull(String? value) {
