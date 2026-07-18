@@ -242,7 +242,8 @@ class _AdminSidebar extends StatelessWidget {
                 label: 'Quản lý nội dung',
                 route: '/admin/chapters',
                 activeRoute: activeRoute,
-                isActive: activeRoute.startsWith('/admin/chapters') ||
+                isActive:
+                    activeRoute.startsWith('/admin/chapters') ||
                     activeRoute.startsWith('/admin/lessons') ||
                     activeRoute.startsWith('/admin/questions'),
               ),

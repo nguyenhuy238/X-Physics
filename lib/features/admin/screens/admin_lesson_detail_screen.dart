@@ -61,7 +61,8 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
       title: _titleCtrl.text.trim(),
       content: _contentCtrl.text.trim(),
       formulaLatex: _formulaCtrl.text.trim(),
-      estimatedMinutes: int.tryParse(_minutesCtrl.text) ?? original.estimatedMinutes,
+      estimatedMinutes:
+          int.tryParse(_minutesCtrl.text) ?? original.estimatedMinutes,
       simulation: original.simulation,
       questions: original.questions,
       orderIndex: int.tryParse(_orderCtrl.text) ?? original.orderIndex,
@@ -109,8 +110,11 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline_rounded,
-                  size: 48, color: Color(0xFFEF4444)),
+              const Icon(
+                Icons.error_outline_rounded,
+                size: 48,
+                color: Color(0xFFEF4444),
+              ),
               const SizedBox(height: 16),
               Text(
                 'Không tìm thấy bài học "${widget.lessonId}"',
@@ -163,9 +167,8 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
               ),
               const SizedBox(width: 12),
               OutlinedButton.icon(
-                onPressed: () => context.push(
-                  '/admin/questions?lessonId=${lesson.id}',
-                ),
+                onPressed: () =>
+                    context.push('/admin/questions?lessonId=${lesson.id}'),
                 icon: const Icon(Icons.quiz_rounded, size: 16),
                 label: const Text('Câu hỏi Quiz'),
                 style: OutlinedButton.styleFrom(
@@ -436,9 +439,8 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
                 ),
               ),
               OutlinedButton.icon(
-                onPressed: () => context.push(
-                  '/admin/questions?lessonId=${lesson.id}',
-                ),
+                onPressed: () =>
+                    context.push('/admin/questions?lessonId=${lesson.id}'),
                 icon: const Icon(Icons.open_in_new_rounded, size: 14),
                 label: const Text('Quản lý'),
                 style: OutlinedButton.styleFrom(
@@ -572,9 +574,8 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
                                   Switch(
                                     value: _isPublished,
                                     activeThumbColor: const Color(0xFF2563EB),
-                                    onChanged: (v) => setState(
-                                      () => _isPublished = v,
-                                    ),
+                                    onChanged: (v) =>
+                                        setState(() => _isPublished = v),
                                   ),
                                 ],
                               ),

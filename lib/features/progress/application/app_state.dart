@@ -19,6 +19,22 @@ import '../../profile/data/profile_repository.dart';
 import '../../../shared/models/x_models.dart';
 import '../data/progress_repository.dart';
 
+class QuizDraft {
+  const QuizDraft({
+    required this.lessonId,
+    required this.currentIndex,
+    required this.secondsLeft,
+    required this.answers,
+    required this.totalQuestions,
+  });
+
+  final String lessonId;
+  final int currentIndex;
+  final int secondsLeft;
+  final Map<String, int> answers;
+  final int totalQuestions;
+}
+
 class AppState extends ChangeNotifier {
   AppState() : _tokenStorage = TokenStorage() {
     _apiClient = ApiClient(
@@ -98,6 +114,7 @@ class AppState extends ChangeNotifier {
   ProgressDashboard? progressDashboard;
   ProfileSummary? profileSummary;
   final quizResultsByLesson = <String, QuizAttempt>{};
+  final _quizDrafts = <String, QuizDraft>{};
 
   Future<void> bootstrap() async {
     router = buildRouter(this);
@@ -633,6 +650,17 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  Future<void> deleteOfflineLesson(String lessonId) async {
+    final userId = _currentUserId;
+    if (userId == null) {
+      throw StateError('Bạn cần đăng nhập để xóa bài học offline.');
+    }
+    await _offlineRepository.deleteLesson(userId, lessonId);
+    downloadedLessons.remove(lessonId);
+    offlineUpdateAvailableLessons.remove(lessonId);
+    notifyListeners();
+  }
+
   /// Rough size (in bytes) of a downloaded lesson's cached JSON, for
   /// display in the Offline Downloads screen. Approximate on purpose — Hive
   /// does not expose per-entry disk size directly.
@@ -688,9 +716,9 @@ class AppState extends ChangeNotifier {
       final data = await _getData<dynamic>(
         ApiEndpoints.lessonQuestions(lessonId),
       );
-      final questions = _questionItemsFromApiData(data)
-          .map((item) => Question.fromJson(item as Map))
-          .toList();
+      final questions = _questionItemsFromApiData(
+        data,
+      ).map((item) => Question.fromJson(item as Map)).toList();
       questionsByLesson[lessonId] = questions;
       quizLoadError = null;
       return questions;
@@ -765,9 +793,9 @@ class AppState extends ChangeNotifier {
     final questionsData = await _getData<dynamic>(
       ApiEndpoints.lessonQuestions(lessonId),
     );
-    final questions = _questionItemsFromApiData(questionsData)
-        .map((item) => Question.fromJson(item as Map))
-        .toList();
+    final questions = _questionItemsFromApiData(
+      questionsData,
+    ).map((item) => Question.fromJson(item as Map)).toList();
     final simulation = simulationsData.isEmpty
         ? null
         : simulationsData.first as Map<dynamic, dynamic>;
@@ -811,6 +839,7 @@ class AppState extends ChangeNotifier {
       quizSubmitError = null;
       lastAttempt = attempt;
       quizResultsByLesson[lessonId] = attempt;
+      clearQuizDraft(lessonId);
       completedLessons.add(lessonId);
       await refreshCurrentUser();
       await loadProgress();
@@ -886,7 +915,9 @@ class AppState extends ChangeNotifier {
       final stats = await _getData<Map<String, dynamic>>(
         ApiEndpoints.adminStatistics,
       );
-      final usersData = await _getData<Map<String, dynamic>>(ApiEndpoints.adminUsers);
+      final usersData = await _getData<Map<String, dynamic>>(
+        ApiEndpoints.adminUsers,
+      );
       final usersList = usersData['items'] as List<dynamic>;
       adminStatistics = stats;
       adminUsers
@@ -1296,6 +1327,32 @@ class AppState extends ChangeNotifier {
     return body['data'] as T;
   }
 
+  QuizDraft? quizDraftFor(String lessonId) => _quizDrafts[lessonId.trim()];
+
+  void saveQuizDraft({
+    required String lessonId,
+    required int currentIndex,
+    required int secondsLeft,
+    required Map<String, int> answers,
+    required int totalQuestions,
+  }) {
+    final normalizedLessonId = lessonId.trim();
+    if (normalizedLessonId.isEmpty || totalQuestions <= 0) {
+      return;
+    }
+    _quizDrafts[normalizedLessonId] = QuizDraft(
+      lessonId: normalizedLessonId,
+      currentIndex: currentIndex,
+      secondsLeft: secondsLeft,
+      answers: Map<String, int>.from(answers),
+      totalQuestions: totalQuestions,
+    );
+  }
+
+  void clearQuizDraft(String lessonId) {
+    _quizDrafts.remove(lessonId.trim());
+  }
+
   List<dynamic> _questionItemsFromApiData(dynamic data) {
     if (data is List) {
       return data;
@@ -1371,6 +1428,7 @@ class AppState extends ChangeNotifier {
     offlineUpdateAvailableLessons.clear();
     _offlineUpdateChecksInFlight.clear();
     quizResultsByLesson.clear();
+    _quizDrafts.clear();
     router?.go('/login');
     notifyListeners();
   }

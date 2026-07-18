@@ -49,5 +49,6 @@ class ApiEndpoints {
   static String adminLesson(String id) => '/api/admin/lessons/$id';
   static String adminQuestion(String id) => '/api/admin/questions/$id';
   static String adminQuizAttempt(String id) => '/api/admin/quiz-attempts/$id';
-  static String adminUserProgress(String userId) => '/api/admin/users/$userId/progress';
+  static String adminUserProgress(String userId) =>
+      '/api/admin/users/$userId/progress';
 }

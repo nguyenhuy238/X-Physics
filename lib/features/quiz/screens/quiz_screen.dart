@@ -11,6 +11,7 @@ import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_view.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
+import '../../../shared/widgets/unsaved_changes_dialog.dart';
 import '../../progress/application/app_state.dart';
 
 class QuizScreen extends StatefulWidget {
@@ -86,10 +87,25 @@ class _QuizScreenState extends State<QuizScreen> {
     if (!mounted) {
       return;
     }
+    final draft = state.quizDraftFor(widget.lessonId);
+    final restoredAnswers = draft?.totalQuestions == questions.length
+        ? Map<String, int>.from(draft!.answers)
+        : <String, int>{};
+    final restoredIndex = draft?.totalQuestions == questions.length
+        ? draft!.currentIndex.clamp(0, questions.length - 1).toInt()
+        : 0;
+    final restoredSecondsLeft = draft?.totalQuestions == questions.length
+        ? draft!.secondsLeft.clamp(0, QuizScreen.initialSeconds).toInt()
+        : QuizScreen.initialSeconds;
     setState(() {
       _questions = questions;
       _isLoading = false;
       _errorMessage = loadError;
+      answers
+        ..clear()
+        ..addAll(restoredAnswers);
+      index = restoredIndex;
+      secondsLeft = restoredSecondsLeft;
     });
     if (questions.isNotEmpty) {
       _startTimer();
@@ -106,9 +122,11 @@ class _QuizScreenState extends State<QuizScreen> {
       }
       if (secondsLeft <= 1) {
         setState(() => secondsLeft = 0);
+        _persistDraft();
         _submit(autoSubmitted: true);
       } else {
         setState(() => secondsLeft--);
+        _persistDraft();
       }
     });
   }
@@ -144,6 +162,7 @@ class _QuizScreenState extends State<QuizScreen> {
     }
     if (attempt != null) {
       _hasSubmitted = true;
+      context.read<AppState>().clearQuizDraft(widget.lessonId);
       context.go('/quiz/${widget.lessonId}/result', extra: attempt);
       return;
     }
@@ -152,6 +171,7 @@ class _QuizScreenState extends State<QuizScreen> {
       _submitErrorMessage =
           context.read<AppState>().quizSubmitError ?? 'Không thể nộp bài quiz.';
     });
+    _startTimer();
   }
 
   Future<void> _confirmAndSubmit() async {
@@ -183,29 +203,42 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   Future<bool> _confirmLeave() async {
-    if (_hasSubmitted || _questions.isEmpty) {
+    if (_hasSubmitted || _questions.isEmpty || !_hasUserProgress) {
       return true;
     }
-    final leave =
-        await showDialog<bool>(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: const Text('Rời bài quiz?'),
-            content: const Text('Các câu trả lời chưa nộp sẽ không được lưu.'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('O lai'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Rời bài'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-    return leave;
+    return showUnsavedChangesDialog(
+      context: context,
+      title: 'Rời bài quiz?',
+      message:
+          'Bạn đang làm dở câu ${index + 1}/${_questions.length}. Nếu thoát, kết quả chưa lưu có thể bị mất.',
+      stayLabel: 'Tiếp tục làm bài',
+      leaveLabel: 'Thoát bài',
+    );
+  }
+
+  bool get _hasUserProgress => answers.isNotEmpty || index > 0;
+
+  void _persistDraft() {
+    if (_hasSubmitted || _questions.isEmpty) {
+      return;
+    }
+    context.read<AppState>().saveQuizDraft(
+      lessonId: widget.lessonId,
+      currentIndex: index,
+      secondsLeft: secondsLeft,
+      answers: answers,
+      totalQuestions: _questions.length,
+    );
+  }
+
+  void _setIndex(int value) {
+    setState(() => index = value);
+    _persistDraft();
+  }
+
+  void _selectAnswer(String questionId, int optionIndex) {
+    setState(() => answers[questionId] = optionIndex);
+    _persistDraft();
   }
 
   Widget _questionText(String value) {
@@ -269,11 +302,18 @@ class _QuizScreenState extends State<QuizScreen> {
           return;
         }
         if (await _confirmLeave() && context.mounted) {
-          context.pop();
+          context.read<AppState>().clearQuizDraft(widget.lessonId);
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/lessons/${widget.lessonId}');
+          }
         }
       },
       child: XScaffold(
         title: 'Quiz',
+        fallbackRoute: '/lessons/${widget.lessonId}',
+        handleSystemBack: false,
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -380,9 +420,9 @@ class _QuizScreenState extends State<QuizScreen> {
                               child: InkWell(
                                 onTap: _isSubmitting
                                     ? null
-                                    : () => setState(
-                                        () =>
-                                            answers[question.id] = optionIndex,
+                                    : () => _selectAnswer(
+                                        question.id,
+                                        optionIndex,
                                       ),
                                 child: Container(
                                   padding: const EdgeInsets.all(16),
@@ -431,9 +471,9 @@ class _QuizScreenState extends State<QuizScreen> {
                         OutlinedButton.icon(
                           onPressed: _isSubmitting || index == 0
                               ? null
-                              : () => setState(() => index--),
+                              : () => _setIndex(index - 1),
                           icon: const Icon(Icons.chevron_left_rounded),
-                          label: const Text('Truoc'),
+                          label: const Text('Trước'),
                         ),
                         const Spacer(),
                         FilledButton.icon(
@@ -441,7 +481,7 @@ class _QuizScreenState extends State<QuizScreen> {
                               ? null
                               : isLast
                               ? _confirmAndSubmit
-                              : () => setState(() => index++),
+                              : () => _setIndex(index + 1),
                           icon: Icon(
                             isLast
                                 ? Icons.task_alt_rounded
@@ -452,7 +492,7 @@ class _QuizScreenState extends State<QuizScreen> {
                                 ? 'Đang nộp...'
                                 : isLast
                                 ? 'Nộp bài'
-                                : 'Tiep tuc',
+                                : 'Tiếp tục',
                           ),
                         ),
                       ],

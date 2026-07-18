@@ -327,9 +327,10 @@ class FormulaSimulationConfig {
     return FormulaSimulationConfig(
       title: json['title'] as String? ?? '',
       formula: json['formula'] as String? ?? '',
-      variables: ((json['variables'] ?? config['variables']) as List? ?? const [])
-          .map((v) => FormulaVariable.fromJson(v as Map))
-          .toList(),
+      variables:
+          ((json['variables'] ?? config['variables']) as List? ?? const [])
+              .map((v) => FormulaVariable.fromJson(v as Map))
+              .toList(),
       result: FormulaResult.fromJson(result),
     );
   }

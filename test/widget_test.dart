@@ -10,6 +10,9 @@ import 'package:provider/provider.dart';
 import 'package:x_physics/core/network/api_client.dart';
 import 'package:x_physics/core/router/app_router.dart';
 import 'package:x_physics/core/storage/token_storage.dart';
+import 'package:x_physics/features/chapters/screens/chapter_detail_screen.dart';
+import 'package:x_physics/features/home/screens/home_screen.dart';
+import 'package:x_physics/features/lessons/screens/lesson_screen.dart';
 import 'package:x_physics/features/admin/screens/admin_questions_screen.dart';
 import 'package:x_physics/features/auth/screens/login_screen.dart';
 import 'package:x_physics/features/progress/application/app_state.dart';
@@ -262,6 +265,80 @@ class FakeAppState extends AppState {
     isBusy = false;
     notifyListeners();
     return true;
+  }
+
+  @override
+  Future<void> loadHomeData() async {
+    chapters
+      ..clear()
+      ..addAll(const [
+        Chapter(
+          id: 'chapter-1',
+          title: 'Chuyển động cơ học',
+          description: 'Mô tả',
+          lessonCount: 2,
+        ),
+      ]);
+    notifyListeners();
+  }
+
+  @override
+  Future<void> loadChapterDetail(String chapterId) async {
+    chapters
+      ..clear()
+      ..addAll(const [
+        Chapter(
+          id: 'chapter-1',
+          title: 'Chuyển động cơ học',
+          description: 'Mô tả',
+          lessonCount: 2,
+        ),
+      ]);
+    lessonsByChapter[chapterId] = [
+      Lesson(
+        id: 'lesson-1',
+        chapterId: chapterId,
+        title: 'Chuyển động đều',
+        content: 'content',
+        formulaLatex: '',
+        estimatedMinutes: 10,
+        simulation: FormulaSimulationConfig.empty(),
+        questions: _questions,
+      ),
+    ];
+    lessonsById['lesson-1'] = lessonsByChapter[chapterId]!.first;
+    notifyListeners();
+  }
+
+  @override
+  Future<Lesson?> loadLessonDetail(String lessonId) async {
+    final lesson =
+        lessonsById[lessonId] ??
+        Lesson(
+          id: lessonId,
+          chapterId: 'chapter-1',
+          title: 'Chuyển động đều',
+          content: 'content',
+          formulaLatex: '',
+          estimatedMinutes: 10,
+          simulation: FormulaSimulationConfig.empty(),
+          questions: _questions,
+        );
+    lessonsById[lessonId] = lesson;
+    notifyListeners();
+    return lesson;
+  }
+
+  @override
+  Future<void> downloadLesson(String lessonId) async {
+    downloadedLessons.add(lessonId);
+    notifyListeners();
+  }
+
+  @override
+  Future<void> deleteOfflineLesson(String lessonId) async {
+    downloadedLessons.remove(lessonId);
+    notifyListeners();
   }
 
   @override
@@ -550,6 +627,50 @@ Future<GoRouter> _pumpProgress(WidgetTester tester, FakeAppState state) async {
   return router;
 }
 
+Future<GoRouter> _pumpHomeFlow(
+  WidgetTester tester,
+  FakeAppState state, {
+  String initialLocation = '/',
+}) async {
+  state
+    ..loading = false
+    ..user = const XUser(
+      id: 'student-1',
+      name: 'Nam',
+      email: 'nam@example.com',
+      role: 'STUDENT',
+    );
+  await state.loadHomeData();
+  await state.loadChapterDetail('chapter-1');
+  final router = GoRouter(
+    initialLocation: initialLocation,
+    routes: [
+      GoRoute(path: '/', builder: (_, _) => const HomeScreen()),
+      GoRoute(
+        path: '/chapters/:id',
+        builder: (_, routeState) => ChapterDetailScreen(
+          chapterId: routeState.pathParameters['id'] ?? 'chapter-1',
+        ),
+      ),
+      GoRoute(
+        path: '/lessons/:id',
+        builder: (_, routeState) => LessonScreen(
+          lessonId: routeState.pathParameters['id'] ?? 'lesson-1',
+        ),
+      ),
+      GoRoute(
+        path: '/quiz/:id',
+        builder: (_, routeState) =>
+            QuizScreen(lessonId: routeState.pathParameters['id'] ?? 'lesson-1'),
+      ),
+    ],
+  );
+  await _pumpRouter(tester, state, router);
+  await tester.pump();
+  await tester.pump();
+  return router;
+}
+
 Future<void> _pumpAdminQuestions(
   WidgetTester tester,
   FakeAppState state,
@@ -780,6 +901,78 @@ void main() {
     progressTarget: 3,
   );
 
+  testWidgets('home root does not show a back button and has bottom padding', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    await _pumpHomeFlow(tester, state);
+
+    expect(find.byTooltip('Quay lại'), findsNothing);
+    final listView = tester.widget<ListView>(find.byType(ListView).first);
+    final padding = listView.padding as EdgeInsets;
+    expect(padding.bottom, greaterThanOrEqualTo(96));
+  });
+
+  testWidgets('chapter detail opened directly shows back with fallback', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    final router = await _pumpHomeFlow(
+      tester,
+      state,
+      initialLocation: '/chapters/chapter-1',
+    );
+
+    expect(find.byTooltip('Quay lại'), findsOneWidget);
+    await tester.tap(find.byTooltip('Quay lại'));
+    await tester.pumpAndSettle();
+
+    expect(router.routerDelegate.currentConfiguration.uri.path, '/');
+  });
+
+  testWidgets('lesson deep link back falls back to its chapter', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    final router = await _pumpHomeFlow(
+      tester,
+      state,
+      initialLocation: '/lessons/lesson-1',
+    );
+
+    await tester.tap(find.byTooltip('Quay lại'));
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      '/chapters/chapter-1',
+    );
+  });
+
+  testWidgets('quiz leave guard can continue or leave', (tester) async {
+    final state = FakeAppState();
+    await _loadQuiz(tester, state);
+
+    await tester.tap(find.text('A1'));
+    await tester.pump();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Rời bài quiz?'), findsOneWidget);
+    expect(find.textContaining('Bạn đang làm dở câu 1/2'), findsOneWidget);
+
+    await tester.tap(find.text('Tiếp tục làm bài'));
+    await tester.pumpAndSettle();
+    expect(find.text('Question 1'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Thoát bài'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lesson lesson-1'), findsOneWidget);
+  });
+
   testWidgets('shows loading while questions are loading', (tester) async {
     final state = FakeAppState();
     state.loadQueue.add(() => Completer<List<Question>>().future);
@@ -834,11 +1027,11 @@ void main() {
 
     await tester.tap(find.text('A1'));
     await tester.pump();
-    await tester.tap(find.text('Tiep tuc'));
+    await tester.tap(find.text('Tiếp tục'));
     await tester.pump();
     expect(find.text('Question 2'), findsOneWidget);
 
-    await tester.tap(find.text('Truoc'));
+    await tester.tap(find.text('Trước'));
     await tester.pump();
 
     expect(find.text('Question 1'), findsOneWidget);
@@ -852,7 +1045,7 @@ void main() {
     await _loadQuiz(tester, state);
 
     final next = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Tiep tuc'),
+      find.widgetWithText(FilledButton, 'Tiếp tục'),
     );
     expect(next.onPressed, isNull);
   });

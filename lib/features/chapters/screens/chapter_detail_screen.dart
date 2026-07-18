@@ -47,7 +47,13 @@ class _ChapterDetailScreenState extends State<ChapterDetailScreen> {
           : lessons.isEmpty
           ? const EmptyView(message: 'Chương này chưa có bài học.')
           : ListView.separated(
-              padding: const EdgeInsets.all(20),
+              key: PageStorageKey<String>('chapter-${widget.chapterId}-scroll'),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                20,
+                20,
+                MediaQuery.viewPaddingOf(context).bottom + 24,
+              ),
               itemCount: lessons.length,
               separatorBuilder: (_, _) => const SizedBox(height: 12),
               itemBuilder: (_, index) {
@@ -56,7 +62,7 @@ class _ChapterDetailScreenState extends State<ChapterDetailScreen> {
                 final downloaded = state.downloadedLessons.contains(lesson.id);
                 final color = Color(chapter?.color ?? 0xFF2563EB);
                 return AppCard(
-                  onTap: () => context.go('/lessons/${lesson.id}'),
+                  onTap: () => context.push('/lessons/${lesson.id}'),
                   padding: const EdgeInsets.all(16),
                   child: Row(
                     children: [

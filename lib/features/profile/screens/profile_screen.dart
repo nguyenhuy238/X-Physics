@@ -9,6 +9,7 @@ import '../../../shared/models/x_models.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_view.dart';
 import '../../../shared/widgets/error_view.dart';
+import '../../../shared/widgets/unsaved_changes_dialog.dart';
 import '../../progress/application/app_state.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -686,12 +687,41 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.currentName);
+    _controller.addListener(_handleTextChanged);
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_handleTextChanged);
     _controller.dispose();
     super.dispose();
+  }
+
+  bool get _hasUnsavedChanges =>
+      _controller.text.trim() != widget.currentName.trim();
+
+  void _handleTextChanged() {
+    setState(() {});
+  }
+
+  Future<void> _requestClose() async {
+    if (_isSubmitting) {
+      return;
+    }
+    if (!_hasUnsavedChanges) {
+      Navigator.of(context).pop();
+      return;
+    }
+    final leave = await showUnsavedChangesDialog(
+      context: context,
+      title: 'Hủy cập nhật hồ sơ?',
+      message: 'Thông tin hồ sơ đã nhập chưa được lưu.',
+      stayLabel: 'Tiếp tục chỉnh sửa',
+      leaveLabel: 'Hủy thay đổi',
+    );
+    if (leave && mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   Future<void> _submit() async {
@@ -719,50 +749,58 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Cập nhật hồ sơ'),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextFormField(
-              controller: _controller,
-              autofocus: true,
-              enabled: !_isSubmitting,
-              maxLength: 120,
-              textInputAction: TextInputAction.done,
-              decoration: const InputDecoration(labelText: 'Họ tên'),
-              validator: (value) =>
-                  value == null || value.trim().isEmpty ? 'Bắt buộc' : null,
-              onFieldSubmitted: (_) => _submit(),
-            ),
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                _errorMessage!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
+    return PopScope(
+      canPop: !_isSubmitting && !_hasUnsavedChanges,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (!didPop) {
+          await _requestClose();
+        }
+      },
+      child: AlertDialog(
+        title: const Text('Cập nhật hồ sơ'),
+        content: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextFormField(
+                controller: _controller,
+                autofocus: true,
+                enabled: !_isSubmitting,
+                maxLength: 120,
+                textInputAction: TextInputAction.done,
+                decoration: const InputDecoration(labelText: 'Họ tên'),
+                validator: (value) =>
+                    value == null || value.trim().isEmpty ? 'Bắt buộc' : null,
+                onFieldSubmitted: (_) => _submit(),
               ),
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _errorMessage!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
+        actions: [
+          TextButton(
+            onPressed: _isSubmitting ? null : _requestClose,
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: _isSubmitting ? null : _submit,
+            child: _isSubmitting
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Lưu'),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-          child: const Text('Hủy'),
-        ),
-        FilledButton(
-          onPressed: _isSubmitting ? null : _submit,
-          child: _isSubmitting
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Lưu'),
-        ),
-      ],
     );
   }
 }
@@ -816,11 +854,51 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
 
   @override
   void dispose() {
+    _currentPassword.removeListener(_handleTextChanged);
+    _newPassword.removeListener(_handleTextChanged);
+    _confirmNewPassword.removeListener(_handleTextChanged);
     _currentPassword.dispose();
     _newPassword.dispose();
     _confirmNewPassword.dispose();
     widget.onDisposed();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _currentPassword.addListener(_handleTextChanged);
+    _newPassword.addListener(_handleTextChanged);
+    _confirmNewPassword.addListener(_handleTextChanged);
+  }
+
+  bool get _hasUnsavedChanges =>
+      _currentPassword.text.isNotEmpty ||
+      _newPassword.text.isNotEmpty ||
+      _confirmNewPassword.text.isNotEmpty;
+
+  void _handleTextChanged() {
+    setState(() {});
+  }
+
+  Future<void> _requestClose() async {
+    if (_isSubmitting) {
+      return;
+    }
+    if (!_hasUnsavedChanges) {
+      Navigator.of(context).pop();
+      return;
+    }
+    final leave = await showUnsavedChangesDialog(
+      context: context,
+      title: 'Hủy đổi mật khẩu?',
+      message: 'Mật khẩu đã nhập chưa được lưu.',
+      stayLabel: 'Tiếp tục chỉnh sửa',
+      leaveLabel: 'Hủy thay đổi',
+    );
+    if (leave && mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   Future<void> _submit() async {
@@ -852,74 +930,84 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Đổi mật khẩu'),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextFormField(
-              controller: _currentPassword,
-              enabled: !_isSubmitting,
-              obscureText: true,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(labelText: 'Mật khẩu hiện tại'),
-              validator: _passwordValidator,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _newPassword,
-              enabled: !_isSubmitting,
-              obscureText: true,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(labelText: 'Mật khẩu mới'),
-              validator: _passwordValidator,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _confirmNewPassword,
-              enabled: !_isSubmitting,
-              obscureText: true,
-              textInputAction: TextInputAction.done,
-              decoration: const InputDecoration(
-                labelText: 'Xác nhận mật khẩu mới',
+    return PopScope(
+      canPop: !_isSubmitting && !_hasUnsavedChanges,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (!didPop) {
+          await _requestClose();
+        }
+      },
+      child: AlertDialog(
+        title: const Text('Đổi mật khẩu'),
+        content: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextFormField(
+                controller: _currentPassword,
+                enabled: !_isSubmitting,
+                obscureText: true,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                  labelText: 'Mật khẩu hiện tại',
+                ),
+                validator: _passwordValidator,
               ),
-              validator: (value) {
-                final passwordError = _passwordValidator(value);
-                if (passwordError != null) return passwordError;
-                return value == _newPassword.text
-                    ? null
-                    : 'Xác nhận mật khẩu không khớp';
-              },
-              onFieldSubmitted: (_) => _submit(),
-            ),
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                _errorMessage!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _newPassword,
+                enabled: !_isSubmitting,
+                obscureText: true,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(labelText: 'Mật khẩu mới'),
+                validator: _passwordValidator,
               ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _confirmNewPassword,
+                enabled: !_isSubmitting,
+                obscureText: true,
+                textInputAction: TextInputAction.done,
+                decoration: const InputDecoration(
+                  labelText: 'Xác nhận mật khẩu mới',
+                ),
+                validator: (value) {
+                  final passwordError = _passwordValidator(value);
+                  if (passwordError != null) return passwordError;
+                  return value == _newPassword.text
+                      ? null
+                      : 'Xác nhận mật khẩu không khớp';
+                },
+                onFieldSubmitted: (_) => _submit(),
+              ),
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _errorMessage!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
+        actions: [
+          TextButton(
+            onPressed: _isSubmitting ? null : _requestClose,
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: _isSubmitting ? null : _submit,
+            child: _isSubmitting
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Lưu'),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-          child: const Text('Hủy'),
-        ),
-        FilledButton(
-          onPressed: _isSubmitting ? null : _submit,
-          child: _isSubmitting
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Lưu'),
-        ),
-      ],
     );
   }
 }
