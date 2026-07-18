@@ -13,6 +13,11 @@ void main() {
       expect(FormulaCalculator.calculate('s / t', {'s': 100, 't': 20}), 5);
     });
 
+    test('normalizes multiplication and division glyphs', () {
+      expect(FormulaCalculator.calculate('U × I', {'U': 12, 'I': 2}), 24);
+      expect(FormulaCalculator.calculate('s ÷ t', {'s': 100, 't': 20}), 5);
+    });
+
     test('ignores missing variables by treating them as 0', () {
       expect(FormulaCalculator.calculate('U * I', {'U': 12}), 0);
     });
@@ -58,6 +63,22 @@ void main() {
     });
   });
 
+  group('FormulaCalculator.tryCalculate and references', () {
+    test('returns an explicit error for division by zero', () {
+      final result = FormulaCalculator.tryCalculate('U / R', {'U': 12, 'R': 0});
+
+      expect(result.isValid, isFalse);
+      expect(result.error, contains('Division by zero'));
+    });
+
+    test('extracts referenced variable symbols', () {
+      expect(
+        FormulaCalculator.referencedSymbols('(U + R) / R'),
+        equals({'U', 'R'}),
+      );
+    });
+  });
+
   group('FormulaSimulationConfig.fromJson', () {
     test('parses API config object shape', () {
       final config = FormulaSimulationConfig.fromJson({
@@ -99,6 +120,43 @@ void main() {
       expect(config.variables.first.step, 1);
       expect(config.result.expression, 'U / R');
       expect(config.result.decimalPlaces, 2);
+    });
+
+    test('serializes simulation for student/offline cache shape', () {
+      final config = FormulaSimulationConfig(
+        title: 'Mô phỏng vận tốc',
+        formula: r'v = \frac{s}{t}',
+        variables: const [
+          FormulaVariable(
+            symbol: 's',
+            label: 'Quãng đường',
+            unit: 'm',
+            min: 0,
+            max: 100,
+            step: 1,
+            defaultValue: 20,
+          ),
+          FormulaVariable(
+            symbol: 't',
+            label: 'Thời gian',
+            unit: 's',
+            min: 1,
+            max: 20,
+            step: 1,
+            defaultValue: 4,
+          ),
+        ],
+        result: const FormulaResult(
+          symbol: 'v',
+          label: 'Vận tốc',
+          unit: 'm/s',
+          expression: 's / t',
+          decimalPlaces: 2,
+        ),
+      );
+
+      expect(config.toJson()['result']['expression'], 's / t');
+      expect(config.toJson()['variables'].first['default'], 20);
     });
   });
 }

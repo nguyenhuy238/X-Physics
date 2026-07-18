@@ -40,6 +40,7 @@ class _FormulaSimulationWidgetState extends State<FormulaSimulationWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final isNarrow = MediaQuery.of(context).size.width < 420;
     final decimalPlaces = widget.config.result.decimalPlaces.clamp(0, 6);
     final result = _calculate();
     final isSupported = FormulaCalculator.isSupported(
@@ -64,7 +65,7 @@ class _FormulaSimulationWidgetState extends State<FormulaSimulationWidget> {
         border: Border.all(color: AppColors.primary.withValues(alpha: .14)),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: EdgeInsets.all(isNarrow ? 14 : 18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -89,7 +90,11 @@ class _FormulaSimulationWidgetState extends State<FormulaSimulationWidget> {
                     widget.config.title.isEmpty
                         ? 'Phòng thí nghiệm bỏ túi'
                         : widget.config.title,
-                    style: Theme.of(context).textTheme.titleLarge,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontSize: isNarrow ? 20 : null,
+                    ),
                   ),
                 ),
               ],
@@ -133,22 +138,10 @@ class _FormulaSimulationWidgetState extends State<FormulaSimulationWidget> {
             ),
             const SizedBox(height: 16),
             for (final variable in widget.config.variables) ...[
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      '${variable.label} (${variable.symbol})',
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                  Text(
+              _VariableHeader(
+                variable: variable,
+                valueText:
                     '${values[variable.symbol]!.toStringAsFixed(decimalPlaces)} ${variable.unit}',
-                    style: const TextStyle(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ],
               ),
               if (variable.max > variable.min) ...[
                 Slider(
@@ -162,13 +155,23 @@ class _FormulaSimulationWidgetState extends State<FormulaSimulationWidget> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      variable.min.toStringAsFixed(decimalPlaces),
-                      style: Theme.of(context).textTheme.labelSmall,
+                    Flexible(
+                      child: Text(
+                        variable.min.toStringAsFixed(decimalPlaces),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelSmall,
+                      ),
                     ),
-                    Text(
-                      '${variable.max.toStringAsFixed(decimalPlaces)} ${variable.unit}',
-                      style: Theme.of(context).textTheme.labelSmall,
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Text(
+                        '${variable.max.toStringAsFixed(decimalPlaces)} ${variable.unit}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.right,
+                        style: Theme.of(context).textTheme.labelSmall,
+                      ),
                     ),
                   ],
                 ),
@@ -231,8 +234,10 @@ class _FormulaSimulationWidgetState extends State<FormulaSimulationWidget> {
                   const SizedBox(height: 4),
                   Text(
                     '${result.toStringAsFixed(decimalPlaces)} ${widget.config.result.unit}',
-                    style: const TextStyle(
-                      fontSize: 26,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: isNarrow ? 22 : 26,
                       fontWeight: FontWeight.w900,
                       color: AppColors.textPrimary,
                     ),
@@ -241,6 +246,8 @@ class _FormulaSimulationWidgetState extends State<FormulaSimulationWidget> {
                     const SizedBox(height: 4),
                     Text(
                       widget.config.result.expression,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ],
@@ -250,6 +257,71 @@ class _FormulaSimulationWidgetState extends State<FormulaSimulationWidget> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _VariableHeader extends StatelessWidget {
+  const _VariableHeader({required this.variable, required this.valueText});
+
+  final FormulaVariable variable;
+  final String valueText;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final title = '${variable.label} (${variable.symbol})';
+        if (constraints.maxWidth < 320) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                valueText,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Flexible(
+              child: Text(
+                valueText,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

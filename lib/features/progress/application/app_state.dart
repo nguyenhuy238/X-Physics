@@ -1173,7 +1173,7 @@ class AppState extends ChangeNotifier {
       'isPublished': lesson.isPublished,
       'simulation': lesson.simulation.title.trim().isEmpty
           ? null
-          : lesson.simulation.toJson(),
+          : _adminSimulationPayload(lesson.simulation),
     };
     return _adminWrite(
       () => isUpdate
@@ -1422,6 +1422,33 @@ class AppState extends ChangeNotifier {
     'explanation': question.explanation,
     'difficulty': question.difficulty,
     'orderIndex': question.orderIndex,
+  };
+
+  Map<String, dynamic> _adminSimulationPayload(
+    FormulaSimulationConfig simulation,
+  ) => {
+    'title': simulation.title,
+    'formula': simulation.formula,
+    'variables': simulation.variables
+        .map(
+          (variable) => {
+            'symbol': variable.symbol,
+            'label': variable.label,
+            'unit': variable.unit,
+            'min': variable.min,
+            'max': variable.max,
+            'step': variable.step,
+            'default': variable.defaultValue,
+          },
+        )
+        .toList(),
+    'result': {
+      'symbol': simulation.result.symbol,
+      'label': simulation.result.label,
+      'unit': simulation.result.unit,
+      'expression': simulation.result.expression,
+      'decimalPlaces': simulation.result.decimalPlaces,
+    },
   };
 
   Future<bool> _adminWrite(

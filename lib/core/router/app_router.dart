@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/admin/screens/admin_chapters_screen.dart';
 import '../../features/admin/screens/admin_dashboard_screen.dart';
 import '../../features/admin/screens/admin_lesson_detail_screen.dart';
+import '../../features/admin/screens/admin_lesson_editor_screen.dart';
 import '../../features/admin/screens/admin_students_screen.dart';
 import '../../features/admin/screens/admin_lessons_screen.dart';
 import '../../features/admin/screens/admin_questions_screen.dart';
@@ -105,6 +106,12 @@ GoRouter buildRouter(AppState appState) {
         },
       ),
       GoRoute(
+        path: '/admin/lessons/new',
+        builder: (_, state) => AdminLessonEditorScreen(
+          chapterId: state.uri.queryParameters['chapterId'],
+        ),
+      ),
+      GoRoute(
         path: '/admin/chapters/:chapterId/lessons',
         redirect: (_, state) {
           final chapterId = state.pathParameters['chapterId']!;
@@ -125,6 +132,13 @@ GoRouter buildRouter(AppState appState) {
             chapterId: chapterId,
           );
         },
+      ),
+      GoRoute(
+        path: '/admin/lessons/:id/edit',
+        builder: (_, state) => AdminLessonEditorScreen(
+          lessonId: state.pathParameters['id']!,
+          chapterId: state.uri.queryParameters['chapterId'],
+        ),
       ),
       GoRoute(
         path: '/admin/questions',
