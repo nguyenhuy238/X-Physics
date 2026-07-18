@@ -76,6 +76,15 @@ class XScaffold extends StatelessWidget {
               ),
             ),
           ),
+          Semantics(
+            label: 'Chế độ giao diện: ${_themeModeLabel(state.themeMode)}',
+            button: true,
+            child: IconButton(
+              tooltip: 'Đổi giao diện: ${_themeModeLabel(state.themeMode)}',
+              onPressed: () => state.cycleThemeMode(),
+              icon: Icon(_themeModeIcon(state.themeMode)),
+            ),
+          ),
           ...?actions,
         ],
       ),
@@ -171,6 +180,18 @@ class XScaffold extends StatelessWidget {
     }
     return '/';
   }
+
+  String _themeModeLabel(ThemeMode mode) => switch (mode) {
+    ThemeMode.system => 'Theo hệ thống',
+    ThemeMode.light => 'Sáng',
+    ThemeMode.dark => 'Tối',
+  };
+
+  IconData _themeModeIcon(ThemeMode mode) => switch (mode) {
+    ThemeMode.system => Icons.brightness_auto_rounded,
+    ThemeMode.light => Icons.light_mode_rounded,
+    ThemeMode.dark => Icons.dark_mode_rounded,
+  };
 }
 
 class _XBottomNavigationBar extends StatelessWidget {

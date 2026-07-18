@@ -7,6 +7,7 @@ import '../../../shared/models/x_models.dart';
 import '../../../shared/widgets/empty_view.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
+import '../../../shared/widgets/unsaved_changes_dialog.dart';
 import '../../progress/application/app_state.dart';
 import '../widgets/admin_design.dart';
 import '../widgets/admin_layout.dart';
@@ -347,7 +348,7 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
     final isUpdate = question != null;
     final result = await showDialog<Question>(
       context: context,
-      barrierDismissible: !_saving,
+      barrierDismissible: false,
       builder: (_) => _QuestionFormDialog(
         question: draft ?? question,
         isUpdate: isUpdate,
@@ -858,6 +859,8 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
   late String? _lessonId;
   late int _correctOption;
   late String _difficulty;
+  var _initialFingerprint = '';
+  var _baselineCaptured = false;
   var _saving = false;
 
   @override
@@ -911,6 +914,10 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
     if (_lessonId == null && lessons.isNotEmpty) {
       _lessonId = lessons.first.id;
     }
+    if (!_baselineCaptured) {
+      _initialFingerprint = _fingerprint();
+      _baselineCaptured = true;
+    }
     final chapterValue = _validDropdownValue(
       _chapterId,
       chapters.map((chapter) => chapter.id),
@@ -919,172 +926,182 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
       _lessonId,
       lessons.map((lesson) => lesson.id),
     );
-    return AlertDialog(
-      title: Text(widget.isUpdate ? 'Sửa câu hỏi' : 'Thêm câu hỏi'),
-      content: SizedBox(
-        width: 620,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (widget.defaultLessonId == null) ...[
-                  DropdownButtonFormField<String>(
-                    initialValue: chapterValue,
-                    isExpanded: true,
-                    items: [
-                      const DropdownMenuItem<String>(
-                        value: null,
-                        child: Text('Tất cả chương'),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (!didPop) {
+          await _requestClose();
+        }
+      },
+      child: AlertDialog(
+        title: Text(widget.isUpdate ? 'Sửa câu hỏi' : 'Thêm câu hỏi'),
+        content: SizedBox(
+          width: 620,
+          child: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.defaultLessonId == null) ...[
+                    DropdownButtonFormField<String>(
+                      initialValue: chapterValue,
+                      isExpanded: true,
+                      items: [
+                        const DropdownMenuItem<String>(
+                          value: null,
+                          child: Text('Tất cả chương'),
+                        ),
+                        for (final chapter in state.chapters)
+                          DropdownMenuItem(
+                            value: chapter.id,
+                            child: Text(chapter.title),
+                          ),
+                      ],
+                      onChanged: widget.defaultChapterId != null
+                          ? null
+                          : (value) => setState(() {
+                              _chapterId = value;
+                              final nextLessons = value == null
+                                  ? state.adminLessons
+                                  : state.adminLessons
+                                        .where(
+                                          (lesson) => lesson.chapterId == value,
+                                        )
+                                        .toList();
+                              if (!nextLessons.any(
+                                (lesson) => lesson.id == _lessonId,
+                              )) {
+                                _lessonId = nextLessons.isEmpty
+                                    ? null
+                                    : nextLessons.first.id;
+                              }
+                            }),
+                      decoration: const InputDecoration(
+                        labelText: 'Chương học',
                       ),
-                      for (final chapter in state.chapters)
-                        DropdownMenuItem(
-                          value: chapter.id,
-                          child: Text(chapter.title),
-                        ),
-                    ],
-                    onChanged: widget.defaultChapterId != null
-                        ? null
-                        : (value) => setState(() {
-                            _chapterId = value;
-                            final nextLessons = value == null
-                                ? state.adminLessons
-                                : state.adminLessons
-                                      .where(
-                                        (lesson) => lesson.chapterId == value,
-                                      )
-                                      .toList();
-                            if (!nextLessons.any(
-                              (lesson) => lesson.id == _lessonId,
-                            )) {
-                              _lessonId = nextLessons.isEmpty
-                                  ? null
-                                  : nextLessons.first.id;
-                            }
-                          }),
-                    decoration: const InputDecoration(labelText: 'Chương học'),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: lessonValue,
-                    isExpanded: true,
-                    items: [
-                      for (final lesson in lessons)
-                        DropdownMenuItem(
-                          value: lesson.id,
-                          child: Text(lesson.title),
-                        ),
-                    ],
-                    validator: (value) => value == null || value.isEmpty
-                        ? 'Phải chọn bài học'
-                        : null,
-                    onChanged: widget.defaultLessonId != null
-                        ? null
-                        : (value) => setState(() => _lessonId = value),
-                    decoration: const InputDecoration(labelText: 'Bài học'),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                TextFormField(
-                  controller: _question,
-                  minLines: 2,
-                  maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Nội dung câu hỏi',
-                  ),
-                  validator: _required,
-                ),
-                const SizedBox(height: 12),
-                for (var i = 0; i < 4; i++) ...[
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: lessonValue,
+                      isExpanded: true,
+                      items: [
+                        for (final lesson in lessons)
+                          DropdownMenuItem(
+                            value: lesson.id,
+                            child: Text(lesson.title),
+                          ),
+                      ],
+                      validator: (value) => value == null || value.isEmpty
+                          ? 'Phải chọn bài học'
+                          : null,
+                      onChanged: widget.defaultLessonId != null
+                          ? null
+                          : (value) => setState(() => _lessonId = value),
+                      decoration: const InputDecoration(labelText: 'Bài học'),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   TextFormField(
-                    controller: _options[i],
-                    decoration: InputDecoration(
-                      labelText: 'Đáp án ${_letter(i)}',
+                    controller: _question,
+                    minLines: 2,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'Nội dung câu hỏi',
                     ),
                     validator: _required,
                   ),
                   const SizedBox(height: 12),
-                ],
-                DropdownButtonFormField<int>(
-                  initialValue: _correctOption,
-                  isExpanded: true,
-                  items: const [
-                    DropdownMenuItem(value: 0, child: Text('A')),
-                    DropdownMenuItem(value: 1, child: Text('B')),
-                    DropdownMenuItem(value: 2, child: Text('C')),
-                    DropdownMenuItem(value: 3, child: Text('D')),
-                  ],
-                  onChanged: (value) =>
-                      setState(() => _correctOption = value ?? 0),
-                  decoration: const InputDecoration(labelText: 'Đáp án đúng'),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _explanation,
-                  minLines: 2,
-                  maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Lời giải chi tiết',
-                  ),
-                  validator: _required,
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: _difficulty,
-                  isExpanded: true,
-                  items: const [
-                    DropdownMenuItem(value: 'EASY', child: Text('Dễ')),
-                    DropdownMenuItem(
-                      value: 'MEDIUM',
-                      child: Text('Trung bình'),
+                  for (var i = 0; i < 4; i++) ...[
+                    TextFormField(
+                      controller: _options[i],
+                      decoration: InputDecoration(
+                        labelText: 'Đáp án ${_letter(i)}',
+                      ),
+                      validator: _required,
                     ),
-                    DropdownMenuItem(value: 'HARD', child: Text('Khó')),
+                    const SizedBox(height: 12),
                   ],
-                  onChanged: (value) =>
-                      setState(() => _difficulty = value ?? 'MEDIUM'),
-                  decoration: const InputDecoration(labelText: 'Độ khó'),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _order,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Thứ tự hiển thị',
+                  DropdownButtonFormField<int>(
+                    initialValue: _correctOption,
+                    isExpanded: true,
+                    items: const [
+                      DropdownMenuItem(value: 0, child: Text('A')),
+                      DropdownMenuItem(value: 1, child: Text('B')),
+                      DropdownMenuItem(value: 2, child: Text('C')),
+                      DropdownMenuItem(value: 3, child: Text('D')),
+                    ],
+                    onChanged: (value) =>
+                        setState(() => _correctOption = value ?? 0),
+                    decoration: const InputDecoration(labelText: 'Đáp án đúng'),
                   ),
-                  validator: (value) {
-                    final parsed = int.tryParse(value ?? '');
-                    if (parsed == null || parsed < 1) {
-                      return 'Thứ tự hiển thị phải >= 1';
-                    }
-                    return null;
-                  },
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _explanation,
+                    minLines: 2,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'Lời giải chi tiết',
+                    ),
+                    validator: _required,
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: _difficulty,
+                    isExpanded: true,
+                    items: const [
+                      DropdownMenuItem(value: 'EASY', child: Text('Dễ')),
+                      DropdownMenuItem(
+                        value: 'MEDIUM',
+                        child: Text('Trung bình'),
+                      ),
+                      DropdownMenuItem(value: 'HARD', child: Text('Khó')),
+                    ],
+                    onChanged: (value) =>
+                        setState(() => _difficulty = value ?? 'MEDIUM'),
+                    decoration: const InputDecoration(labelText: 'Độ khó'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _order,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Thứ tự hiển thị',
+                    ),
+                    validator: (value) {
+                      final parsed = int.tryParse(value ?? '');
+                      if (parsed == null || parsed < 1) {
+                        return 'Thứ tự hiển thị phải >= 1';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: _saving ? null : _requestClose,
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: _saving ? null : _submit,
+            style: FilledButton.styleFrom(backgroundColor: AdminDesign.primary),
+            child: _saving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Text('Lưu'),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: _saving ? null : () => Navigator.pop(context),
-          child: const Text('Hủy'),
-        ),
-        FilledButton(
-          onPressed: _saving ? null : _submit,
-          style: FilledButton.styleFrom(backgroundColor: AdminDesign.primary),
-          child: _saving
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : const Text('Lưu'),
-        ),
-      ],
     );
   }
 
@@ -1118,6 +1135,34 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
         orderIndex: int.tryParse(_order.text) ?? 1,
       ),
     );
+  }
+
+  bool get _hasChanges => _fingerprint() != _initialFingerprint;
+
+  String _fingerprint() => [
+    _chapterId ?? '',
+    _lessonId ?? '',
+    _question.text.trim(),
+    ..._options.map((controller) => controller.text.trim()),
+    '$_correctOption',
+    _explanation.text.trim(),
+    _difficulty,
+    _order.text.trim(),
+  ].join('\n');
+
+  Future<void> _requestClose() async {
+    if (_saving) {
+      return;
+    }
+    final canClose = await confirmDiscardChanges(
+      context: context,
+      hasChanges: _hasChanges,
+      title: widget.isUpdate ? 'Hủy sửa câu hỏi?' : 'Hủy thêm câu hỏi?',
+      message: 'Thông tin câu hỏi đã nhập chưa được lưu.',
+    );
+    if (canClose && mounted) {
+      Navigator.pop(context);
+    }
   }
 }
 

@@ -14,6 +14,7 @@ class AdminLayout extends StatelessWidget {
     this.floatingActionButton,
     this.actions,
     this.onSearchChanged,
+    this.onBackRequested,
   });
 
   final String title;
@@ -23,6 +24,7 @@ class AdminLayout extends StatelessWidget {
   final Widget? floatingActionButton;
   final List<Widget>? actions;
   final ValueChanged<String>? onSearchChanged;
+  final Future<bool> Function()? onBackRequested;
 
   Widget _buildSidebar(BuildContext context) {
     final state = context.watch<AppState>();
@@ -111,7 +113,13 @@ class AdminLayout extends StatelessWidget {
               itemBuilder: (context, index) {
                 final item = menuItems[index];
                 return InkWell(
-                  onTap: () {
+                  onTap: () async {
+                    if (onBackRequested != null) {
+                      final canLeave = await onBackRequested!();
+                      if (!context.mounted || !canLeave) {
+                        return;
+                      }
+                    }
                     final scaffold = Scaffold.maybeOf(context);
                     if (scaffold != null && scaffold.isDrawerOpen) {
                       Navigator.pop(context);
@@ -297,7 +305,13 @@ class AdminLayout extends StatelessWidget {
             IconButton(
               tooltip: 'Quay lại',
               icon: const Icon(Icons.arrow_back_rounded),
-              onPressed: () {
+              onPressed: () async {
+                if (onBackRequested != null) {
+                  final canLeave = await onBackRequested!();
+                  if (!context.mounted || !canLeave) {
+                    return;
+                  }
+                }
                 if (context.canPop()) {
                   context.pop();
                 } else {

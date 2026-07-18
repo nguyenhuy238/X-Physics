@@ -126,6 +126,8 @@ class _ProfileContent extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       children: [
         _ProfileHeader(profile: profile),
+        const SizedBox(height: 16),
+        _ThemeModeTile(state: appState),
         if (isAdmin) ...[
           const SizedBox(height: 16),
           _buildAdminSection(context, appState),
@@ -338,6 +340,71 @@ class _ProfileContent extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ThemeModeTile extends StatelessWidget {
+  const _ThemeModeTile({required this.state});
+
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ListTile(
+              leading: Icon(_iconFor(state.themeMode)),
+              title: const Text(
+                'Giao diện',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(_labelFor(state.themeMode)),
+            ),
+            SegmentedButton<ThemeMode>(
+              segments: const [
+                ButtonSegment(
+                  value: ThemeMode.system,
+                  icon: Icon(Icons.brightness_auto_rounded),
+                  label: Text('Hệ thống'),
+                ),
+                ButtonSegment(
+                  value: ThemeMode.light,
+                  icon: Icon(Icons.light_mode_rounded),
+                  label: Text('Sáng'),
+                ),
+                ButtonSegment(
+                  value: ThemeMode.dark,
+                  icon: Icon(Icons.dark_mode_rounded),
+                  label: Text('Tối'),
+                ),
+              ],
+              selected: {state.themeMode},
+              onSelectionChanged: (values) {
+                if (values.isNotEmpty) {
+                  state.setThemeMode(values.first);
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _labelFor(ThemeMode mode) => switch (mode) {
+    ThemeMode.system => 'Theo cài đặt hệ thống',
+    ThemeMode.light => 'Luôn dùng giao diện sáng',
+    ThemeMode.dark => 'Luôn dùng giao diện tối',
+  };
+
+  IconData _iconFor(ThemeMode mode) => switch (mode) {
+    ThemeMode.system => Icons.brightness_auto_rounded,
+    ThemeMode.light => Icons.light_mode_rounded,
+    ThemeMode.dark => Icons.dark_mode_rounded,
+  };
 }
 
 class _ProfileHeader extends StatelessWidget {

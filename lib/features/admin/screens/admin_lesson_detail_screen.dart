@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../shared/models/x_models.dart';
 import '../../../shared/widgets/loading_view.dart';
+import '../../../shared/widgets/unsaved_changes_dialog.dart';
 import '../../progress/application/app_state.dart';
 import '../widgets/admin_layout.dart';
 
@@ -139,10 +140,11 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
       orElse: () => null,
     );
 
-    return AdminLayout(
+    final content = AdminLayout(
       title: lesson.title,
       subtitle: 'Chương: ${chapter?.title ?? lesson.chapterId}',
       activeRoute: '/admin/lessons',
+      onBackRequested: () => _requestLeaveIfNeeded(lesson),
       child: ListView(
         padding: const EdgeInsets.all(24),
         children: [
@@ -150,7 +152,11 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
           Row(
             children: [
               OutlinedButton.icon(
-                onPressed: () => context.pop(),
+                onPressed: () async {
+                  if (await _requestLeaveIfNeeded(lesson) && context.mounted) {
+                    context.pop();
+                  }
+                },
                 icon: const Icon(Icons.arrow_back_rounded, size: 16),
                 label: const Text('Quay lại'),
                 style: OutlinedButton.styleFrom(
@@ -202,20 +208,7 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
                 )
               else ...[
                 OutlinedButton(
-                  onPressed: _saving
-                      ? null
-                      : () {
-                          // revert controllers to lesson values
-                          _titleCtrl.text = lesson.title;
-                          _contentCtrl.text = lesson.content;
-                          _formulaCtrl.text = lesson.formulaLatex;
-                          _minutesCtrl.text = '${lesson.estimatedMinutes}';
-                          _orderCtrl.text = '${lesson.orderIndex}';
-                          setState(() {
-                            _isPublished = lesson.isPublished;
-                            _editing = false;
-                          });
-                        },
+                  onPressed: _saving ? null : () => _cancelEditing(lesson),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF64748B),
                     side: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -266,6 +259,58 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
         ],
       ),
     );
+    return PopScope(
+      canPop: !_editing || !_hasUnsavedChanges(lesson),
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) {
+          return;
+        }
+        if (await _requestLeaveIfNeeded(lesson) && context.mounted) {
+          context.pop();
+        }
+      },
+      child: content,
+    );
+  }
+
+  bool _hasUnsavedChanges(Lesson lesson) {
+    if (!_editing) {
+      return false;
+    }
+    return _titleCtrl.text.trim() != lesson.title.trim() ||
+        _contentCtrl.text.trim() != lesson.content.trim() ||
+        _formulaCtrl.text.trim() != lesson.formulaLatex.trim() ||
+        _minutesCtrl.text.trim() != '${lesson.estimatedMinutes}' ||
+        _orderCtrl.text.trim() != '${lesson.orderIndex}' ||
+        _isPublished != lesson.isPublished;
+  }
+
+  Future<bool> _requestLeaveIfNeeded(Lesson lesson) {
+    if (_saving) {
+      return Future.value(false);
+    }
+    return confirmDiscardChanges(
+      context: context,
+      hasChanges: _hasUnsavedChanges(lesson),
+      title: 'Hủy sửa bài học?',
+      message: 'Thông tin bài học đã nhập chưa được lưu.',
+    );
+  }
+
+  Future<void> _cancelEditing(Lesson lesson) async {
+    final canClose = await _requestLeaveIfNeeded(lesson);
+    if (!canClose || !mounted) {
+      return;
+    }
+    _titleCtrl.text = lesson.title;
+    _contentCtrl.text = lesson.content;
+    _formulaCtrl.text = lesson.formulaLatex;
+    _minutesCtrl.text = '${lesson.estimatedMinutes}';
+    _orderCtrl.text = '${lesson.orderIndex}';
+    setState(() {
+      _isPublished = lesson.isPublished;
+      _editing = false;
+    });
   }
 
   // ── View Mode ──────────────────────────────────────────────────────────

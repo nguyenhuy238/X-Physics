@@ -15,6 +15,8 @@ class XPhysicsApp extends StatelessWidget {
       title: 'X-Physics',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: context.watch<AppState>().themeMode,
       routerConfig: router ?? buildRouter(context.read<AppState>()),
     );
   }

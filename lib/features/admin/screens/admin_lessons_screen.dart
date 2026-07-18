@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../shared/models/x_models.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/loading_view.dart';
+import '../../../shared/widgets/unsaved_changes_dialog.dart';
 import '../../formula_simulation/utils/formula_calculator.dart';
 import '../../formula_simulation/widgets/formula_simulation_widget.dart';
 import '../../progress/application/app_state.dart';
@@ -804,6 +805,55 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
         .map(_AdminSimulationVariableDraft.fromVariable)
         .toList();
 
+    String fingerprint() {
+      final variableParts = simVariables
+          .map(
+            (variable) => [
+              variable.symbol.text.trim(),
+              variable.label.text.trim(),
+              variable.unit.text.trim(),
+              variable.min.text.trim(),
+              variable.max.text.trim(),
+              variable.step.text.trim(),
+              variable.defaultValue.text.trim(),
+            ].join('|'),
+          )
+          .join('||');
+      return [
+        id.text.trim(),
+        title.text.trim(),
+        content.text.trim(),
+        formula.text.trim(),
+        minutes.text.trim(),
+        chapterId,
+        order.text.trim(),
+        '$isPublished',
+        '$simulationEnabled',
+        simTitle.text.trim(),
+        simFormula.text.trim(),
+        resultSymbol.text.trim(),
+        resultLabel.text.trim(),
+        resultUnit.text.trim(),
+        resultExpression.text.trim(),
+        decimalPlaces.text.trim(),
+        variableParts,
+      ].join('\n');
+    }
+
+    final initialFingerprint = fingerprint();
+    bool hasChanges() => fingerprint() != initialFingerprint;
+    Future<void> requestClose(BuildContext dialogContext) async {
+      final canClose = await confirmDiscardChanges(
+        context: dialogContext,
+        hasChanges: hasChanges(),
+        title: lesson == null ? 'Hủy thêm bài học?' : 'Hủy sửa bài học?',
+        message: 'Thông tin bài học đã nhập chưa được lưu.',
+      );
+      if (canClose && dialogContext.mounted) {
+        Navigator.pop(dialogContext);
+      }
+    }
+
     FormulaSimulationConfig? buildSimulationConfig() {
       if (!simulationEnabled) return FormulaSimulationConfig.empty();
       final variables = <FormulaVariable>[];
@@ -846,607 +896,625 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
 
     final result = await showDialog<Lesson>(
       context: context,
+      barrierDismissible: false,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 760),
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Form(
-                key: formKey,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            lesson == null
-                                ? 'Thêm Bài học mới'
-                                : 'Cập nhật Bài học',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF0F172A),
+        builder: (dialogContext, setDialogState) => PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) async {
+            if (!didPop) {
+              await requestClose(dialogContext);
+            }
+          },
+          child: Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 760),
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Form(
+                  key: formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              lesson == null
+                                  ? 'Thêm Bài học mới'
+                                  : 'Cập nhật Bài học',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF0F172A),
+                              ),
                             ),
-                          ),
-                          IconButton(
-                            onPressed: () => Navigator.pop(dialogContext),
-                            icon: const Icon(Icons.close_rounded),
-                            color: const Color(0xFF64748B),
-                            style: IconButton.styleFrom(
-                              backgroundColor: const Color(0xFFF1F5F9),
-                              padding: const EdgeInsets.all(6),
+                            IconButton(
+                              onPressed: () => requestClose(dialogContext),
+                              icon: const Icon(Icons.close_rounded),
+                              color: const Color(0xFF64748B),
+                              style: IconButton.styleFrom(
+                                backgroundColor: const Color(0xFFF1F5F9),
+                                padding: const EdgeInsets.all(6),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Nhập thông tin chi tiết bài học lý thuyết vật lý.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF64748B),
+                          ],
                         ),
-                      ),
-                      const Divider(color: Color(0xFFF1F5F9), height: 32),
-
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'MÃ BÀI HỌC (ID)',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF94A3B8),
-                                    letterSpacing: 1.1,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                TextFormField(
-                                  controller: id,
-                                  enabled: lesson == null,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Color(0xFF0F172A),
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  decoration: InputDecoration(
-                                    hintText: 'VD: force-1',
-                                    filled: true,
-                                    fillColor: lesson == null
-                                        ? const Color(0xFFF8FAFC)
-                                        : const Color(0xFFE2E8F0),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide.none,
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(
-                                        color: Color(0xFF2563EB),
-                                        width: 1.5,
-                                      ),
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 14,
-                                    ),
-                                  ),
-                                  validator: (value) {
-                                    if (value == null || value.trim().isEmpty) {
-                                      return 'Mã bài học là bắt buộc';
-                                    }
-                                    final trimmed = value.trim();
-                                    if (trimmed.length < 3 ||
-                                        trimmed.length > 50) {
-                                      return 'Độ bài học phải từ 3 đến 50 ký tự';
-                                    }
-                                    if (!RegExp(
-                                      r'^[a-z0-9\-]+$',
-                                    ).hasMatch(trimmed)) {
-                                      return 'Chỉ dùng chữ thường (a-z), số (0-9) và dấu gạch ngang (-)';
-                                    }
-                                    if (lesson == null &&
-                                        state.adminLessons.any(
-                                          (l) => l.id == trimmed,
-                                        )) {
-                                      return 'Mã bài học đã tồn tại';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                              ],
-                            ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Nhập thông tin chi tiết bài học lý thuyết vật lý.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF64748B),
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'CHƯƠNG HỌC',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF94A3B8),
-                                    letterSpacing: 1.1,
+                        ),
+                        const Divider(color: Color(0xFFF1F5F9), height: 32),
+
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'MÃ BÀI HỌC (ID)',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF94A3B8),
+                                      letterSpacing: 1.1,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
+                                  const SizedBox(height: 8),
+                                  TextFormField(
+                                    controller: id,
+                                    enabled: lesson == null,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Color(0xFF0F172A),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    decoration: InputDecoration(
+                                      hintText: 'VD: force-1',
+                                      filled: true,
+                                      fillColor: lesson == null
+                                          ? const Color(0xFFF8FAFC)
+                                          : const Color(0xFFE2E8F0),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: const BorderSide(
+                                          color: Color(0xFF2563EB),
+                                          width: 1.5,
+                                        ),
+                                      ),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 14,
+                                          ),
+                                    ),
+                                    validator: (value) {
+                                      if (value == null ||
+                                          value.trim().isEmpty) {
+                                        return 'Mã bài học là bắt buộc';
+                                      }
+                                      final trimmed = value.trim();
+                                      if (trimmed.length < 3 ||
+                                          trimmed.length > 50) {
+                                        return 'Độ bài học phải từ 3 đến 50 ký tự';
+                                      }
+                                      if (!RegExp(
+                                        r'^[a-z0-9\-]+$',
+                                      ).hasMatch(trimmed)) {
+                                        return 'Chỉ dùng chữ thường (a-z), số (0-9) và dấu gạch ngang (-)';
+                                      }
+                                      if (lesson == null &&
+                                          state.adminLessons.any(
+                                            (l) => l.id == trimmed,
+                                          )) {
+                                        return 'Mã bài học đã tồn tại';
+                                      }
+                                      return null;
+                                    },
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF8FAFC),
-                                    borderRadius: BorderRadius.circular(12),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'CHƯƠNG HỌC',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF94A3B8),
+                                      letterSpacing: 1.1,
+                                    ),
                                   ),
-                                  child: DropdownButtonHideUnderline(
-                                    child: DropdownButtonFormField<String>(
-                                      initialValue: chapterId,
-                                      items: [
-                                        for (final chapter in state.chapters)
-                                          DropdownMenuItem(
-                                            value: chapter.id,
-                                            child: Text(
-                                              chapter.title,
-                                              style: const TextStyle(
-                                                fontSize: 14,
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF8FAFC),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: DropdownButtonHideUnderline(
+                                      child: DropdownButtonFormField<String>(
+                                        initialValue: chapterId,
+                                        items: [
+                                          for (final chapter in state.chapters)
+                                            DropdownMenuItem(
+                                              value: chapter.id,
+                                              child: Text(
+                                                chapter.title,
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                ),
                                               ),
                                             ),
+                                        ],
+                                        onChanged: widget.chapterId != null
+                                            ? null
+                                            : (value) => setDialogState(
+                                                () => chapterId =
+                                                    value ?? chapterId,
+                                              ),
+                                        decoration: const InputDecoration(
+                                          border: InputBorder.none,
+                                          contentPadding: EdgeInsets.zero,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+
+                        const Text(
+                          'TÊN BÀI HỌC',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF94A3B8),
+                            letterSpacing: 1.1,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: title,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF0F172A),
+                            fontWeight: FontWeight.bold,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Nhập tiêu đề bài học',
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF2563EB),
+                                width: 1.5,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Tên bài học là bắt buộc';
+                            }
+                            final trimmed = value.trim();
+                            if (trimmed.length < 3 || trimmed.length > 100) {
+                              return 'Tên bài học phải từ 3 đến 100 ký tự';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 18),
+
+                        const Text(
+                          'NỘI DUNG CHI TIẾT (MARKDOWN)',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF94A3B8),
+                            letterSpacing: 1.1,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: content,
+                          maxLines: 5,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF0F172A),
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Nhập nội dung giảng dạy của bài học...',
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF2563EB),
+                                width: 1.5,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Nội dung là bắt buộc';
+                            }
+                            final trimmed = value.trim();
+                            if (trimmed.length < 10 || trimmed.length > 10000) {
+                              return 'Nội dung bài học phải từ 10 đến 10000 ký tự';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 18),
+
+                        const Text(
+                          'CÔNG THỨC CHÍNH (LATEX)',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF94A3B8),
+                            letterSpacing: 1.1,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: formula,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF0F172A),
+                            fontFamily: 'monospace',
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'VD: p = F / S',
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF2563EB),
+                                width: 1.5,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value != null && value.trim().length > 500) {
+                              return 'Công thức tối đa 500 ký tự';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 18),
+
+                        _buildSimulationSection(
+                          enabled: simulationEnabled,
+                          onEnabledChanged: (value) =>
+                              setDialogState(() => simulationEnabled = value),
+                          title: simTitle,
+                          formula: simFormula,
+                          resultSymbol: resultSymbol,
+                          resultLabel: resultLabel,
+                          resultUnit: resultUnit,
+                          resultExpression: resultExpression,
+                          decimalPlaces: decimalPlaces,
+                          variables: simVariables,
+                          previewConfig: buildSimulationConfig(),
+                          setDialogState: setDialogState,
+                        ),
+                        const SizedBox(height: 18),
+
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'ƯỚC LƯỢNG (PHÚT)',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF94A3B8),
+                                      letterSpacing: 1.1,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  TextFormField(
+                                    controller: minutes,
+                                    keyboardType: TextInputType.number,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Color(0xFF0F172A),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    decoration: InputDecoration(
+                                      filled: true,
+                                      fillColor: const Color(0xFFF8FAFC),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: const BorderSide(
+                                          color: Color(0xFF2563EB),
+                                          width: 1.5,
+                                        ),
+                                      ),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 14,
                                           ),
+                                    ),
+                                    validator: (value) {
+                                      if (value == null ||
+                                          value.trim().isEmpty) {
+                                        return 'Bắt buộc';
+                                      }
+                                      final val = int.tryParse(value.trim());
+                                      if (val == null) {
+                                        return 'Phải là số';
+                                      }
+                                      if (val < 1 || val > 180) {
+                                        return 'Ước lượng từ 1 đến 180 phút';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'THƯ TỰ SẮP XẾP',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF94A3B8),
+                                      letterSpacing: 1.1,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  TextFormField(
+                                    controller: order,
+                                    keyboardType: TextInputType.number,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Color(0xFF0F172A),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    decoration: InputDecoration(
+                                      filled: true,
+                                      fillColor: const Color(0xFFF8FAFC),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: const BorderSide(
+                                          color: Color(0xFF2563EB),
+                                          width: 1.5,
+                                        ),
+                                      ),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 14,
+                                          ),
+                                    ),
+                                    validator: (value) {
+                                      if (value == null ||
+                                          value.trim().isEmpty) {
+                                        return 'Bắt buộc';
+                                      }
+                                      final val = int.tryParse(value.trim());
+                                      if (val == null) {
+                                        return 'Phải là số';
+                                      }
+                                      if (val < 0) {
+                                        return 'Phải >= 0';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'TRẠNG THÁI',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF94A3B8),
+                                      letterSpacing: 1.1,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF8FAFC),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          isPublished ? 'Xuất bản' : 'Nháp',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: isPublished
+                                                ? const Color(0xFF065F46)
+                                                : const Color(0xFF92400E),
+                                          ),
+                                        ),
+                                        Switch(
+                                          value: isPublished,
+                                          activeThumbColor: const Color(
+                                            0xFF2563EB,
+                                          ),
+                                          onChanged: (value) => setDialogState(
+                                            () => isPublished = value,
+                                          ),
+                                        ),
                                       ],
-                                      onChanged: widget.chapterId != null
-                                          ? null
-                                          : (value) => setDialogState(
-                                              () => chapterId =
-                                                  value ?? chapterId,
-                                            ),
-                                      decoration: const InputDecoration(
-                                        border: InputBorder.none,
-                                        contentPadding: EdgeInsets.zero,
-                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-
-                      const Text(
-                        'TÊN BÀI HỌC',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF94A3B8),
-                          letterSpacing: 1.1,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: title,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF0F172A),
-                          fontWeight: FontWeight.bold,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Nhập tiêu đề bài học',
-                          filled: true,
-                          fillColor: const Color(0xFFF8FAFC),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: Color(0xFF2563EB),
-                              width: 1.5,
-                            ),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Tên bài học là bắt buộc';
-                          }
-                          final trimmed = value.trim();
-                          if (trimmed.length < 3 || trimmed.length > 100) {
-                            return 'Tên bài học phải từ 3 đến 100 ký tự';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 18),
-
-                      const Text(
-                        'NỘI DUNG CHI TIẾT (MARKDOWN)',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF94A3B8),
-                          letterSpacing: 1.1,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: content,
-                        maxLines: 5,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF0F172A),
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Nhập nội dung giảng dạy của bài học...',
-                          filled: true,
-                          fillColor: const Color(0xFFF8FAFC),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: Color(0xFF2563EB),
-                              width: 1.5,
-                            ),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Nội dung là bắt buộc';
-                          }
-                          final trimmed = value.trim();
-                          if (trimmed.length < 10 || trimmed.length > 10000) {
-                            return 'Nội dung bài học phải từ 10 đến 10000 ký tự';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 18),
-
-                      const Text(
-                        'CÔNG THỨC CHÍNH (LATEX)',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF94A3B8),
-                          letterSpacing: 1.1,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: formula,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF0F172A),
-                          fontFamily: 'monospace',
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'VD: p = F / S',
-                          filled: true,
-                          fillColor: const Color(0xFFF8FAFC),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: Color(0xFF2563EB),
-                              width: 1.5,
-                            ),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
-                        ),
-                        validator: (value) {
-                          if (value != null && value.trim().length > 500) {
-                            return 'Công thức tối đa 500 ký tự';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 18),
-
-                      _buildSimulationSection(
-                        enabled: simulationEnabled,
-                        onEnabledChanged: (value) =>
-                            setDialogState(() => simulationEnabled = value),
-                        title: simTitle,
-                        formula: simFormula,
-                        resultSymbol: resultSymbol,
-                        resultLabel: resultLabel,
-                        resultUnit: resultUnit,
-                        resultExpression: resultExpression,
-                        decimalPlaces: decimalPlaces,
-                        variables: simVariables,
-                        previewConfig: buildSimulationConfig(),
-                        setDialogState: setDialogState,
-                      ),
-                      const SizedBox(height: 18),
-
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'ƯỚC LƯỢNG (PHÚT)',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF94A3B8),
-                                    letterSpacing: 1.1,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                TextFormField(
-                                  controller: minutes,
-                                  keyboardType: TextInputType.number,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Color(0xFF0F172A),
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  decoration: InputDecoration(
-                                    filled: true,
-                                    fillColor: const Color(0xFFF8FAFC),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide.none,
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(
-                                        color: Color(0xFF2563EB),
-                                        width: 1.5,
-                                      ),
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 14,
-                                    ),
-                                  ),
-                                  validator: (value) {
-                                    if (value == null || value.trim().isEmpty) {
-                                      return 'Bắt buộc';
-                                    }
-                                    final val = int.tryParse(value.trim());
-                                    if (val == null) {
-                                      return 'Phải là số';
-                                    }
-                                    if (val < 1 || val > 180) {
-                                      return 'Ước lượng từ 1 đến 180 phút';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'THƯ TỰ SẮP XẾP',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF94A3B8),
-                                    letterSpacing: 1.1,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                TextFormField(
-                                  controller: order,
-                                  keyboardType: TextInputType.number,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Color(0xFF0F172A),
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  decoration: InputDecoration(
-                                    filled: true,
-                                    fillColor: const Color(0xFFF8FAFC),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide.none,
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(
-                                        color: Color(0xFF2563EB),
-                                        width: 1.5,
-                                      ),
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 14,
-                                    ),
-                                  ),
-                                  validator: (value) {
-                                    if (value == null || value.trim().isEmpty) {
-                                      return 'Bắt buộc';
-                                    }
-                                    final val = int.tryParse(value.trim());
-                                    if (val == null) {
-                                      return 'Phải là số';
-                                    }
-                                    if (val < 0) {
-                                      return 'Phải >= 0';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'TRẠNG THÁI',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF94A3B8),
-                                    letterSpacing: 1.1,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF8FAFC),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        isPublished ? 'Xuất bản' : 'Nháp',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: isPublished
-                                              ? const Color(0xFF065F46)
-                                              : const Color(0xFF92400E),
-                                        ),
-                                      ),
-                                      Switch(
-                                        value: isPublished,
-                                        activeThumbColor: const Color(
-                                          0xFF2563EB,
-                                        ),
-                                        onChanged: (value) => setDialogState(
-                                          () => isPublished = value,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 28),
-
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          OutlinedButton(
-                            onPressed: () => Navigator.pop(dialogContext),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF64748B),
-                              side: const BorderSide(color: Color(0xFFE2E8F0)),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 14,
+                                ],
                               ),
                             ),
-                            child: const Text(
-                              'Hủy bỏ',
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                          ],
+                        ),
+                        const SizedBox(height: 28),
+
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            OutlinedButton(
+                              onPressed: () => requestClose(dialogContext),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF64748B),
+                                side: const BorderSide(
+                                  color: Color(0xFFE2E8F0),
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 14,
+                                ),
+                              ),
+                              child: const Text(
+                                'Hủy bỏ',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          FilledButton(
-                            onPressed: () {
-                              if (formKey.currentState?.validate() != true) {
-                                return;
-                              }
-                              final simulationError = _validateSimulationDraft(
-                                enabled: simulationEnabled,
-                                variables: simVariables,
-                              );
-                              if (simulationError != null) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(simulationError)),
+                            const SizedBox(width: 12),
+                            FilledButton(
+                              onPressed: () {
+                                if (formKey.currentState?.validate() != true) {
+                                  return;
+                                }
+                                final simulationError =
+                                    _validateSimulationDraft(
+                                      enabled: simulationEnabled,
+                                      variables: simVariables,
+                                    );
+                                if (simulationError != null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(simulationError)),
+                                  );
+                                  return;
+                                }
+                                final simulationConfig =
+                                    buildSimulationConfig() ??
+                                    FormulaSimulationConfig.empty();
+                                Navigator.pop(
+                                  dialogContext,
+                                  Lesson(
+                                    id: id.text.trim(),
+                                    chapterId: chapterId,
+                                    title: title.text.trim(),
+                                    content: content.text.trim(),
+                                    formulaLatex: formula.text.trim(),
+                                    estimatedMinutes:
+                                        int.tryParse(minutes.text) ?? 10,
+                                    simulation: simulationEnabled
+                                        ? simulationConfig
+                                        : FormulaSimulationConfig.empty(),
+                                    questions: const [],
+                                    orderIndex: int.tryParse(order.text) ?? 0,
+                                    isPublished: isPublished,
+                                  ),
                                 );
-                                return;
-                              }
-                              final simulationConfig =
-                                  buildSimulationConfig() ??
-                                  FormulaSimulationConfig.empty();
-                              Navigator.pop(
-                                dialogContext,
-                                Lesson(
-                                  id: id.text.trim(),
-                                  chapterId: chapterId,
-                                  title: title.text.trim(),
-                                  content: content.text.trim(),
-                                  formulaLatex: formula.text.trim(),
-                                  estimatedMinutes:
-                                      int.tryParse(minutes.text) ?? 10,
-                                  simulation: simulationEnabled
-                                      ? simulationConfig
-                                      : FormulaSimulationConfig.empty(),
-                                  questions: const [],
-                                  orderIndex: int.tryParse(order.text) ?? 0,
-                                  isPublished: isPublished,
+                              },
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF2563EB),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                              );
-                            },
-                            style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFF2563EB),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 14,
+                                ),
                               ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 14,
+                              child: const Text(
+                                'Lưu bài học',
+                                style: TextStyle(fontWeight: FontWeight.bold),
                               ),
                             ),
-                            child: const Text(
-                              'Lưu bài học',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

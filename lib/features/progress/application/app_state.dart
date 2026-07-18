@@ -2,12 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/api_endpoints.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/router/app_router.dart';
+import '../../../core/storage/settings_storage.dart';
 import '../../../core/storage/local_storage_service.dart';
 import '../../../core/storage/token_storage.dart';
 import '../../offline/data/offline_repository.dart';
@@ -56,6 +57,7 @@ class AppState extends ChangeNotifier {
   late final ProfileRepository _profileRepository;
   late final ProgressSyncService _progressSyncService;
   final TokenStorage _tokenStorage;
+  final SettingsStorage _settingsStorage = SettingsStorage();
   final ConnectivityService _connectivityService = ConnectivityService();
   final LocalStorageService _localStorage = const LocalStorageService();
   // `OfflineService()` is safe to construct eagerly: it resolves the Hive
@@ -80,6 +82,7 @@ class AppState extends ChangeNotifier {
   String? profileError;
   int coins = 0;
   bool simulateOffline = false;
+  ThemeMode themeMode = ThemeMode.system;
 
   /// Real network status detected via `connectivity_plus`. `simulateOffline`
   /// stays available for the demo "airplane mode" switch (see
@@ -118,6 +121,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> bootstrap() async {
     router = buildRouter(this);
+    await loadThemeMode();
     downloadedLessons.clear();
 
     isOffline = !(await _connectivityService.isOnline());
@@ -297,6 +301,38 @@ class AppState extends ChangeNotifier {
   void setOfflineMode(bool value) {
     simulateOffline = value;
     notifyListeners();
+  }
+
+  Future<void> loadThemeMode() async {
+    try {
+      themeMode = await _settingsStorage.readThemeMode();
+      notifyListeners();
+    } catch (_) {
+      themeMode = ThemeMode.system;
+    }
+  }
+
+  Future<void> setThemeMode(ThemeMode mode) async {
+    if (themeMode == mode) {
+      return;
+    }
+    themeMode = mode;
+    notifyListeners();
+    try {
+      await _settingsStorage.saveThemeMode(mode);
+    } catch (error) {
+      errorMessage = _readableError(error);
+      notifyListeners();
+    }
+  }
+
+  Future<void> cycleThemeMode() {
+    final next = switch (themeMode) {
+      ThemeMode.system => ThemeMode.light,
+      ThemeMode.light => ThemeMode.dark,
+      ThemeMode.dark => ThemeMode.system,
+    };
+    return setThemeMode(next);
   }
 
   Future<void> refreshCurrentUser() async {

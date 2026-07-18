@@ -10,6 +10,8 @@ import 'package:provider/provider.dart';
 import 'package:x_physics/core/network/api_client.dart';
 import 'package:x_physics/core/router/app_router.dart';
 import 'package:x_physics/core/storage/token_storage.dart';
+import 'package:x_physics/features/admin/screens/admin_chapters_screen.dart';
+import 'package:x_physics/features/admin/screens/admin_lessons_screen.dart';
 import 'package:x_physics/features/chapters/screens/chapter_detail_screen.dart';
 import 'package:x_physics/features/home/screens/home_screen.dart';
 import 'package:x_physics/features/lessons/screens/lesson_screen.dart';
@@ -280,6 +282,22 @@ class FakeAppState extends AppState {
         ),
       ]);
     notifyListeners();
+  }
+
+  @override
+  Future<void> setThemeMode(ThemeMode mode) async {
+    themeMode = mode;
+    notifyListeners();
+  }
+
+  @override
+  Future<void> cycleThemeMode() {
+    final next = switch (themeMode) {
+      ThemeMode.system => ThemeMode.light,
+      ThemeMode.light => ThemeMode.dark,
+      ThemeMode.dark => ThemeMode.system,
+    };
+    return setThemeMode(next);
   }
 
   @override
@@ -688,6 +706,42 @@ Future<void> _pumpAdminQuestions(
     ChangeNotifierProvider<AppState>.value(
       value: state,
       child: const MaterialApp(home: AdminQuestionsScreen()),
+    ),
+  );
+}
+
+Future<void> _pumpAdminChapters(WidgetTester tester, FakeAppState state) async {
+  await tester.binding.setSurfaceSize(const Size(1500, 900));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  state.loading = false;
+  state.user = const XUser(
+    id: 'admin-1',
+    name: 'Admin User',
+    email: 'admin@example.com',
+    role: 'ADMIN',
+  );
+  await tester.pumpWidget(
+    ChangeNotifierProvider<AppState>.value(
+      value: state,
+      child: const MaterialApp(home: AdminChaptersScreen()),
+    ),
+  );
+}
+
+Future<void> _pumpAdminLessons(WidgetTester tester, FakeAppState state) async {
+  await tester.binding.setSurfaceSize(const Size(1500, 900));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  state.loading = false;
+  state.user = const XUser(
+    id: 'admin-1',
+    name: 'Admin User',
+    email: 'admin@example.com',
+    role: 'ADMIN',
+  );
+  await tester.pumpWidget(
+    ChangeNotifierProvider<AppState>.value(
+      value: state,
+      child: const MaterialApp(home: AdminLessonsScreen()),
     ),
   );
 }
@@ -1578,6 +1632,27 @@ void main() {
     expect(find.text('Chưa có huy hiệu nào.'), findsOneWidget);
   });
 
+  testWidgets('profile theme setting updates persistent preference state', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    state.profileQueue.add(() => Future.value(makeProfile()));
+
+    await _pumpProfile(tester, state, surfaceSize: const Size(800, 900));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Giao diện'), findsOneWidget);
+    expect(state.themeMode, ThemeMode.system);
+
+    await tester.tap(find.text('Tối'));
+    await tester.pump();
+
+    expect(state.themeMode, ThemeMode.dark);
+    expect(find.text('Luôn dùng giao diện tối'), findsOneWidget);
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('profile error retries and refreshes coins', (tester) async {
     final state = FakeAppState();
     state.profileQueue
@@ -1622,7 +1697,7 @@ void main() {
       final state = FakeAppState()..profileSummary = makeProfile();
 
       await _pumpProfile(tester, state);
-      await tester.drag(find.byType(ListView), const Offset(0, -700));
+      await tester.scrollUntilVisible(find.text('Cập nhật họ tên'), 500);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Cập nhật họ tên'));
       await tester.pumpAndSettle();
@@ -1650,7 +1725,7 @@ void main() {
       ..profileSummary = makeProfile();
 
     final router = await _pumpProfile(tester, state, useRealLogin: true);
-    await tester.drag(find.byType(ListView), const Offset(0, -700));
+    await tester.scrollUntilVisible(find.text('Đổi mật khẩu'), 500);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Đổi mật khẩu'));
     await tester.pumpAndSettle();
@@ -1695,7 +1770,7 @@ void main() {
     state.progressDashboard = makeDashboard();
 
     final router = await _pumpProfile(tester, state);
-    await tester.drag(find.byType(ListView), const Offset(0, -700));
+    await tester.scrollUntilVisible(find.text('Đăng xuất'), 500);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Đăng xuất'));
     await tester.pumpAndSettle();
@@ -1720,6 +1795,58 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(router.routerDelegate.currentConfiguration.uri.path, '/login');
+  });
+
+  testWidgets('admin chapter create form confirms before discarding edits', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    await _pumpAdminChapters(tester, state);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Thêm chương'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).first, 'new-chapter');
+    await tester.tap(find.text('Hủy'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hủy thêm chương?'), findsOneWidget);
+    await tester.tap(find.text('Tiếp tục chỉnh sửa'));
+    await tester.pumpAndSettle();
+    expect(find.text('Thêm Chương học'), findsOneWidget);
+
+    await tester.tap(find.text('Hủy'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Hủy thay đổi'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Thêm Chương học'), findsNothing);
+  });
+
+  testWidgets('admin lesson create form confirms before discarding edits', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    await _pumpAdminLessons(tester, state);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Thêm bài học'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).first, 'new-lesson');
+    await tester.tap(find.text('Hủy bỏ'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hủy thêm bài học?'), findsOneWidget);
+    await tester.tap(find.text('Tiếp tục chỉnh sửa'));
+    await tester.pumpAndSettle();
+    expect(find.text('Thêm Bài học mới'), findsOneWidget);
+
+    await tester.tap(find.text('Hủy bỏ'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Hủy thay đổi'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Thêm Bài học mới'), findsNothing);
   });
 
   testWidgets(
@@ -1815,6 +1942,32 @@ void main() {
       expect(state.lastWrittenQuestion?.question, 'New question');
     },
   );
+
+  testWidgets('admin question create form confirms before discarding edits', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    await _pumpAdminQuestions(tester, state);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Thêm câu hỏi'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).first, 'Draft question');
+    await tester.tap(find.text('Hủy'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hủy thêm câu hỏi?'), findsOneWidget);
+    await tester.tap(find.text('Tiếp tục chỉnh sửa'));
+    await tester.pumpAndSettle();
+    expect(find.text('Thêm câu hỏi'), findsWidgets);
+
+    await tester.tap(find.text('Hủy'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Hủy thay đổi'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Draft question'), findsNothing);
+  });
 
   testWidgets('admin questions detail and delete work through dialogs', (
     tester,
