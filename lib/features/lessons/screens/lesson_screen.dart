@@ -240,6 +240,12 @@ class _LessonScreenState extends State<LessonScreen> {
                       icon: const Icon(Icons.quiz_outlined),
                       label: const Text('Bài học này chưa có quiz'),
                     )
+                  : state.effectiveOffline
+                  ? OutlinedButton.icon(
+                      onPressed: null,
+                      icon: const Icon(Icons.wifi_off_rounded),
+                      label: const Text('Quiz cần kết nối mạng'),
+                    )
                   : FilledButton.icon(
                       onPressed: () =>
                           context.push('/quiz/${currentLesson.id}'),

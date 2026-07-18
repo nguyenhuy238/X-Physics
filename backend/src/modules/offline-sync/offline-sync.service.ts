@@ -10,15 +10,47 @@ export class OfflineSyncService {
   constructor(private readonly database: DatabaseRepository) {}
 
   async syncProgress(user: AuthenticatedUser, dto: SyncProgressDto) {
+    const accepted: Array<{
+      operationId?: string;
+      lessonId: string;
+      serverState: unknown;
+    }> = [];
+    const rejected: Array<{
+      operationId?: string;
+      lessonId: string;
+      reason: string;
+    }> = [];
+
     for (const item of dto.items) {
-      await this.database.upsertProgress({
-        userId: user.id,
-        lessonId: item.lessonId,
-        status: item.progressPercent >= 100 ? 'COMPLETED' : 'IN_PROGRESS',
-        progressPercent: item.progressPercent,
-      });
+      try {
+        const progress = await this.database.upsertProgress({
+          userId: user.id,
+          lessonId: item.lessonId,
+          status:
+            item.isCompleted || item.progressPercent >= 100
+              ? 'COMPLETED'
+              : 'IN_PROGRESS',
+          progressPercent: item.progressPercent,
+        });
+        accepted.push({
+          operationId: item.operationId,
+          lessonId: item.lessonId,
+          serverState: progress,
+        });
+      } catch (error) {
+        rejected.push({
+          operationId: item.operationId,
+          lessonId: item.lessonId,
+          reason: error instanceof Error ? error.message : 'Sync item failed',
+        });
+      }
     }
-    return { syncedItems: dto.items.length, conflicts: [] };
+    return {
+      syncedItems: accepted.length,
+      accepted,
+      rejected,
+      conflicts: [],
+    };
   }
 
   // Records a real "lesson downloaded for offline" event so Admin

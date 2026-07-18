@@ -121,10 +121,42 @@ class LocalStorageService {
       );
     }
     final normalizedLessonId = lessonId.trim();
-    await pendingProgressBox().put(
-      buildUserLessonKey(normalizedUserId, normalizedLessonId),
-      {...item, 'userId': normalizedUserId, 'lessonId': normalizedLessonId},
-    );
+    final key = buildUserLessonKey(normalizedUserId, normalizedLessonId);
+    final existing = pendingProgressBox().get(key);
+    final existingMap = existing == null ? null : _normalizeMap(existing);
+    final now = DateTime.now().toUtc().toIso8601String();
+    final incomingPercent = _readInt(
+      item['progressPercent'],
+    )?.clamp(0, 100).toInt();
+    final existingPercent =
+        _readInt(existingMap?['progressPercent'])?.clamp(0, 100).toInt() ?? 0;
+    final mergedPercent = incomingPercent == null
+        ? existingPercent
+        : (incomingPercent < existingPercent ? existingPercent : incomingPercent);
+    final operationId =
+        _readNonEmptyString(item['operationId']) ??
+        (incomingPercent != null && incomingPercent > existingPercent
+            ? null
+            : _readNonEmptyString(existingMap?['operationId'])) ??
+        _newOperationId(normalizedUserId, normalizedLessonId);
+
+    await pendingProgressBox().put(key, {
+      ...?existingMap,
+      ...item,
+      'userId': normalizedUserId,
+      'lessonId': normalizedLessonId,
+      'progressPercent': mergedPercent,
+      'isCompleted': item['isCompleted'] == true || mergedPercent >= 100,
+      'operationId': operationId,
+      'clientUpdatedAt':
+          _readNonEmptyString(item['clientUpdatedAt']) ??
+          _readNonEmptyString(existingMap?['clientUpdatedAt']) ??
+          now,
+      'createdAt': _readNonEmptyString(existingMap?['createdAt']) ?? now,
+      'retryCount': _readInt(existingMap?['retryCount']) ?? 0,
+      'lastError': existingMap?['lastError'],
+      'nextRetryAt': existingMap?['nextRetryAt'],
+    });
   }
 
   /// Snapshot of everything currently queued, decoded to plain
@@ -172,6 +204,34 @@ class LocalStorageService {
     }
   }
 
+  Future<void> markPendingProgressSnapshotFailed(
+    Map<String, Map<String, dynamic>> snapshot,
+    Object error,
+  ) async {
+    final box = pendingProgressBox();
+    final now = DateTime.now().toUtc();
+    for (final entry in snapshot.entries) {
+      final current = box.get(entry.key);
+      if (current == null) {
+        continue;
+      }
+      final normalized = _normalizeMap(current);
+      if (!_mapsEqual(normalized, entry.value)) {
+        continue;
+      }
+      final retryCount = (_readInt(normalized['retryCount']) ?? 0) + 1;
+      final delaySeconds = (1 << retryCount).clamp(2, 300).toInt();
+      await box.put(entry.key, {
+        ...normalized,
+        'retryCount': retryCount,
+        'lastError': error.toString(),
+        'nextRetryAt': now
+            .add(Duration(seconds: delaySeconds))
+            .toIso8601String(),
+      });
+    }
+  }
+
   int pendingProgressCount(String userId) =>
       pendingProgressSnapshot(userId).length;
 
@@ -213,5 +273,26 @@ class LocalStorageService {
       }
     }
     return true;
+  }
+
+  int? _readInt(Object? value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  String? _readNonEmptyString(Object? value) {
+    if (value is String && value.trim().isNotEmpty) {
+      return value.trim();
+    }
+    return null;
+  }
+
+  String _newOperationId(String userId, String lessonId) {
+    final timestamp = DateTime.now().toUtc().microsecondsSinceEpoch;
+    final userHash = userId.hashCode.toUnsigned(32).toRadixString(16);
+    final lessonHash = lessonId.hashCode.toUnsigned(32).toRadixString(16);
+    return '$userHash-$lessonHash-$timestamp';
   }
 }

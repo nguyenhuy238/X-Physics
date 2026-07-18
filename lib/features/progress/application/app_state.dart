@@ -75,11 +75,13 @@ class AppState extends ChangeNotifier {
   bool isBusy = false;
   bool isProgressDashboardLoading = false;
   bool isProfileLoading = false;
+  bool isSyncingProgress = false;
   String? errorMessage;
   String? quizLoadError;
   String? quizSubmitError;
   String? progressDashboardError;
   String? profileError;
+  String? syncError;
   int coins = 0;
   bool simulateOffline = false;
   ThemeMode themeMode = ThemeMode.system;
@@ -202,15 +204,21 @@ class AppState extends ChangeNotifier {
 
     if (effectiveOffline) {
       await _localStorage.queuePendingProgress(userId, item);
+      notifyListeners();
       return;
     }
 
     try {
-      await _syncPost(ApiEndpoints.syncProgress, {
+      final response = await _syncPost(ApiEndpoints.syncProgress, {
         'items': [item],
       });
+      if (!_syncResponseAccepted(response, lessonId)) {
+        await _localStorage.queuePendingProgress(userId, item);
+        notifyListeners();
+      }
     } catch (_) {
       await _localStorage.queuePendingProgress(userId, item);
+      notifyListeners();
     }
   }
 
@@ -238,6 +246,24 @@ class AppState extends ChangeNotifier {
       throw StateError(body?['message'] as String? ?? 'Sync API error');
     }
     return body;
+  }
+
+  bool _syncResponseAccepted(Map<String, dynamic> response, String lessonId) {
+    final data = response['data'];
+    if (data is! Map) {
+      return true;
+    }
+    final accepted = data['accepted'];
+    if (accepted is List) {
+      return accepted.any((item) {
+        if (item is! Map) {
+          return false;
+        }
+        return item['lessonId'] == lessonId;
+      });
+    }
+    final syncedItems = data['syncedItems'];
+    return syncedItems is int ? syncedItems > 0 : true;
   }
 
   @override
@@ -722,9 +748,22 @@ class AppState extends ChangeNotifier {
     if (effectiveOffline) {
       return;
     }
-    final generation = _authGeneration;
-    final synced = await _syncPendingForCurrentUser();
-    if (synced > 0 && !_disposed && generation == _authGeneration) {
+    if (isSyncingProgress) {
+      return;
+    }
+    final hadPendingItems = pendingSyncCount > 0;
+    isSyncingProgress = true;
+    syncError = null;
+    notifyListeners();
+    try {
+      await _syncPendingForCurrentUser();
+      if (hadPendingItems && pendingSyncCount > 0) {
+        syncError = 'Một số mục chưa đồng bộ được. Hãy thử lại sau.';
+      }
+    } catch (error) {
+      syncError = _readableError(error);
+    } finally {
+      isSyncingProgress = false;
       notifyListeners();
     }
   }
@@ -734,13 +773,10 @@ class AppState extends ChangeNotifier {
     bool notify = true,
   }) async {
     if (effectiveOffline) {
-      final lesson = loadOfflineLesson(lessonId);
-      final questions = lesson?.questions ?? const <Question>[];
-      questionsByLesson[lessonId] = questions;
-      quizLoadError = questions.isEmpty && lesson == null
-          ? 'Không tìm thấy bài học offline.'
-          : null;
-      return questions;
+      questionsByLesson[lessonId] = const <Question>[];
+      quizLoadError =
+          'Quiz cần kết nối mạng. Giới hạn này giúp tránh lưu đáp án quiz trên thiết bị.';
+      return const <Question>[];
     }
 
     if (notify) {
@@ -1529,6 +1565,9 @@ class AppState extends ChangeNotifier {
     final synced = await _progressSyncService.syncPending(userId);
     if (generation != _authGeneration || _currentUserId != userId) {
       return 0;
+    }
+    if (synced > 0 && !_disposed) {
+      notifyListeners();
     }
     return synced;
   }
