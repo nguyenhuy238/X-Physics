@@ -1,5 +1,7 @@
 import {
   IsArray,
+  IsBoolean,
+  IsISO8601,
   IsInt,
   IsObject,
   IsOptional,
@@ -20,10 +22,18 @@ class SyncProgressItemDto {
   progressPercent!: number;
 
   @IsOptional()
+  @IsBoolean()
+  isCompleted?: boolean;
+
+  @IsOptional()
+  @IsString()
+  operationId?: string;
+
+  @IsOptional()
   @IsObject()
   quizAttempt?: Record<string, unknown>;
 
-  @IsString()
+  @IsISO8601()
   clientUpdatedAt!: string;
 }
 

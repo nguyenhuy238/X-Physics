@@ -432,6 +432,7 @@ Response:
 ### POST /api/sync/progress
 
 Auth: required. Used by offline mode.
+The backend uses the JWT user id and ignores client ownership fields.
 
 Request:
 
@@ -441,6 +442,8 @@ Request:
     {
       "lessonId": "motion-1",
       "progressPercent": 100,
+      "isCompleted": true,
+      "operationId": "7a1f-motion-1-1780000000000",
       "quizAttempt": {
         "score": 8,
         "answers": []
@@ -450,6 +453,30 @@ Request:
   ]
 }
 ```
+
+Response data:
+
+```json
+{
+  "syncedItems": 1,
+  "accepted": [
+    {
+      "operationId": "7a1f-motion-1-1780000000000",
+      "lessonId": "motion-1",
+      "serverState": {
+        "lessonId": "motion-1",
+        "status": "COMPLETED",
+        "progressPercent": 100
+      }
+    }
+  ],
+  "rejected": [],
+  "conflicts": []
+}
+```
+
+The client deletes only accepted pending items. Rejected items remain queued
+with retry/error metadata.
 
 ### POST /api/sync/downloads
 

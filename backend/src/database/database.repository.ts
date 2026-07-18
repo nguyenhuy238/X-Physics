@@ -1162,8 +1162,14 @@ export class DatabaseRepository {
         (user_id, lesson_id, status, progress_percent, latest_quiz_score, best_quiz_score)
        values ($1, $2, $3, $4, $5, $6)
        on conflict (user_id, lesson_id)
-       do update set status = excluded.status,
-                     progress_percent = greatest(progress.progress_percent, excluded.progress_percent),
+       do update set progress_percent = greatest(progress.progress_percent, excluded.progress_percent),
+                     status = case
+                       when greatest(progress.progress_percent, excluded.progress_percent) >= 100
+                         then 'COMPLETED'
+                       when progress.status = 'COMPLETED'
+                         then 'COMPLETED'
+                       else excluded.status
+                     end,
                      latest_quiz_score = excluded.latest_quiz_score,
                      best_quiz_score = greatest(
                        coalesce(progress.best_quiz_score, 0),

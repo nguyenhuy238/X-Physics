@@ -65,31 +65,81 @@ class ProgressSyncService {
       return 0;
     }
 
+    Map<String, dynamic> response;
     try {
       if (!_isUserActive(userId)) {
         return 0;
       }
       final payloadItems = items.map(_syncPayloadItem).toList(growable: false);
-      await _post(userId, _path, {'items': payloadItems});
-    } catch (_) {
-      // Network/API failure: keep everything queued. The backend accepts
-      // or rejects the whole batch (see
-      // backend/src/modules/offline-sync/offline-sync.service.ts), so
-      // there is no partial-success case to handle for MVP.
+      response = await _post(userId, _path, {'items': payloadItems});
+    } catch (error) {
+      await _localStorage.markPendingProgressSnapshotFailed(snapshot, error);
       return 0;
     }
 
     if (!_isUserActive(userId)) {
       return 0;
     }
-    await _localStorage.removePendingProgressSnapshot(snapshot);
-    return items.length;
+    final acceptedSnapshot = _acceptedSnapshot(snapshot, response);
+    if (acceptedSnapshot.isEmpty) {
+      return 0;
+    }
+    await _localStorage.removePendingProgressSnapshot(acceptedSnapshot);
+    return acceptedSnapshot.length;
   }
 
   Map<String, dynamic> _syncPayloadItem(Map<String, dynamic> item) => {
     'lessonId': item['lessonId'],
     'progressPercent': item['progressPercent'],
+    'isCompleted': item['isCompleted'] == true,
     'clientUpdatedAt': item['clientUpdatedAt'],
+    if (item['operationId'] is String) 'operationId': item['operationId'],
     if (item['quizAttempt'] is Map) 'quizAttempt': item['quizAttempt'],
   };
+
+  Map<String, Map<String, dynamic>> _acceptedSnapshot(
+    Map<String, Map<String, dynamic>> snapshot,
+    Map<String, dynamic> response,
+  ) {
+    final data = response['data'] is Map
+        ? Map<String, dynamic>.from(response['data'] as Map)
+        : response;
+    final accepted = data['accepted'];
+    if (accepted is! List) {
+      final syncedItems = data['syncedItems'];
+      if (syncedItems is int && syncedItems == snapshot.length) {
+        return snapshot;
+      }
+      return const {};
+    }
+
+    final acceptedOperationIds = <String>{};
+    final acceptedLessonIds = <String>{};
+    for (final item in accepted) {
+      if (item is! Map) {
+        continue;
+      }
+      final operationId = item['operationId'];
+      if (operationId is String && operationId.isNotEmpty) {
+        acceptedOperationIds.add(operationId);
+      }
+      final lessonId = item['lessonId'];
+      if (lessonId is String && lessonId.isNotEmpty) {
+        acceptedLessonIds.add(lessonId);
+      }
+    }
+
+    return Map.fromEntries(
+      snapshot.entries.where((entry) {
+        final operationId = entry.value['operationId'];
+        if (operationId is String &&
+            operationId.isNotEmpty &&
+            acceptedOperationIds.contains(operationId)) {
+          return true;
+        }
+        final lessonId = entry.value['lessonId'];
+        return lessonId is String && acceptedLessonIds.contains(lessonId);
+      }),
+    );
+  }
 }

@@ -10,12 +10,16 @@ const user = {
 
 class FakeDatabase {
   publishedLessonIds = new Set(["motion-1"]);
+  failingProgressLessonIds = new Set<string>();
   upsertedProgress: any[] = [];
   recordedDownloads: any[] = [];
 
   async upsertProgress(input: any) {
+    if (this.failingProgressLessonIds.has(input.lessonId)) {
+      throw new NotFoundException("Lesson not found");
+    }
     this.upsertedProgress.push(input);
-    return input;
+    return { ...input, id: `${input.userId}-${input.lessonId}` };
   }
 
   async findLesson(id: string) {
@@ -39,23 +43,29 @@ describe("OfflineSyncService.syncProgress", () => {
     service = new OfflineSyncService(database as any);
   });
 
-  it("upserts progress for every item and reports the synced count", async () => {
+  it("upserts progress for every item and reports accepted items", async () => {
     const result = await service.syncProgress(user, {
       items: [
         {
           lessonId: "motion-1",
           progressPercent: 100,
+          isCompleted: true,
+          operationId: "op-1",
           clientUpdatedAt: "2026-07-14T00:00:00.000Z",
         },
         {
           lessonId: "force-1",
           progressPercent: 40,
+          operationId: "op-2",
           clientUpdatedAt: "2026-07-14T00:01:00.000Z",
         },
       ],
     } as any);
 
-    expect(result).toEqual({ syncedItems: 2, conflicts: [] });
+    expect(result.syncedItems).toBe(2);
+    expect(result.accepted).toHaveLength(2);
+    expect(result.rejected).toEqual([]);
+    expect(result.conflicts).toEqual([]);
     expect(database.upsertedProgress).toHaveLength(2);
     expect(database.upsertedProgress[0]).toMatchObject({
       userId: user.id,
@@ -67,6 +77,36 @@ describe("OfflineSyncService.syncProgress", () => {
       status: "IN_PROGRESS",
       progressPercent: 40,
     });
+  });
+
+  it("returns per-item rejection without dropping successful items", async () => {
+    database.failingProgressLessonIds.add("force-1");
+
+    const result = await service.syncProgress(user, {
+      items: [
+        {
+          lessonId: "motion-1",
+          progressPercent: 100,
+          operationId: "op-1",
+          clientUpdatedAt: "2026-07-14T00:00:00.000Z",
+        },
+        {
+          lessonId: "force-1",
+          progressPercent: 40,
+          operationId: "op-2",
+          clientUpdatedAt: "2026-07-14T00:01:00.000Z",
+        },
+      ],
+    } as any);
+
+    expect(result.syncedItems).toBe(1);
+    expect(result.accepted).toMatchObject([
+      { lessonId: "motion-1", operationId: "op-1" },
+    ]);
+    expect(result.rejected).toMatchObject([
+      { lessonId: "force-1", operationId: "op-2" },
+    ]);
+    expect(database.upsertedProgress).toHaveLength(1);
   });
 });
 

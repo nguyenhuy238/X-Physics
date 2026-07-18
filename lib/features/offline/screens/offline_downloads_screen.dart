@@ -259,42 +259,47 @@ class _SyncStatusBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final pending = state.pendingSyncCount;
     if (pending == 0) {
-      return Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFE8F5E9),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Row(
-          children: [
-            Icon(Icons.cloud_done_rounded, color: Color(0xFF2E7D32)),
-            SizedBox(width: 8),
-            Expanded(child: Text('Đã đồng bộ tiến độ đọc bài.')),
-          ],
-        ),
-      );
+      return const SizedBox.shrink();
     }
+    final syncError = state.syncError;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF7E6),
+        color: syncError == null
+            ? const Color(0xFFFFF7E6)
+            : const Color(0xFFFFEBEE),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
-          const Icon(Icons.cloud_sync_rounded, color: Color(0xFFB8860B)),
+          Icon(
+            syncError == null
+                ? Icons.cloud_sync_rounded
+                : Icons.error_outline_rounded,
+            color: syncError == null
+                ? const Color(0xFFB8860B)
+                : const Color(0xFFC62828),
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              state.effectiveOffline
+              syncError != null
+                  ? '$pending mục chưa đồng bộ. $syncError'
+                  : state.effectiveOffline
                   ? '$pending mục đang chờ đồng bộ (đang offline).'
                   : '$pending mục đang chờ đồng bộ.',
             ),
           ),
           if (!state.effectiveOffline)
             TextButton(
-              onPressed: () => state.syncNow(),
-              child: const Text('Đồng bộ ngay'),
+              onPressed: state.isSyncingProgress ? null : () => state.syncNow(),
+              child: state.isSyncingProgress
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Đồng bộ ngay'),
             ),
         ],
       ),

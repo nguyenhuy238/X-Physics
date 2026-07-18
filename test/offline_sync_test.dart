@@ -287,6 +287,19 @@ void main() {
       expect(storage.pendingProgressItems(userB).single['progressPercent'], 90);
     });
 
+    test('queued reading progress never decreases for the same lesson', () async {
+      await storage.queuePendingProgress(userA, _progress(lessonId, 100));
+      await storage.queuePendingProgress(
+        userA,
+        _progress(lessonId, 40, '2026-07-14T00:05:00.000Z'),
+      );
+
+      final item = storage.pendingProgressItems(userA).single;
+      expect(item['progressPercent'], 100);
+      expect(item['isCompleted'], isTrue);
+      expect(item['operationId'], isA<String>());
+    });
+
     test('empty userId does not queue progress', () async {
       expect(
         () => storage.queuePendingProgress('', _progress(lessonId, 80)),
@@ -388,6 +401,38 @@ void main() {
       },
     );
 
+    test('partial success clears only accepted items', () async {
+      await storage.queuePendingProgress(userA, _progress('motion-1', 100));
+      await storage.queuePendingProgress(userA, _progress('force-1', 50));
+
+      final queued = storage.pendingProgressItems(userA);
+      final acceptedOperationId = queued
+          .firstWhere((item) => item['lessonId'] == 'motion-1')['operationId'];
+      final service = ProgressSyncService(
+        localStorage: storage,
+        post: (userId, path, data) async {
+          return {
+            'success': true,
+            'data': {
+              'syncedItems': 1,
+              'accepted': [
+                {'lessonId': 'motion-1', 'operationId': acceptedOperationId},
+              ],
+              'rejected': [
+                {'lessonId': 'force-1', 'reason': 'Lesson not found'},
+              ],
+              'conflicts': [],
+            },
+          };
+        },
+      );
+
+      expect(await service.syncPending(userA), 1);
+      final remaining = storage.pendingProgressItems(userA);
+      expect(remaining, hasLength(1));
+      expect(remaining.single['lessonId'], 'force-1');
+    });
+
     test('keeps items queued when the sync request fails', () async {
       await storage.queuePendingProgress(userA, _progress(lessonId, 100));
 
@@ -397,7 +442,10 @@ void main() {
       );
 
       expect(await service.syncPending(userA), 0);
-      expect(storage.hasPendingProgress(userA), isTrue);
+      final remaining = storage.pendingProgressItems(userA).single;
+      expect(remaining['retryCount'], 1);
+      expect(remaining['lastError'], contains('network down'));
+      expect(remaining['nextRetryAt'], isA<String>());
     });
 
     test(
@@ -541,6 +589,29 @@ void main() {
         role: 'STUDENT',
       );
       expect(state.pendingSyncCount, 1);
+    });
+
+    test('offline quiz is intentionally unavailable for MVP', () async {
+      await storage.saveOfflineLesson(
+        userId: userA,
+        lesson: _lessonWithQuestion('Cached copy', 'Cached question'),
+      );
+
+      final state = AppState();
+      addTearDown(state.dispose);
+      state
+        ..user = const XUser(
+          id: userA,
+          name: 'Student A',
+          email: 'a@example.com',
+          role: 'STUDENT',
+        )
+        ..simulateOffline = true;
+
+      final questions = await state.loadQuestions(lessonId, notify: false);
+
+      expect(questions, isEmpty);
+      expect(state.quizLoadError, contains('Quiz cần kết nối mạng'));
     });
   });
 }
