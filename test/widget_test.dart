@@ -813,6 +813,19 @@ void main() {
     expect(state.loadCount, 2);
   });
 
+  testWidgets('API load failure is not rendered as empty quiz', (tester) async {
+    final state = FakeAppState();
+    state.loadQueue.add(() {
+      state.quizLoadError = 'Backend unavailable';
+      return Future<List<Question>>.error(Exception('Backend unavailable'));
+    });
+
+    await _loadQuiz(tester, state);
+
+    expect(find.text('Backend unavailable'), findsOneWidget);
+    expect(find.text('Bài học này chưa có câu hỏi.'), findsNothing);
+  });
+
   testWidgets('keeps selected answer when moving next and previous', (
     tester,
   ) async {
@@ -948,6 +961,30 @@ void main() {
 
     expect(fromInt.score, 8.0);
     expect(fromDouble.score, 8.5);
+  });
+
+  test('parses question response with snake case and JSON options', () {
+    final question = Question.fromJson({
+      'id': 'electric-1-q1',
+      'lesson_id': 'electric-1',
+      'question_text': 'Dinh luat Ohm co cong thuc nao?',
+      'options_json': '["I = U / R","I = U * R","R = I / U","U = I / R"]',
+      'correct_option': 0,
+      'explanation': 'Cuong do dong dien bang hieu dien the chia dien tro.',
+      'difficulty': 'MEDIUM',
+      'order_index': 1,
+    });
+
+    expect(question.lessonId, 'electric-1');
+    expect(question.question, 'Dinh luat Ohm co cong thuc nao?');
+    expect(question.options, [
+      'I = U / R',
+      'I = U * R',
+      'R = I / U',
+      'U = I / R',
+    ]);
+    expect(question.correctOption, 0);
+    expect(question.orderIndex, 1);
   });
 
   testWidgets('result handles empty badge list and zero earned coins', (

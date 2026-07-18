@@ -74,17 +74,22 @@ class _QuizScreenState extends State<QuizScreen> {
       });
     }
 
-    final questions = await context.read<AppState>().loadQuestions(
-      widget.lessonId,
-    );
+    final state = context.read<AppState>();
+    var questions = const <Question>[];
+    String? loadError;
+    try {
+      questions = await state.loadQuestions(widget.lessonId);
+      loadError = questions.isEmpty ? state.quizLoadError : null;
+    } catch (error) {
+      loadError = state.quizLoadError ?? state.readableError(error);
+    }
     if (!mounted) {
       return;
     }
-    final stateError = context.read<AppState>().quizLoadError;
     setState(() {
       _questions = questions;
       _isLoading = false;
-      _errorMessage = questions.isEmpty ? stateError : null;
+      _errorMessage = loadError;
     });
     if (questions.isNotEmpty) {
       _startTimer();

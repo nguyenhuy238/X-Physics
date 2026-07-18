@@ -685,10 +685,10 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     }
     try {
-      final data = await _getData<List<dynamic>>(
+      final data = await _getData<dynamic>(
         ApiEndpoints.lessonQuestions(lessonId),
       );
-      final questions = data
+      final questions = _questionItemsFromApiData(data)
           .map((item) => Question.fromJson(item as Map))
           .toList();
       questionsByLesson[lessonId] = questions;
@@ -696,7 +696,7 @@ class AppState extends ChangeNotifier {
       return questions;
     } catch (error) {
       quizLoadError = _readableError(error);
-      return const [];
+      rethrow;
     } finally {
       if (notify) {
         isBusy = false;
@@ -762,10 +762,10 @@ class AppState extends ChangeNotifier {
     final simulationsData = await _getData<List<dynamic>>(
       ApiEndpoints.lessonSimulations(lessonId),
     );
-    final questionsData = await _getData<List<dynamic>>(
+    final questionsData = await _getData<dynamic>(
       ApiEndpoints.lessonQuestions(lessonId),
     );
-    final questions = questionsData
+    final questions = _questionItemsFromApiData(questionsData)
         .map((item) => Question.fromJson(item as Map))
         .toList();
     final simulation = simulationsData.isEmpty
@@ -1294,6 +1294,29 @@ class AppState extends ChangeNotifier {
       throw StateError(body?['message'] as String? ?? 'API error');
     }
     return body['data'] as T;
+  }
+
+  List<dynamic> _questionItemsFromApiData(dynamic data) {
+    if (data is List) {
+      return data;
+    }
+    if (data is Map) {
+      for (final key in const ['items', 'questions', 'data']) {
+        final value = data[key];
+        if (value == null) {
+          continue;
+        }
+        if (value is List) {
+          return value;
+        }
+        if (value is Map) {
+          return _questionItemsFromApiData(value);
+        }
+      }
+    }
+    throw FormatException(
+      'Invalid questions response shape: ${data.runtimeType}',
+    );
   }
 
   String readableError(Object error) => _readableError(error);
