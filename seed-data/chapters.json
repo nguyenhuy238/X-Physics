@@ -1,20 +1,20 @@
 [
   {
     "id": "motion",
-    "title": "Chuyen dong co hoc",
-    "description": "Van toc, quang duong va thoi gian trong doi song.",
+    "title": "Chuyển động cơ học",
+    "description": "Vận tốc, quãng đường và thời gian trong đời sống.",
     "orderIndex": 1
   },
   {
     "id": "force",
-    "title": "Luc va ap suat",
-    "description": "Luc tac dung, ap luc, ap suat va luc day Ac-si-met.",
+    "title": "Lực và áp suất",
+    "description": "Lực tác dụng, áp lực, áp suất và lực đẩy Ác-si-mét.",
     "orderIndex": 2
   },
   {
     "id": "electric",
-    "title": "Dien hoc",
-    "description": "Dong dien, hieu dien the, dien tro va cong suat.",
+    "title": "Điện học",
+    "description": "Dòng điện, hiệu điện thế, điện trở và công suất.",
     "orderIndex": 3
   }
 ]

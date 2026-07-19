@@ -27,7 +27,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Quan ly nguoi dung'),
+        title: const Text('Quản lý người dùng'),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(56),
           child: Padding(
@@ -38,7 +38,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                   child: TextField(
                     controller: _searchController,
                     decoration: const InputDecoration(
-                      hintText: 'Tim theo email hoac ten',
+                      hintText: 'Tìm theo email hoặc tên',
                       prefixIcon: Icon(Icons.search),
                     ),
                     onSubmitted: (_) => _search(context),
@@ -64,7 +64,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           final users = provider.lastUsers;
 
           if (users.isEmpty) {
-            return const EmptyView(message: 'Chua co nguoi dung');
+            return const EmptyView(message: 'Chưa có người dùng');
           }
 
           return RefreshIndicator(
@@ -112,7 +112,7 @@ class _PaginationControls extends StatelessWidget {
       child: Row(
         children: [
           AppButton(
-            label: 'Truoc',
+            label: 'Trước',
             onPressed: provider.usersPage <= 1
                 ? null
                 : () => provider.setUsersPage(provider.usersPage - 1),
@@ -120,7 +120,7 @@ class _PaginationControls extends StatelessWidget {
           const SizedBox(width: 12),
           Text('Trang ${provider.usersPage}/${provider.usersTotalPages}'),
           const Spacer(),
-          Text('${provider.usersTotal ?? 0} nguoi dung'),
+          Text('${provider.usersTotal ?? 0} người dùng'),
           const SizedBox(width: 12),
           AppButton(
             label: 'Sau',

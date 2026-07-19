@@ -26,7 +26,7 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Quan ly Chuong - Bai hoc - Quiz')),
+      appBar: AppBar(title: const Text('Quản lý Chương - Bài học - Quiz')),
       body: Consumer<AdminProvider>(
         builder: (context, provider, _) {
           if (provider.loading && provider.lastChapters.isEmpty) {
@@ -43,11 +43,11 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
 
           if (chapters.isEmpty) {
             return EmptyView(
-              message: 'Chua co chuong nao',
+              message: 'Chưa có chương nào',
               action: ElevatedButton.icon(
                 onPressed: () => _showChapterForm(context),
                 icon: const Icon(Icons.add),
-                label: const Text('Tao chuong moi'),
+                label: const Text('Tạo chương mới'),
               ),
             );
           }
@@ -71,7 +71,7 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showChapterForm(context),
         icon: const Icon(Icons.add),
-        label: const Text('Them chuong'),
+        label: const Text('Thêm chương'),
       ),
     );
   }
@@ -81,18 +81,18 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Xoa chuong?'),
+        title: const Text('Xóa chương?'),
         content: const Text(
-          'Hanh dong nay se an chuong cung cac bai hoc ben trong.',
+          'Hành động này sẽ ẩn chương cùng các bài học bên trong.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Huy'),
+            child: const Text('Hủy'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Xoa'),
+            child: const Text('Xóa'),
           ),
         ],
       ),
@@ -106,7 +106,7 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
       if (!context.mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Da xoa chuong')));
+      ).showSnackBar(const SnackBar(content: Text('Đã xóa chương')));
       await provider.fetchChapters();
     } on Exception catch (e) {
       if (!context.mounted) return;
@@ -136,7 +136,7 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: Text(isEdit ? 'Sua chuong' : 'Tao chuong moi'),
+          title: Text(isEdit ? 'Sửa chương' : 'Tạo chương mới'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -144,23 +144,23 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                 TextField(
                   controller: titleController,
                   decoration: const InputDecoration(
-                    labelText: 'Tieu de chuong',
+                    labelText: 'Tiêu đề chương',
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: descriptionController,
                   maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'Mo ta'),
+                  decoration: const InputDecoration(labelText: 'Mô tả'),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: orderController,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Thu tu'),
+                  decoration: const InputDecoration(labelText: 'Thứ tự'),
                 ),
                 SwitchListTile(
-                  title: const Text('Hien thi'),
+                  title: const Text('Hiển thị'),
                   value: published,
                   onChanged: (value) => setState(() => published = value),
                 ),
@@ -170,11 +170,11 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Huy'),
+              child: const Text('Hủy'),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: Text(isEdit ? 'Luu' : 'Tao'),
+              child: Text(isEdit ? 'Lưu' : 'Tạo'),
             ),
           ],
         ),
@@ -202,7 +202,7 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
       }
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(isEdit ? 'Da cap nhat' : 'Da tao chuong')),
+        SnackBar(content: Text(isEdit ? 'Đã cập nhật' : 'Đã tạo chương')),
       );
       await provider.fetchChapters();
     } on Exception catch (e) {
@@ -295,7 +295,7 @@ class _ChapterCardState extends State<_ChapterCard> {
               ),
             ),
             subtitle: Text(
-              'Thu tu: ${widget.chapter['orderIndex'] ?? 0}',
+              'Thứ tự: ${widget.chapter['orderIndex'] ?? 0}',
               style: TextStyle(color: isPublished ? null : Colors.grey),
             ),
             trailing: Row(
@@ -303,7 +303,7 @@ class _ChapterCardState extends State<_ChapterCard> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.add),
-                  tooltip: 'Them bai hoc',
+                  tooltip: 'Thêm bài học',
                   onPressed: () => _showLessonForm(context),
                 ),
                 IconButton(
@@ -325,14 +325,14 @@ class _ChapterCardState extends State<_ChapterCard> {
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  'Loi: $_error',
+                  'Lỗi: $_error',
                   style: const TextStyle(color: Colors.red),
                 ),
               )
             else if (_lessons.isEmpty)
               const Padding(
                 padding: EdgeInsets.all(16),
-                child: Text('Chua co bai hoc nao'),
+                child: Text('Chưa có bài học nào'),
               )
             else
               ..._lessons.map(
@@ -357,13 +357,13 @@ class _ChapterCardState extends State<_ChapterCard> {
           TextButton.icon(
             onPressed: widget.onEdit,
             icon: const Icon(Icons.edit, size: 18),
-            label: const Text('Sua'),
+            label: const Text('Sửa'),
           ),
           TextButton.icon(
             onPressed: widget.onDelete,
             icon: Icon(Icons.delete, size: 18, color: theme.colorScheme.error),
             label: Text(
-              'Xoa',
+              'Xóa',
               style: TextStyle(color: theme.colorScheme.error),
             ),
           ),
@@ -377,18 +377,18 @@ class _ChapterCardState extends State<_ChapterCard> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Xoa bai hoc?'),
+        title: const Text('Xóa bài học?'),
         content: const Text(
-          'Hanh dong nay se an bai hoc cung cac cau hoi quiz.',
+          'Hành động này sẽ ẩn bài học cùng các câu hỏi quiz.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Huy'),
+            child: const Text('Hủy'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Xoa'),
+            child: const Text('Xóa'),
           ),
         ],
       ),
@@ -402,7 +402,7 @@ class _ChapterCardState extends State<_ChapterCard> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Da xoa bai hoc')));
+      ).showSnackBar(const SnackBar(content: Text('Đã xóa bài học')));
       await _loadLessons();
     } on Exception catch (e) {
       if (!mounted) return;
@@ -436,7 +436,7 @@ class _ChapterCardState extends State<_ChapterCard> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: Text(isEdit ? 'Sua bai hoc' : 'Tao bai hoc moi'),
+          title: Text(isEdit ? 'Sửa bài học' : 'Tạo bài học mới'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -444,7 +444,7 @@ class _ChapterCardState extends State<_ChapterCard> {
                 TextField(
                   controller: titleController,
                   decoration: const InputDecoration(
-                    labelText: 'Tieu de bai hoc',
+                    labelText: 'Tiêu đề bài học',
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -452,14 +452,14 @@ class _ChapterCardState extends State<_ChapterCard> {
                   controller: contentController,
                   maxLines: 4,
                   decoration: const InputDecoration(
-                    labelText: 'Noi dung (Markdown)',
+                    labelText: 'Nội dung (Markdown)',
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: formulaController,
                   decoration: const InputDecoration(
-                    labelText: 'Cong thuc LaTeX',
+                    labelText: 'Công thức LaTeX',
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -467,17 +467,17 @@ class _ChapterCardState extends State<_ChapterCard> {
                   controller: minutesController,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
-                    labelText: 'Thoi gian uoc tinh (phut)',
+                    labelText: 'Thời gian ước tính (phút)',
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: orderController,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Thu tu'),
+                  decoration: const InputDecoration(labelText: 'Thứ tự'),
                 ),
                 SwitchListTile(
-                  title: const Text('Hien thi'),
+                  title: const Text('Hiển thị'),
                   value: published,
                   onChanged: (value) => setState(() => published = value),
                 ),
@@ -487,11 +487,11 @@ class _ChapterCardState extends State<_ChapterCard> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Huy'),
+              child: const Text('Hủy'),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: Text(isEdit ? 'Luu' : 'Tao'),
+              child: Text(isEdit ? 'Lưu' : 'Tạo'),
             ),
           ],
         ),
@@ -520,7 +520,7 @@ class _ChapterCardState extends State<_ChapterCard> {
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(isEdit ? 'Da cap nhat' : 'Da tao bai hoc')),
+        SnackBar(content: Text(isEdit ? 'Đã cập nhật' : 'Đã tạo bài học')),
       );
       await _loadLessons();
     } on Exception catch (e) {
@@ -622,7 +622,7 @@ class _LessonTileState extends State<_LessonTile> {
               ),
               const SizedBox(width: 4),
               Text(
-                '$minutes phut',
+                '$minutes phút',
                 style: TextStyle(
                   color: isPublished ? null : Colors.grey,
                   fontSize: 12,
@@ -636,7 +636,7 @@ class _LessonTileState extends State<_LessonTile> {
               ),
               const SizedBox(width: 4),
               Text(
-                '$questionCount cau hoi',
+                '$questionCount câu hỏi',
                 style: TextStyle(
                   color: isPublished ? theme.colorScheme.primary : Colors.grey,
                   fontSize: 12,
@@ -655,13 +655,13 @@ class _LessonTileState extends State<_LessonTile> {
                     _expanded ? Icons.expand_less : Icons.expand_more,
                     size: 18,
                   ),
-                  label: Text(_expanded ? 'Dong' : 'Mo rong'),
+                  label: Text(_expanded ? 'Đóng' : 'Mở rộng'),
                 )
               else
                 TextButton.icon(
                   onPressed: () => _showQuestionForm(context),
                   icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Them cau hoi'),
+                  label: const Text('Thêm câu hỏi'),
                 ),
             ],
           ),
@@ -682,7 +682,7 @@ class _LessonTileState extends State<_LessonTile> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Danh sach cau hoi ($questionCount)',
+                      'Danh sách câu hỏi ($questionCount)',
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -691,7 +691,7 @@ class _LessonTileState extends State<_LessonTile> {
                     TextButton.icon(
                       onPressed: widget.onEdit,
                       icon: const Icon(Icons.edit, size: 16),
-                      label: const Text('Sua bai hoc'),
+                      label: const Text('Sửa bài học'),
                     ),
                     TextButton.icon(
                       onPressed: widget.onDelete,
@@ -701,7 +701,7 @@ class _LessonTileState extends State<_LessonTile> {
                         color: theme.colorScheme.error,
                       ),
                       label: Text(
-                        'Xoa',
+                        'Xóa',
                         style: TextStyle(color: theme.colorScheme.error),
                       ),
                     ),
@@ -730,7 +730,7 @@ class _LessonTileState extends State<_LessonTile> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Loi: $_error',
+                          'Lỗi: $_error',
                           style: TextStyle(
                             color: theme.colorScheme.onErrorContainer,
                           ),
@@ -738,7 +738,7 @@ class _LessonTileState extends State<_LessonTile> {
                       ),
                       TextButton(
                         onPressed: _loadQuestions,
-                        child: const Text('Thu lai'),
+                        child: const Text('Thử lại'),
                       ),
                     ],
                   ),
@@ -758,14 +758,14 @@ class _LessonTileState extends State<_LessonTile> {
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      'Chua co cau hoi quiz nao',
+                      'Chưa có câu hỏi quiz nào',
                       style: TextStyle(color: Colors.grey),
                     ),
                     const SizedBox(height: 12),
                     FilledButton.icon(
                       onPressed: () => _showQuestionForm(context),
                       icon: const Icon(Icons.add),
-                      label: const Text('Tao cau hoi dau tien'),
+                      label: const Text('Tạo câu hỏi đầu tiên'),
                     ),
                   ],
                 ),
@@ -802,7 +802,7 @@ class _LessonTileState extends State<_LessonTile> {
       return const Padding(
         padding: EdgeInsets.symmetric(horizontal: 32, vertical: 4),
         child: Text(
-          'Chua co noi dung',
+          'Chưa có nội dung',
           style: TextStyle(
             fontSize: 12,
             fontStyle: FontStyle.italic,
@@ -850,16 +850,16 @@ class _LessonTileState extends State<_LessonTile> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Xoa cau hoi?'),
-        content: const Text('Hanh dong nay se xoa cau hoi khoi he thong.'),
+        title: const Text('Xóa câu hỏi?'),
+        content: const Text('Hành động này sẽ xóa câu hỏi khỏi hệ thống.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Huy'),
+            child: const Text('Hủy'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Xoa'),
+            child: const Text('Xóa'),
           ),
         ],
       ),
@@ -873,7 +873,7 @@ class _LessonTileState extends State<_LessonTile> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Da xoa cau hoi')));
+      ).showSnackBar(const SnackBar(content: Text('Đã xóa câu hỏi')));
       await _loadQuestions();
     } on Exception catch (e) {
       if (!mounted) return;
@@ -907,7 +907,7 @@ class _LessonTileState extends State<_LessonTile> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: Text(isEdit ? 'Sua cau hoi' : 'Tao cau hoi moi'),
+          title: Text(isEdit ? 'Sửa câu hỏi' : 'Tạo câu hỏi mới'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -916,7 +916,7 @@ class _LessonTileState extends State<_LessonTile> {
                   controller: questionTextController,
                   maxLines: 3,
                   decoration: const InputDecoration(
-                    labelText: 'Noi dung cau hoi',
+                    labelText: 'Nội dung câu hỏi',
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -927,7 +927,7 @@ class _LessonTileState extends State<_LessonTile> {
                     child: TextField(
                       controller: TextEditingController(text: options[i]),
                       decoration: InputDecoration(
-                        labelText: 'Lua chon ${i + 1}',
+                        labelText: 'Lựa chọn ${i + 1}',
                         suffixIcon: selectedCorrect == i
                             ? const Icon(
                                 Icons.check_circle,
@@ -941,12 +941,12 @@ class _LessonTileState extends State<_LessonTile> {
                 ),
                 DropdownButtonFormField<int>(
                   value: selectedCorrect,
-                  decoration: const InputDecoration(labelText: 'Dap an dung'),
+                  decoration: const InputDecoration(labelText: 'Đáp án đúng'),
                   items: List.generate(
                     4,
                     (i) => DropdownMenuItem(
                       value: i,
-                      child: Text('Lua chon ${i + 1}'),
+                      child: Text('Lựa chọn ${i + 1}'),
                     ),
                   ),
                   onChanged: (value) {
@@ -959,12 +959,12 @@ class _LessonTileState extends State<_LessonTile> {
                   value: selectedDifficulty,
                   decoration: const InputDecoration(labelText: 'Do kho'),
                   items: const [
-                    DropdownMenuItem(value: 'EASY', child: Text('De')),
+                    DropdownMenuItem(value: 'EASY', child: Text('Dễ')),
                     DropdownMenuItem(
                       value: 'MEDIUM',
-                      child: Text('Trung binh'),
+                      child: Text('Trung bình'),
                     ),
-                    DropdownMenuItem(value: 'HARD', child: Text('Kho')),
+                    DropdownMenuItem(value: 'HARD', child: Text('Khó')),
                   ],
                   onChanged: (value) {
                     if (value == null) return;
@@ -975,13 +975,13 @@ class _LessonTileState extends State<_LessonTile> {
                 TextField(
                   controller: explanationController,
                   maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'Giai thich'),
+                  decoration: const InputDecoration(labelText: 'Giải thích'),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: orderController,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Thu tu'),
+                  decoration: const InputDecoration(labelText: 'Thứ tự'),
                 ),
               ],
             ),
@@ -989,11 +989,11 @@ class _LessonTileState extends State<_LessonTile> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Huy'),
+              child: const Text('Hủy'),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: Text(isEdit ? 'Luu' : 'Tao'),
+              child: Text(isEdit ? 'Lưu' : 'Tạo'),
             ),
           ],
         ),
@@ -1024,7 +1024,7 @@ class _LessonTileState extends State<_LessonTile> {
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(isEdit ? 'Da cap nhat' : 'Da tao cau hoi')),
+        SnackBar(content: Text(isEdit ? 'Đã cập nhật' : 'Đã tạo câu hỏi')),
       );
       await _loadQuestions();
     } on Exception catch (e) {
@@ -1054,7 +1054,7 @@ class _LessonTileState extends State<_LessonTile> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Da sap xep cau hoi'),
+          content: Text('Đã sắp xếp câu hỏi'),
           duration: Duration(seconds: 1),
         ),
       );
@@ -1062,7 +1062,7 @@ class _LessonTileState extends State<_LessonTile> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Loi khi sap xep: $e')));
+      ).showSnackBar(SnackBar(content: Text('Lỗi khi sắp xếp: $e')));
     }
   }
 }
@@ -1094,9 +1094,9 @@ class _QuestionCard extends StatelessWidget {
       _ => Colors.orange,
     };
     final difficultyLabel = switch (difficulty) {
-      'EASY' => 'De',
-      'HARD' => 'Kho',
-      _ => 'Trung binh',
+      'EASY' => 'Dễ',
+      'HARD' => 'Khó',
+      _ => 'Trung bình',
     };
 
     return Card(
@@ -1169,7 +1169,7 @@ class _QuestionCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            'Dap an: ${String.fromCharCode(65 + correctOption)}',
+                            'Đáp án: ${String.fromCharCode(65 + correctOption)}',
                             style: TextStyle(
                               fontSize: 13,
                               color: Colors.green.shade700,
@@ -1233,7 +1233,7 @@ class _QuestionCard extends StatelessWidget {
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            options[i].isEmpty ? '(Trong)' : options[i],
+                            options[i].isEmpty ? '(Trống)' : options[i],
                             style: TextStyle(
                               fontSize: 14,
                               color: options[i].isEmpty ? Colors.grey : null,
@@ -1293,7 +1293,7 @@ class _QuestionCard extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: onEdit,
                   icon: const Icon(Icons.edit, size: 18),
-                  label: const Text('Sua'),
+                  label: const Text('Sửa'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -1310,7 +1310,7 @@ class _QuestionCard extends StatelessWidget {
                     color: theme.colorScheme.error,
                   ),
                   label: Text(
-                    'Xoa',
+                    'Xóa',
                     style: TextStyle(color: theme.colorScheme.error),
                   ),
                   style: OutlinedButton.styleFrom(
@@ -1332,19 +1332,19 @@ class _QuestionCard extends StatelessWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Xoa cau hoi?'),
-        content: Text('Ban co chac chan muon xoa cau hoi "$index"?'),
+        title: const Text('Xóa câu hỏi?'),
+        content: Text('Bạn có chắc chắn muốn xóa câu hỏi "$index"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Huy'),
+            child: const Text('Hủy'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
-            child: const Text('Xoa'),
+            child: const Text('Xóa'),
           ),
         ],
       ),

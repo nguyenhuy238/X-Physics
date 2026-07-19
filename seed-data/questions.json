@@ -2,7 +2,7 @@
   {
     "id": "motion-1-q1",
     "lessonId": "motion-1",
-    "question": "Cong thuc tinh quang duong trong chuyen dong deu la gi?",
+    "question": "Công thức tính quãng đường trong chuyển động đều là gì?",
     "options": [
       "s = v * t",
       "v = s * t",
@@ -10,27 +10,27 @@
       "s = v / t"
     ],
     "correctOption": 0,
-    "explanation": "Quang duong bang van toc nhan voi thoi gian.",
+    "explanation": "Quãng đường bằng vận tốc nhân với thời gian.",
     "difficulty": "MEDIUM"
   },
   {
     "id": "motion-1-q2",
     "lessonId": "motion-1",
-    "question": "Neu v tang va t giu nguyen thi s thay doi the nao?",
+    "question": "Nếu v tăng và t giữ nguyên thì s thay đổi thế nào?",
     "options": [
-      "Tang",
-      "Giam",
-      "Khong doi",
-      "Bang 0"
+      "Tăng",
+      "Giảm",
+      "Không đổi",
+      "Bằng 0"
     ],
     "correctOption": 0,
-    "explanation": "Trong s = v * t, s ty le thuan voi v khi t khong doi.",
+    "explanation": "Trong s = v * t, s tỷ lệ thuận với v khi t không đổi.",
     "difficulty": "MEDIUM"
   },
   {
     "id": "motion-1-q3",
     "lessonId": "motion-1",
-    "question": "Don vi SI cua quang duong la gi?",
+    "question": "Đơn vị SI của quãng đường là gì?",
     "options": [
       "m",
       "s",
@@ -38,13 +38,13 @@
       "N"
     ],
     "correctOption": 0,
-    "explanation": "Quang duong trong he SI co don vi met.",
+    "explanation": "Quãng đường trong hệ SI có đơn vị mét.",
     "difficulty": "MEDIUM"
   },
   {
     "id": "motion-1-q4",
     "lessonId": "motion-1",
-    "question": "Vat di voi v = 5 m/s trong 10 s thi di duoc bao xa?",
+    "question": "Vật đi với v = 5 m/s trong 10 s thì đi được bao xa?",
     "options": [
       "50 m",
       "2 m",
@@ -58,21 +58,21 @@
   {
     "id": "motion-1-q5",
     "lessonId": "motion-1",
-    "question": "Khi giai bai tap dinh luong, buoc nao nen lam truoc?",
+    "question": "Khi giải bài tập định lượng, bước nào nên làm trước?",
     "options": [
-      "Xac dinh du kien va doi don vi",
-      "Chon dap an ngau nhien",
-      "Bo qua cong thuc",
-      "Chi nhin hinh"
+      "Xác định dữ kiện và đổi đơn vị",
+      "Chọn đáp án ngẫu nhiên",
+      "Bỏ qua công thức",
+      "Chỉ nhìn hình"
     ],
     "correctOption": 0,
-    "explanation": "Can doc de, xac dinh dai luong va doi don vi truoc khi thay so.",
+    "explanation": "Cần đọc đề, xác định đại lượng và đổi đơn vị trước khi thay số.",
     "difficulty": "MEDIUM"
   },
   {
     "id": "motion-2-q1",
     "lessonId": "motion-2",
-    "question": "Cong thuc van toc trung binh la gi?",
+    "question": "Công thức vận tốc trung bình là gì?",
     "options": [
       "v = s / t",
       "v = s * t",
@@ -80,13 +80,13 @@
       "t = v / s"
     ],
     "correctOption": 0,
-    "explanation": "Van toc trung binh bang tong quang duong chia tong thoi gian.",
+    "explanation": "Vận tốc trung bình bằng tổng quãng đường chia tổng thời gian.",
     "difficulty": "MEDIUM"
   },
   {
     "id": "motion-2-q2",
     "lessonId": "motion-2",
-    "question": "Don vi thuong dung cua van toc la gi?",
+    "question": "Đơn vị thường dùng của vận tốc là gì?",
     "options": [
       "m/s",
       "m",
@@ -94,13 +94,13 @@
       "Pa"
     ],
     "correctOption": 0,
-    "explanation": "Van toc co don vi quang duong chia thoi gian, vi du m/s.",
+    "explanation": "Vận tốc có đơn vị quãng đường chia thời gian, ví dụ m/s.",
     "difficulty": "MEDIUM"
   },
   {
     "id": "motion-2-q3",
     "lessonId": "motion-2",
-    "question": "Di 100 m trong 20 s thi van toc trung binh la bao nhieu?",
+    "question": "Đi 100 m trong 20 s thì vận tốc trung bình là bao nhiêu?",
     "options": [
       "5 m/s",
       "120 m/s",
@@ -114,35 +114,35 @@
   {
     "id": "motion-2-q4",
     "lessonId": "motion-2",
-    "question": "Neu cung quang duong nhung thoi gian lon hon thi v trung binh the nao?",
+    "question": "Nếu cùng quãng đường nhưng thời gian lớn hơn thì v trung bình thế nào?",
     "options": [
-      "Giam",
-      "Tang",
-      "Khong doi",
-      "Bang quang duong"
+      "Giảm",
+      "Tăng",
+      "Không đổi",
+      "Bằng quãng đường"
     ],
     "correctOption": 0,
-    "explanation": "v = s / t nen khi t tang va s khong doi thi v giam.",
+    "explanation": "v = s / t nên khi t tăng và s không đổi thì v giảm.",
     "difficulty": "MEDIUM"
   },
   {
     "id": "motion-2-q5",
     "lessonId": "motion-2",
-    "question": "Dai luong nao can biet de tinh v = s / t?",
+    "question": "Đại lượng nào cần biết để tính v = s / t?",
     "options": [
-      "Quang duong va thoi gian",
-      "Luc va dien tich",
-      "Hieu dien the va dien tro",
-      "Khoi luong va nhiet do"
+      "Quãng đường và thời gian",
+      "Lực và diện tích",
+      "Hiệu điện thế và điện trở",
+      "Khối lượng và nhiệt độ"
     ],
     "correctOption": 0,
-    "explanation": "Cong thuc can quang duong s va thoi gian t.",
+    "explanation": "Công thức cần quãng đường s và thời gian t.",
     "difficulty": "MEDIUM"
   },
   {
     "id": "force-1-q1",
     "lessonId": "force-1",
-    "question": "Cong thuc tinh ap suat la gi?",
+    "question": "Công thức tính áp suất là gì?",
     "options": [
       "p = F / S",
       "p = F * S",
@@ -150,13 +150,13 @@
       "S = p * F"
     ],
     "correctOption": 0,
-    "explanation": "Ap suat bang ap luc chia dien tich bi ep.",
+    "explanation": "Áp suất bằng áp lực chia diện tích bị ép.",
     "difficulty": "MEDIUM"
   },
   {
     "id": "force-1-q2",
     "lessonId": "force-1",
-    "question": "Don vi cua ap suat la gi?",
+    "question": "Đơn vị của áp suất là gì?",
     "options": [
       "Pa",
       "N",
@@ -164,27 +164,27 @@
       "A"
     ],
     "correctOption": 0,
-    "explanation": "Don vi ap suat la Pascal, ky hieu Pa.",
+    "explanation": "Đơn vị áp suất là Pascal, ký hiệu Pa.",
     "difficulty": "MEDIUM"
   },
   {
     "id": "force-1-q3",
     "lessonId": "force-1",
-    "question": "Neu F tang va S giu nguyen thi p the nao?",
+    "question": "Nếu F tăng và S giữ nguyên thì p thế nào?",
     "options": [
-      "Tang",
-      "Giam",
-      "Khong doi",
-      "Bang 0"
+      "Tăng",
+      "Giảm",
+      "Không đổi",
+      "Bằng 0"
     ],
     "correctOption": 0,
-    "explanation": "p ty le thuan voi F khi dien tich S khong doi.",
+    "explanation": "p tỷ lệ thuận với F khi diện tích S không đổi.",
     "difficulty": "MEDIUM"
   },
   {
     "id": "force-1-q4",
     "lessonId": "force-1",
-    "question": "F = 100 N, S = 2 m2 thi p bang bao nhieu?",
+    "question": "F = 100 N, S = 2 m2 thì p bằng bao nhiêu?",
     "options": [
       "50 Pa",
       "200 Pa",
@@ -198,21 +198,21 @@
   {
     "id": "force-1-q5",
     "lessonId": "force-1",
-    "question": "Muon giam ap suat khi F khong doi thi nen lam gi?",
+    "question": "Muốn giảm áp suất khi F không đổi thì nên làm gì?",
     "options": [
-      "Tang dien tich bi ep",
-      "Giam dien tich bi ep",
-      "Tang luc",
-      "Bo qua don vi"
+      "Tăng diện tích bị ép",
+      "Giảm diện tích bị ép",
+      "Tăng lực",
+      "Bỏ qua đơn vị"
     ],
     "correctOption": 0,
-    "explanation": "p = F / S nen tang S se lam p giam.",
+    "explanation": "p = F / S nên tăng S sẽ làm p giảm.",
     "difficulty": "MEDIUM"
   },
   {
     "id": "force-2-q1",
     "lessonId": "force-2",
-    "question": "Cong thuc luc day Ac-si-met la gi?",
+    "question": "Công thức lực đẩy Ác-si-mét là gì?",
     "options": [
       "FA = d * V",
       "FA = d / V",
@@ -220,27 +220,27 @@
       "FA = d + V"
     ],
     "correctOption": 0,
-    "explanation": "Luc day Ac-si-met bang trong luong rieng chat long nhan the tich phan chat long bi vat chiem cho.",
+    "explanation": "Lực đẩy Ác-si-mét bằng trọng lượng riêng chất lỏng nhân thể tích phần chất lỏng bị vật chiếm chỗ.",
     "difficulty": "MEDIUM"
   },
   {
     "id": "force-2-q2",
     "lessonId": "force-2",
-    "question": "Trong cong thuc FA = d * V, V la gi?",
+    "question": "Trong công thức FA = d * V, V là gì?",
     "options": [
-      "The tich phan chat long bi chiem cho",
-      "Van toc",
-      "Hieu dien the",
-      "Dien tich"
+      "Thể tích phần chất lỏng bị chiếm chỗ",
+      "Vận tốc",
+      "Hiệu điện thế",
+      "Diện tích"
     ],
     "correctOption": 0,
-    "explanation": "V la the tich phan chat long bi vat chiem cho.",
+    "explanation": "V là thể tích phần chất lỏng bị vật chiếm chỗ.",
     "difficulty": "MEDIUM"
   },
   {
     "id": "force-2-q3",
     "lessonId": "force-2",
-    "question": "Don vi cua luc day Ac-si-met la gi?",
+    "question": "Đơn vị của lực đẩy Ác-si-mét là gì?",
     "options": [
       "N",
       "Pa",
@@ -248,13 +248,13 @@
       "Ohm"
     ],
     "correctOption": 0,
-    "explanation": "Luc co don vi Newton.",
+    "explanation": "Lực có đơn vị Newton.",
     "difficulty": "MEDIUM"
   },
   {
     "id": "force-2-q4",
     "lessonId": "force-2",
-    "question": "d = 10000 N/m3, V = 0.05 m3 thi FA bang bao nhieu?",
+    "question": "d = 10000 N/m3, V = 0.05 m3 thì FA bằng bao nhiêu?",
     "options": [
       "500 N",
       "200000 N",
@@ -268,21 +268,21 @@
   {
     "id": "force-2-q5",
     "lessonId": "force-2",
-    "question": "Neu V tang va d giu nguyen thi FA the nao?",
+    "question": "Nếu V tăng và d giữ nguyên thì FA thế nào?",
     "options": [
-      "Tang",
-      "Giam",
-      "Khong doi",
-      "Bang 0"
+      "Tăng",
+      "Giảm",
+      "Không đổi",
+      "Bằng 0"
     ],
     "correctOption": 0,
-    "explanation": "FA ty le thuan voi V khi d khong doi.",
+    "explanation": "FA tỷ lệ thuận với V khi d không đổi.",
     "difficulty": "MEDIUM"
   },
   {
     "id": "electric-1-q1",
     "lessonId": "electric-1",
-    "question": "Dinh luat Ohm co cong thuc nao?",
+    "question": "Định luật Ohm có công thức nào?",
     "options": [
       "I = U / R",
       "I = U * R",
@@ -290,13 +290,13 @@
       "U = I / R"
     ],
     "correctOption": 0,
-    "explanation": "Cuong do dong dien bang hieu dien the chia dien tro.",
+    "explanation": "Cường độ dòng điện bằng hiệu điện thế chia điện trở.",
     "difficulty": "MEDIUM"
   },
   {
     "id": "electric-1-q2",
     "lessonId": "electric-1",
-    "question": "Don vi cua cuong do dong dien la gi?",
+    "question": "Đơn vị của cường độ dòng điện là gì?",
     "options": [
       "A",
       "V",
@@ -304,13 +304,13 @@
       "W"
     ],
     "correctOption": 0,
-    "explanation": "Cuong do dong dien co don vi ampe, ky hieu A.",
+    "explanation": "Cường độ dòng điện có đơn vị ampe, ký hiệu A.",
     "difficulty": "MEDIUM"
   },
   {
     "id": "electric-1-q3",
     "lessonId": "electric-1",
-    "question": "U = 12 V, R = 4 ohm thi I bang bao nhieu?",
+    "question": "U = 12 V, R = 4 ohm thì I bằng bao nhiêu?",
     "options": [
       "3 A",
       "48 A",
@@ -324,35 +324,35 @@
   {
     "id": "electric-1-q4",
     "lessonId": "electric-1",
-    "question": "Neu R tang va U giu nguyen thi I the nao?",
+    "question": "Nếu R tăng và U giữ nguyên thì I thế nào?",
     "options": [
-      "Giam",
-      "Tang",
-      "Khong doi",
-      "Bang U"
+      "Giảm",
+      "Tăng",
+      "Không đổi",
+      "Bằng U"
     ],
     "correctOption": 0,
-    "explanation": "I ty le nghich voi R khi U khong doi.",
+    "explanation": "I tỷ lệ nghịch với R khi U không đổi.",
     "difficulty": "MEDIUM"
   },
   {
     "id": "electric-1-q5",
     "lessonId": "electric-1",
-    "question": "Trong cong thuc I = U / R, U la gi?",
+    "question": "Trong công thức I = U / R, U là gì?",
     "options": [
-      "Hieu dien the",
-      "Cuong do dong dien",
-      "Dien tro",
-      "Cong suat"
+      "Hiệu điện thế",
+      "Cường độ dòng điện",
+      "Điện trở",
+      "Công suất"
     ],
     "correctOption": 0,
-    "explanation": "U la hieu dien the, don vi V.",
+    "explanation": "U là hiệu điện thế, đơn vị V.",
     "difficulty": "MEDIUM"
   },
   {
     "id": "electric-2-q1",
     "lessonId": "electric-2",
-    "question": "Cong thuc tinh cong suat dien la gi?",
+    "question": "Công thức tính công suất điện là gì?",
     "options": [
       "P = U * I",
       "P = U / I",
@@ -360,13 +360,13 @@
       "P = U + I"
     ],
     "correctOption": 0,
-    "explanation": "Cong suat dien bang hieu dien the nhan cuong do dong dien.",
+    "explanation": "Công suất điện bằng hiệu điện thế nhân cường độ dòng điện.",
     "difficulty": "MEDIUM"
   },
   {
     "id": "electric-2-q2",
     "lessonId": "electric-2",
-    "question": "Don vi cua cong suat dien la gi?",
+    "question": "Đơn vị của công suất điện là gì?",
     "options": [
       "W",
       "V",
@@ -374,13 +374,13 @@
       "Ohm"
     ],
     "correctOption": 0,
-    "explanation": "Cong suat co don vi watt, ky hieu W.",
+    "explanation": "Công suất có đơn vị watt, ký hiệu W.",
     "difficulty": "MEDIUM"
   },
   {
     "id": "electric-2-q3",
     "lessonId": "electric-2",
-    "question": "U = 12 V, I = 2 A thi P bang bao nhieu?",
+    "question": "U = 12 V, I = 2 A thì P bằng bao nhiêu?",
     "options": [
       "24 W",
       "6 W",
@@ -394,29 +394,29 @@
   {
     "id": "electric-2-q4",
     "lessonId": "electric-2",
-    "question": "Neu U tang va I giu nguyen thi P the nao?",
+    "question": "Nếu U tăng và I giữ nguyên thì P thế nào?",
     "options": [
-      "Tang",
-      "Giam",
-      "Khong doi",
-      "Bang 0"
+      "Tăng",
+      "Giảm",
+      "Không đổi",
+      "Bằng 0"
     ],
     "correctOption": 0,
-    "explanation": "P ty le thuan voi U khi I khong doi.",
+    "explanation": "P tỷ lệ thuận với U khi I không đổi.",
     "difficulty": "MEDIUM"
   },
   {
     "id": "electric-2-q5",
     "lessonId": "electric-2",
-    "question": "P = U * I dung de mo ta dieu gi?",
+    "question": "P = U * I dùng để mô tả điều gì?",
     "options": [
-      "Muc tieu thu dien nang theo thoi gian",
-      "Quang duong vat di",
-      "Ap suat cua vat",
-      "Luc day cua chat long"
+      "Mức tiêu thụ điện năng theo thời gian",
+      "Quãng đường vật đi",
+      "Áp suất của vật",
+      "Lực đẩy của chất lỏng"
     ],
     "correctOption": 0,
-    "explanation": "Cong suat dien cho biet muc do tieu thu dien nang trong mot don vi thoi gian.",
+    "explanation": "Công suất điện cho biết mức độ tiêu thụ điện năng trong một đơn vị thời gian.",
     "difficulty": "MEDIUM"
   }
 ]

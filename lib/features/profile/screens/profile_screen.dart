@@ -1319,7 +1319,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                 textInputAction: TextInputAction.done,
                 decoration: const InputDecoration(labelText: 'Họ tên'),
                 validator: (value) =>
-                    value == null || value.trim().isEmpty ? 'Bắt buộc' : null,
+                    value == null || value.trim().isEmpty ? 'Không được để trống!' : null,
                 onFieldSubmitted: (_) => _submit(),
               ),
               if (_errorMessage != null) ...[
@@ -1380,7 +1380,7 @@ Future<void> _showChangePasswordDialog(BuildContext context) async {
 
 String? _passwordValidator(String? value) {
   if (value == null || value.isEmpty) {
-    return 'Bắt buộc';
+    return 'Không được để trống!';
   }
   if (value.length < 6) {
     return 'Tối thiểu 6 ký tự';

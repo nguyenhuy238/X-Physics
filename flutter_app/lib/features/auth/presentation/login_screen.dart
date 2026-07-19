@@ -98,10 +98,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Vui long nhap email';
+                        return 'Vui lòng nhập email';
                       }
                       if (!value.contains('@')) {
-                        return 'Email khong hop le';
+                        return 'Email không hợp lệ';
                       }
                       return null;
                     },
@@ -111,7 +111,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _passwordController,
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
-                      labelText: 'Mat khau',
+                      labelText: 'Mật khẩu',
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -126,7 +126,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Vui long nhap mat khau';
+                        return 'Vui lòng nhập mật khẩu';
                       }
                       return null;
                     },
@@ -142,7 +142,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               width: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Dang nhap'),
+                          : const Text('Đăng nhập'),
                     ),
                   ),
                 ],

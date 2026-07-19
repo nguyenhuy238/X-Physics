@@ -1,54 +1,54 @@
 [
   {
     "id": "starter",
-    "name": "Khoi dau Vat Li",
-    "description": "Hoan thanh bai hoc dau tien.",
+    "name": "Khởi đầu Vật Lí",
+    "description": "Hoàn thành bài học đầu tiên.",
     "icon": "school",
     "ruleKey": "complete_first_lesson"
   },
   {
     "id": "perfect-score",
-    "name": "Diem tuyet doi",
-    "description": "Dat 10 diem trong mot bai quiz.",
+    "name": "Điểm tuyệt đối",
+    "description": "Đạt 10 điểm trong một bài quiz.",
     "icon": "stars",
     "ruleKey": "quiz_score_10"
   },
   {
     "id": "motion-master",
-    "name": "Bac thay chuyen dong",
-    "description": "Hoan thanh tat ca bai trong chuong Chuyen dong.",
+    "name": "Bậc thầy chuyển động",
+    "description": "Hoàn thành tất cả bài trong chương Chuyển động.",
     "icon": "rocket_launch",
     "ruleKey": "complete_chapter",
     "conditionValue": "motion"
   },
   {
     "id": "force-master",
-    "name": "Bac thay luc",
-    "description": "Hoan thanh tat ca bai trong chuong Luc va ap suat.",
+    "name": "Bậc thầy lực",
+    "description": "Hoàn thành tất cả bài trong chương Lực và áp suất.",
     "icon": "fitness_center",
     "ruleKey": "complete_chapter",
     "conditionValue": "force"
   },
   {
     "id": "electric-master",
-    "name": "Dien than",
-    "description": "Hoan thanh tat ca bai trong chuong Dien hoc.",
+    "name": "Điện thần",
+    "description": "Hoàn thành tất cả bài trong chương Điện học.",
     "icon": "bolt",
     "ruleKey": "complete_chapter",
     "conditionValue": "electric"
   },
   {
     "id": "streak-3",
-    "name": "Ba ngay ben bi",
-    "description": "Co hoat dong hoc tap trong 3 ngay lien tiep.",
+    "name": "Ba ngày bền bỉ",
+    "description": "Có hoạt động học tập trong 3 ngày liên tiếp.",
     "icon": "local_fire_department",
     "ruleKey": "streak_days",
     "conditionValue": "3"
   },
   {
     "id": "scientist",
-    "name": "Nha bac hoc",
-    "description": "Hoan thanh toan bo MVP.",
+    "name": "Nhà bác học",
+    "description": "Hoàn thành toàn bộ MVP.",
     "icon": "science",
     "ruleKey": "complete_all_lessons"
   }
