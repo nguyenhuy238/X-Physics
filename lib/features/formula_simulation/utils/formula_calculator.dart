@@ -1,13 +1,39 @@
+import 'dart:math' as math;
+
 class FormulaCalculator {
   const FormulaCalculator._();
 
   static const supportedSyntax =
-      'Dùng số, biến dạng A-Z/a-z/_, ngoặc tròn và toán tử +, -, *, /.';
+      'Dùng số, biến, ngoặc (), toán tử +, -, *, /, ^ (mũ), căn (sqrt/cbrt/√), hàm sin/cos/tan/abs/pow/ln/log và hằng số pi.';
+
+  static const Set<String> _knownMathKeywords = {
+    'sqrt',
+    'cbrt',
+    'pow',
+    'abs',
+    'sin',
+    'cos',
+    'tan',
+    'sin_deg',
+    'sind',
+    'cos_deg',
+    'cosd',
+    'tan_deg',
+    'tand',
+    'log',
+    'log10',
+    'ln',
+    'exp',
+    'pi',
+    'π',
+  };
 
   static String normalizeExpression(String expression) => expression
       .replaceAll('×', '*')
       .replaceAll('÷', '/')
       .replaceAll('−', '-')
+      .replaceAll('**', '^')
+      .replaceAll('π', 'pi')
       .trim();
 
   static bool isSupported(String expression) {
@@ -53,6 +79,7 @@ class FormulaCalculator {
       return _Tokenizer(normalizeExpression(expression)).tokens
           .whereType<_IdentifierToken>()
           .map((token) => token.value)
+          .where((symbol) => !_knownMathKeywords.contains(symbol))
           .toSet();
     } catch (_) {
       return const {};
@@ -96,6 +123,10 @@ class _RightParenToken extends _Token {
   const _RightParenToken();
 }
 
+class _CommaToken extends _Token {
+  const _CommaToken();
+}
+
 class _Tokenizer {
   _Tokenizer(this.expression);
 
@@ -110,7 +141,7 @@ class _Tokenizer {
         index++;
         continue;
       }
-      if ('+-*/'.contains(char)) {
+      if ('+-*/^'.contains(char)) {
         output.add(_OperatorToken(char));
         index++;
         continue;
@@ -122,6 +153,16 @@ class _Tokenizer {
       }
       if (char == ')') {
         output.add(const _RightParenToken());
+        index++;
+        continue;
+      }
+      if (char == ',') {
+        output.add(const _CommaToken());
+        index++;
+        continue;
+      }
+      if (char == '√') {
+        output.add(const _IdentifierToken('sqrt'));
         index++;
         continue;
       }
@@ -146,10 +187,10 @@ class _Tokenizer {
         output.add(_IdentifierToken(expression.substring(start, index)));
         continue;
       }
-      throw const FormatException('Unsupported expression character');
+      throw FormatException('Ký tự không được hỗ trợ trong biểu thức: $char');
     }
     if (output.isEmpty) {
-      throw const FormatException('Expression is empty');
+      throw const FormatException('Biểu thức không được để trống');
     }
     return output;
   }
@@ -166,7 +207,7 @@ class _Parser {
   double parse() {
     final value = _parseExpression();
     if (_index != tokens.length) {
-      throw const FormatException('Unexpected token');
+      throw const FormatException('Cú pháp biểu thức không hợp lệ');
     }
     return value;
   }
@@ -182,10 +223,10 @@ class _Parser {
   }
 
   double _parseTerm() {
-    var value = _parseFactor();
+    var value = _parsePower();
     while (_matchOperator('*') || _matchOperator('/')) {
       final operator = (tokens[_index - 1] as _OperatorToken).value;
-      final right = _parseFactor();
+      final right = _parsePower();
       if (operator == '/') {
         if (right == 0) {
           throw const FormatException('Division by zero');
@@ -198,6 +239,15 @@ class _Parser {
     return value;
   }
 
+  double _parsePower() {
+    var value = _parseFactor();
+    if (_matchOperator('^')) {
+      final right = _parsePower();
+      value = math.pow(value, right).toDouble();
+    }
+    return value;
+  }
+
   double _parseFactor() {
     if (_matchOperator('-')) return -_parseFactor();
     if (_matchOperator('+')) return _parseFactor();
@@ -205,19 +255,91 @@ class _Parser {
     final token = _advance();
     return switch (token) {
       _NumberToken(value: final value) => value,
-      _IdentifierToken(value: final value) =>
-        values[value] ?? fallbackIdentifierValue,
+      _IdentifierToken(value: final name) => _parseIdentifier(name),
       _LeftParenToken() => _parseGroupedExpression(),
-      _ => throw const FormatException('Expected expression factor'),
+      _ => throw const FormatException('Thiếu yếu tố biểu thức hợp lệ'),
     };
+  }
+
+  double _parseIdentifier(String name) {
+    if (name == 'pi' || name == 'π') {
+      return math.pi;
+    }
+
+    if (name == 'pow') {
+      _matchLeftParenOrThrow();
+      final base = _parseExpression();
+      _matchCommaOrThrow();
+      final exponent = _parseExpression();
+      _matchRightParenOrThrow();
+      return math.pow(base, exponent).toDouble();
+    }
+
+    if (FormulaCalculator._knownMathKeywords.contains(name)) {
+      double arg;
+      if (_checkLeftParen()) {
+        _advance();
+        arg = _parseExpression();
+        _matchRightParenOrThrow();
+      } else {
+        arg = _parseFactor();
+      }
+      return _evaluateFunction(name, arg);
+    }
+
+    return values[name] ?? fallbackIdentifierValue;
+  }
+
+  double _evaluateFunction(String name, double arg) {
+    switch (name) {
+      case 'sqrt':
+        if (arg < 0) {
+          throw const FormatException('Không thể lấy căn bậc hai của số âm');
+        }
+        return math.sqrt(arg);
+      case 'cbrt':
+        if (arg < 0) {
+          return -math.pow(-arg, 1.0 / 3.0).toDouble();
+        }
+        return math.pow(arg, 1.0 / 3.0).toDouble();
+      case 'abs':
+        return arg.abs();
+      case 'sin':
+        return math.sin(arg);
+      case 'cos':
+        return math.cos(arg);
+      case 'tan':
+        return math.tan(arg);
+      case 'sin_deg':
+      case 'sind':
+        return math.sin(arg * math.pi / 180.0);
+      case 'cos_deg':
+      case 'cosd':
+        return math.cos(arg * math.pi / 180.0);
+      case 'tan_deg':
+      case 'tand':
+        return math.tan(arg * math.pi / 180.0);
+      case 'log':
+      case 'log10':
+        if (arg <= 0) {
+          throw const FormatException('Lôgarit yêu cầu số dương');
+        }
+        return math.log(arg) / math.ln10;
+      case 'ln':
+        if (arg <= 0) {
+          throw const FormatException('Lôgarit yêu cầu số dương');
+        }
+        return math.log(arg);
+      case 'exp':
+        return math.exp(arg);
+      default:
+        throw FormatException('Hàm không hỗ trợ: $name');
+    }
   }
 
   double _parseGroupedExpression() {
     final value = _parseExpression();
-    final token = _advance();
-    if (token is! _RightParenToken) {
-      throw const FormatException('Missing closing parenthesis');
-    }
+    _matchRightParenOrThrow();
     return value;
   }
 
@@ -235,4 +357,31 @@ class _Parser {
     _index++;
     return true;
   }
+
+  bool _checkLeftParen() {
+    if (_index >= tokens.length) return false;
+    return tokens[_index] is _LeftParenToken;
+  }
+
+  void _matchLeftParenOrThrow() {
+    final token = _advance();
+    if (token is! _LeftParenToken) {
+      throw const FormatException('Thiếu dấu mở ngoặc (');
+    }
+  }
+
+  void _matchRightParenOrThrow() {
+    final token = _advance();
+    if (token is! _RightParenToken) {
+      throw const FormatException('Missing closing parenthesis');
+    }
+  }
+
+  void _matchCommaOrThrow() {
+    final token = _advance();
+    if (token is! _CommaToken) {
+      throw const FormatException('Thiếu dấu phẩy , giữa các tham số');
+    }
+  }
 }
+

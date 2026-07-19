@@ -40,6 +40,51 @@ void main() {
         );
       },
     );
+
+    test('supports powers/exponents ^', () {
+      expect(FormulaCalculator.calculate('v^2', {'v': 5}), 25);
+      expect(
+        FormulaCalculator.calculate('0.5 * m * v^2', {'m': 2, 'v': 4}),
+        16,
+      );
+      expect(
+        FormulaCalculator.calculate('(a + b)^2', {'a': 3, 'b': 2}),
+        25,
+      );
+    });
+
+    test('supports square root sqrt and √', () {
+      expect(FormulaCalculator.calculate('sqrt(16)', {}), 4);
+      expect(
+        FormulaCalculator.calculate('sqrt(2 * g * h)', {'g': 9.8, 'h': 5}),
+        9.8,
+      );
+      expect(
+        FormulaCalculator.calculate('√(a^2 + b^2)', {'a': 3, 'b': 4}),
+        5,
+      );
+    });
+
+    test('supports cube root cbrt and abs', () {
+      expect(FormulaCalculator.calculate('cbrt(27)', {}), 3);
+      expect(FormulaCalculator.calculate('abs(-15.5)', {}), 15.5);
+    });
+
+    test('supports pow, trig functions sin_deg, cos_deg, and pi', () {
+      expect(FormulaCalculator.calculate('pow(2, 3)', {}), 8);
+      expect(
+        FormulaCalculator.calculate('sin_deg(30)', {}),
+        closeTo(0.5, 0.0001),
+      );
+      expect(
+        FormulaCalculator.calculate('cos_deg(60)', {}),
+        closeTo(0.5, 0.0001),
+      );
+      expect(
+        FormulaCalculator.calculate('2 * pi * r', {'r': 10}),
+        closeTo(62.83185, 0.001),
+      );
+    });
   });
 
   group('FormulaCalculator.isSupported', () {
@@ -47,6 +92,16 @@ void main() {
       for (final expression in ['v*t', 's/t', 'F/S', 'U/R', 'U*I', 'd*V']) {
         expect(FormulaCalculator.isSupported(expression), isTrue);
       }
+    });
+
+    test('true for complex physics formulas with roots and exponents', () {
+      expect(FormulaCalculator.isSupported('0.5 * m * v^2'), isTrue);
+      expect(FormulaCalculator.isSupported('sqrt(2 * g * h)'), isTrue);
+      expect(FormulaCalculator.isSupported('2 * pi * sqrt(l / g)'), isTrue);
+      expect(
+        FormulaCalculator.isSupported('sqrt(F1^2 + F2^2 + 2*F1*F2*cos_deg(alpha))'),
+        isTrue,
+      );
     });
 
     test('true regardless of spacing', () {
@@ -60,6 +115,7 @@ void main() {
 
     test('false for invalid syntax', () {
       expect(FormulaCalculator.isSupported('A /'), isFalse);
+      expect(FormulaCalculator.isSupported('sqrt('), isFalse);
     });
   });
 
@@ -71,10 +127,25 @@ void main() {
       expect(result.error, contains('Division by zero'));
     });
 
-    test('extracts referenced variable symbols', () {
+    test('returns error for negative square root', () {
+      final result = FormulaCalculator.tryCalculate('sqrt(-9)', {});
+
+      expect(result.isValid, isFalse);
+      expect(result.error, contains('số âm'));
+    });
+
+    test('extracts referenced variable symbols excluding math keywords', () {
       expect(
         FormulaCalculator.referencedSymbols('(U + R) / R'),
         equals({'U', 'R'}),
+      );
+      expect(
+        FormulaCalculator.referencedSymbols('2 * pi * sqrt(l / g)'),
+        equals({'l', 'g'}),
+      );
+      expect(
+        FormulaCalculator.referencedSymbols('0.5 * m * v^2'),
+        equals({'m', 'v'}),
       );
     });
   });
