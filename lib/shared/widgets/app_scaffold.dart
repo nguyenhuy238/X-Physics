@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -14,6 +15,8 @@ class XScaffold extends StatelessWidget {
     this.showBackButton,
     this.fallbackRoute,
     this.handleSystemBack = true,
+    this.showThemeModeAction = true,
+    this.showOfflineSimulationAction = true,
   });
   final String title;
   final Widget child;
@@ -21,6 +24,8 @@ class XScaffold extends StatelessWidget {
   final bool? showBackButton;
   final String? fallbackRoute;
   final bool handleSystemBack;
+  final bool showThemeModeAction;
+  final bool showOfflineSimulationAction;
 
   static final Expando<PageStorageBucket> _pageStorageBuckets = Expando();
   static const double bottomNavigationHeight = 72;
@@ -55,36 +60,38 @@ class XScaffold extends StatelessWidget {
               icon: const Icon(Icons.person_rounded),
             ),
           ],
-          Semantics(
-            label: state.effectiveOffline
-                ? 'Đang bật chế độ offline'
-                : 'Đang dùng kết nối mạng',
-            button: true,
-            child: Tooltip(
-              message: state.simulateOffline
-                  ? 'Tắt giả lập offline'
-                  : 'Bật giả lập offline',
-              child: Switch(
-                value: state.simulateOffline,
-                onChanged: state.setOfflineMode,
-                thumbIcon: WidgetStateProperty.resolveWith<Icon?>((states) {
-                  if (states.contains(WidgetState.selected)) {
-                    return const Icon(Icons.cloud_off_rounded);
-                  }
-                  return const Icon(Icons.cloud_done_rounded);
-                }),
+          if (kDebugMode && showOfflineSimulationAction)
+            Semantics(
+              label: state.effectiveOffline
+                  ? 'Đang giả lập ngoại tuyến'
+                  : 'Đang dùng kết nối mạng',
+              button: true,
+              child: Tooltip(
+                message: state.simulateOffline
+                    ? 'Tắt giả lập ngoại tuyến'
+                    : 'Bật giả lập ngoại tuyến để kiểm tra và trình diễn',
+                child: Switch(
+                  value: state.simulateOffline,
+                  onChanged: state.setOfflineMode,
+                  thumbIcon: WidgetStateProperty.resolveWith<Icon?>((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return const Icon(Icons.cloud_off_rounded);
+                    }
+                    return const Icon(Icons.cloud_done_rounded);
+                  }),
+                ),
               ),
             ),
-          ),
-          Semantics(
-            label: 'Chế độ giao diện: ${_themeModeLabel(state.themeMode)}',
-            button: true,
-            child: IconButton(
-              tooltip: 'Đổi giao diện: ${_themeModeLabel(state.themeMode)}',
-              onPressed: () => state.cycleThemeMode(),
-              icon: Icon(_themeModeIcon(state.themeMode)),
+          if (showThemeModeAction)
+            Semantics(
+              label: 'Chế độ giao diện: ${_themeModeLabel(state.themeMode)}',
+              button: true,
+              child: IconButton(
+                tooltip: 'Đổi giao diện: ${_themeModeLabel(state.themeMode)}',
+                onPressed: () => state.cycleThemeMode(),
+                icon: Icon(_themeModeIcon(state.themeMode)),
+              ),
             ),
-          ),
           ...?actions,
         ],
       ),

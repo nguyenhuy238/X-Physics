@@ -112,9 +112,9 @@ class _AdminLessonEditorScreenState extends State<AdminLessonEditorScreen> {
         .where((lesson) => lesson.chapterId == chapterId)
         .toList();
     if (items.isEmpty) return 1;
-    return items.map((lesson) => lesson.orderIndex).reduce(
-          (max, value) => value > max ? value : max,
-        ) +
+    return items
+            .map((lesson) => lesson.orderIndex)
+            .reduce((max, value) => value > max ? value : max) +
         1;
   }
 
@@ -196,8 +196,9 @@ class _AdminLessonEditorScreenState extends State<AdminLessonEditorScreen> {
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final isWide = constraints.maxWidth >= 1080;
-                  final horizontalPadding =
-                      constraints.maxWidth < 600 ? 16.0 : 24.0;
+                  final horizontalPadding = constraints.maxWidth < 600
+                      ? 16.0
+                      : 24.0;
                   return ListView(
                     padding: EdgeInsets.fromLTRB(
                       horizontalPadding,
@@ -394,7 +395,8 @@ class _AdminLessonEditorScreenState extends State<AdminLessonEditorScreen> {
         maxLines: 16,
         decoration: _inputDecoration(
           'Nội dung Markdown',
-          helper: 'Có thể nhập tiêu đề, đoạn văn, danh sách và công thức trong nội dung bài học.',
+          helper:
+              'Có thể nhập tiêu đề, đoạn văn, danh sách và công thức trong nội dung bài học.',
         ),
         validator: (value) {
           final trimmed = value?.trim() ?? '';
@@ -462,7 +464,8 @@ class _AdminLessonEditorScreenState extends State<AdminLessonEditorScreen> {
                       decoration: _inputDecoration(
                         'Tiêu đề mô phỏng',
                         hint: 'vd: Công thức tính vận tốc',
-                        helper: 'Tên này sẽ hiển thị ở khung mô phỏng cho học sinh.',
+                        helper:
+                            'Tên này sẽ hiển thị ở khung mô phỏng cho học sinh.',
                       ),
                       validator: (_) => _simFieldError('title'),
                       onChanged: (_) => setState(() {}),
@@ -584,7 +587,8 @@ class _AdminLessonEditorScreenState extends State<AdminLessonEditorScreen> {
                 decoration: _inputDecoration(
                   'Số chữ số thập phân',
                   hint: 'vd: 2',
-                  helper: 'Số chữ số sau dấu phẩy khi hiển thị kết quả, từ 0 đến 6.',
+                  helper:
+                      'Số chữ số sau dấu phẩy khi hiển thị kết quả, từ 0 đến 6.',
                 ),
                 validator: (_) => _simFieldError('result.decimalPlaces'),
                 onChanged: (_) => setState(() {}),
@@ -683,7 +687,8 @@ class _AdminLessonEditorScreenState extends State<AdminLessonEditorScreen> {
                 decoration: _inputDecoration(
                   'Ký hiệu biến',
                   hint: 'vd: s',
-                  helper: 'Dùng trong biểu thức tính. Chỉ dùng chữ, số và gạch dưới.',
+                  helper:
+                      'Dùng trong biểu thức tính. Chỉ dùng chữ, số và gạch dưới.',
                 ),
                 validator: (_) => _simFieldError('variables.$index.symbol'),
                 onChanged: (_) => setState(() {}),
@@ -729,7 +734,8 @@ class _AdminLessonEditorScreenState extends State<AdminLessonEditorScreen> {
                 variable.step,
                 'Bước nhảy',
                 'variables.$index.step',
-                helper: 'Mỗi lần kéo thanh trượt sẽ tăng/giảm theo giá trị này.',
+                helper:
+                    'Mỗi lần kéo thanh trượt sẽ tăng/giảm theo giá trị này.',
               ),
               _numberField(
                 variable.defaultValue,
@@ -747,9 +753,9 @@ class _AdminLessonEditorScreenState extends State<AdminLessonEditorScreen> {
   Widget _numberField(
     TextEditingController controller,
     String label,
-    String key,
-    {String? helper}
-  ) {
+    String key, {
+    String? helper,
+  }) {
     return TextFormField(
       controller: controller,
       keyboardType: TextInputType.number,
@@ -779,8 +785,8 @@ class _AdminLessonEditorScreenState extends State<AdminLessonEditorScreen> {
               _saving
                   ? 'Đang lưu dữ liệu...'
                   : _hasChanges()
-                      ? 'Có thay đổi chưa lưu'
-                      : 'Không có thay đổi mới',
+                  ? 'Có thay đổi chưa lưu'
+                  : 'Không có thay đổi mới',
               style: const TextStyle(
                 color: Color(0xFF64748B),
                 fontWeight: FontWeight.w700,
@@ -790,7 +796,10 @@ class _AdminLessonEditorScreenState extends State<AdminLessonEditorScreen> {
               onPressed: _saving
                   ? null
                   : () async {
-                      if (await _requestLeaveIfNeeded() && mounted) {
+                      if (!await _requestLeaveIfNeeded()) {
+                        return;
+                      }
+                      if (context.mounted) {
                         context.go(_backRoute(lesson));
                       }
                     },
@@ -947,7 +956,8 @@ class _AdminLessonEditorScreenState extends State<AdminLessonEditorScreen> {
   Future<void> _removeVariable(int index) async {
     final variable = _variables[index];
     final symbol = variable.symbol.text.trim();
-    final used = symbol.isNotEmpty &&
+    final used =
+        symbol.isNotEmpty &&
         FormulaCalculator.referencedSymbols(
           _resultExpressionCtrl.text,
         ).contains(symbol);
@@ -991,7 +1001,9 @@ class _AdminLessonEditorScreenState extends State<AdminLessonEditorScreen> {
       return 'Chỉ dùng chữ thường, số và dấu gạch ngang';
     }
     if (!widget.isEdit &&
-        context.read<AppState>().adminLessons.any((lesson) => lesson.id == trimmed)) {
+        context.read<AppState>().adminLessons.any(
+          (lesson) => lesson.id == trimmed,
+        )) {
       return 'Mã bài học đã tồn tại';
     }
     return null;
@@ -1092,15 +1104,18 @@ class _AdminLessonEditorScreenState extends State<AdminLessonEditorScreen> {
     }
     if (expression.isNotEmpty && FormulaCalculator.isSupported(expression)) {
       final refs = FormulaCalculator.referencedSymbols(expression);
-      final unknown = refs.where((symbol) => !seen.containsKey(symbol)).toList();
+      final unknown = refs
+          .where((symbol) => !seen.containsKey(symbol))
+          .toList();
       if (unknown.isNotEmpty) {
         _simulationErrors['result.expression'] =
             'Biểu thức đang dùng biến "${unknown.first}" nhưng biến này chưa được khai báo.';
       } else if (values.length == seen.length) {
         final result = FormulaCalculator.tryCalculate(expression, values);
         if (!result.isValid) {
-          _simulationErrors['result.expression'] =
-              _readableCalculationError(result.error);
+          _simulationErrors['result.expression'] = _readableCalculationError(
+            result.error,
+          );
         }
       }
     }
@@ -1184,8 +1199,9 @@ class _AdminLessonEditorScreenState extends State<AdminLessonEditorScreen> {
       setState(() {});
       return;
     }
-    final simulationConfig =
-        _simulationEnabled ? _buildSimulationConfigOrNull() : null;
+    final simulationConfig = _simulationEnabled
+        ? _buildSimulationConfigOrNull()
+        : null;
     if (_simulationEnabled && simulationConfig == null) {
       return;
     }
@@ -1222,9 +1238,9 @@ class _AdminLessonEditorScreenState extends State<AdminLessonEditorScreen> {
       return;
     }
     _initialFingerprint = _fingerprint();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Đã lưu bài học thành công.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Đã lưu bài học thành công.')));
     context.go(_backRoute(lesson));
   }
 
@@ -1259,36 +1275,36 @@ class _AdminLessonEditorScreenState extends State<AdminLessonEditorScreen> {
       _variables.isNotEmpty;
 
   String _fingerprint() => [
-        _idCtrl.text.trim(),
-        _chapterId,
-        _titleCtrl.text.trim(),
-        _contentCtrl.text.trim(),
-        _formulaCtrl.text.trim(),
-        _minutesCtrl.text.trim(),
-        _orderCtrl.text.trim(),
-        '$_isPublished',
-        '$_simulationEnabled',
-        _simTitleCtrl.text.trim(),
-        _simFormulaCtrl.text.trim(),
-        _resultSymbolCtrl.text.trim(),
-        _resultLabelCtrl.text.trim(),
-        _resultUnitCtrl.text.trim(),
-        _resultExpressionCtrl.text.trim(),
-        _decimalPlacesCtrl.text.trim(),
-        _variables
-            .map(
-              (variable) => [
-                variable.symbol.text.trim(),
-                variable.label.text.trim(),
-                variable.unit.text.trim(),
-                variable.min.text.trim(),
-                variable.max.text.trim(),
-                variable.step.text.trim(),
-                variable.defaultValue.text.trim(),
-              ].join('|'),
-            )
-            .join('||'),
-      ].join('\n');
+    _idCtrl.text.trim(),
+    _chapterId,
+    _titleCtrl.text.trim(),
+    _contentCtrl.text.trim(),
+    _formulaCtrl.text.trim(),
+    _minutesCtrl.text.trim(),
+    _orderCtrl.text.trim(),
+    '$_isPublished',
+    '$_simulationEnabled',
+    _simTitleCtrl.text.trim(),
+    _simFormulaCtrl.text.trim(),
+    _resultSymbolCtrl.text.trim(),
+    _resultLabelCtrl.text.trim(),
+    _resultUnitCtrl.text.trim(),
+    _resultExpressionCtrl.text.trim(),
+    _decimalPlacesCtrl.text.trim(),
+    _variables
+        .map(
+          (variable) => [
+            variable.symbol.text.trim(),
+            variable.label.text.trim(),
+            variable.unit.text.trim(),
+            variable.min.text.trim(),
+            variable.max.text.trim(),
+            variable.step.text.trim(),
+            variable.defaultValue.text.trim(),
+          ].join('|'),
+        )
+        .join('||'),
+  ].join('\n');
 
   bool _hasChanges() => _fingerprint() != _initialFingerprint;
 
@@ -1307,16 +1323,12 @@ class _AdminLessonEditorScreenState extends State<AdminLessonEditorScreen> {
     if (widget.isEdit && lesson != null) {
       return Uri(
         path: '/admin/lessons/${lesson.id}',
-        queryParameters: {
-          if (chapterId.isNotEmpty) 'chapterId': chapterId,
-        },
+        queryParameters: {if (chapterId.isNotEmpty) 'chapterId': chapterId},
       ).toString();
     }
     return Uri(
       path: '/admin/lessons',
-      queryParameters: {
-        if (chapterId.isNotEmpty) 'chapterId': chapterId,
-      },
+      queryParameters: {if (chapterId.isNotEmpty) 'chapterId': chapterId},
     ).toString();
   }
 
@@ -1449,9 +1461,9 @@ class _EditorSection extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (trailing != null) trailing!,
+                ?trailing,
               ],
-              ),
+            ),
           const SizedBox(height: 16),
           child,
         ],
@@ -1490,7 +1502,10 @@ class _SwitchField extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF64748B),
+                  ),
                 ),
                 Text(
                   valueLabel,
@@ -1592,21 +1607,21 @@ class _SimulationPreviewPanel extends StatelessWidget {
       icon: Icons.visibility_rounded,
       child: switch (data.state) {
         _PreviewState.disabled => const Text(
-            'Mô phỏng đang tắt.',
-            style: TextStyle(color: Color(0xFF64748B)),
-          ),
+          'Mô phỏng đang tắt.',
+          style: TextStyle(color: Color(0xFF64748B)),
+        ),
         _PreviewState.incomplete => _PreviewMessage(
-            icon: Icons.info_outline_rounded,
-            color: const Color(0xFF2563EB),
-            message: data.message,
-          ),
+          icon: Icons.info_outline_rounded,
+          color: const Color(0xFF2563EB),
+          message: data.message,
+        ),
         _PreviewState.invalid => _PreviewMessage(
-            icon: Icons.error_outline_rounded,
-            color: const Color(0xFFEF4444),
-            message: data.errors.isEmpty
-                ? 'Cấu hình mô phỏng chưa hợp lệ.'
-                : data.errors.first,
-          ),
+          icon: Icons.error_outline_rounded,
+          color: const Color(0xFFEF4444),
+          message: data.errors.isEmpty
+              ? 'Cấu hình mô phỏng chưa hợp lệ.'
+              : data.errors.first,
+        ),
         _PreviewState.valid => FormulaSimulationWidget(config: data.config!),
       },
     );
@@ -1639,7 +1654,9 @@ class _PreviewMessage extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 18),
           const SizedBox(width: 8),
-          Expanded(child: Text(message, style: TextStyle(color: color))),
+          Expanded(
+            child: Text(message, style: TextStyle(color: color)),
+          ),
         ],
       ),
     );
@@ -1657,16 +1674,16 @@ class _SimulationPreviewData {
   });
 
   const _SimulationPreviewData.disabled()
-      : this._(state: _PreviewState.disabled);
+    : this._(state: _PreviewState.disabled);
 
   const _SimulationPreviewData.incomplete(String message)
-      : this._(state: _PreviewState.incomplete, message: message);
+    : this._(state: _PreviewState.incomplete, message: message);
 
   const _SimulationPreviewData.invalid(List<String> errors)
-      : this._(state: _PreviewState.invalid, errors: errors);
+    : this._(state: _PreviewState.invalid, errors: errors);
 
   const _SimulationPreviewData.valid(FormulaSimulationConfig config)
-      : this._(state: _PreviewState.valid, config: config);
+    : this._(state: _PreviewState.valid, config: config);
 
   final _PreviewState state;
   final String message;
@@ -1687,14 +1704,14 @@ class _SimulationVariableDraft {
   }) : symbolFocus = symbolFocus ?? FocusNode();
 
   factory _SimulationVariableDraft.empty() => _SimulationVariableDraft(
-        symbol: TextEditingController(),
-        label: TextEditingController(),
-        unit: TextEditingController(),
-        min: TextEditingController(text: '0'),
-        max: TextEditingController(text: '100'),
-        step: TextEditingController(text: '1'),
-        defaultValue: TextEditingController(text: '0'),
-      );
+    symbol: TextEditingController(),
+    label: TextEditingController(),
+    unit: TextEditingController(),
+    min: TextEditingController(text: '0'),
+    max: TextEditingController(text: '100'),
+    step: TextEditingController(text: '1'),
+    defaultValue: TextEditingController(text: '0'),
+  );
 
   factory _SimulationVariableDraft.fromVariable(FormulaVariable variable) =>
       _SimulationVariableDraft(

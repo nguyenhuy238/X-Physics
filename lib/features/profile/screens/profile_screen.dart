@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -39,11 +40,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return XScaffold(
       title: 'Hồ sơ',
+      showThemeModeAction: false,
+      showOfflineSimulationAction: false,
       actions: [
-        TextButton(
-          onPressed: () => context.read<AppState>().logout(),
-          child: const Text('Đăng xuất'),
-        ),
         IconButton(
           tooltip: 'Làm mới',
           onPressed: state.isProfileLoading ? null : _refresh,
@@ -121,306 +120,328 @@ class _ProfileContent extends StatelessWidget {
     final appState = context.watch<AppState>();
     final isAdmin = appState.canAccessAdmin;
 
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(20),
-      children: [
-        _ProfileHeader(profile: profile),
-        const SizedBox(height: 16),
-        _ThemeModeTile(state: appState),
-        if (isAdmin) ...[
-          const SizedBox(height: 16),
-          _buildAdminSection(context, appState),
-        ],
-        if (!isAdmin) ...[
-          const SizedBox(height: 16),
-          _StatsRow(profile: profile),
-          const SizedBox(height: 16),
-          _RecentScoreChart(attempts: profile.recentAttempts),
-          const SizedBox(height: 16),
-          _BadgeGrid(
-            badges: [...profile.earnedBadges, ...profile.lockedBadges],
-          ),
-          const SizedBox(height: 16),
-          _buildStudentSettings(context, appState),
-        ],
-        const SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: () => _showEditProfileDialog(context, profile.user.name),
-            icon: const Icon(Icons.edit_rounded),
-            label: const Text('Cập nhật họ tên'),
-          ),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: () => _showChangePasswordDialog(context),
-            icon: const Icon(Icons.lock_reset_rounded),
-            label: const Text('Đổi mật khẩu'),
-          ),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: () => context.read<AppState>().logout(),
-            icon: const Icon(Icons.logout_rounded),
-            label: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => context.read<AppState>().logout(),
-              child: const Text('Thoát tài khoản'),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final layout = _ProfileLayout.fromWidth(constraints.maxWidth);
+        final badges = [...profile.earnedBadges, ...profile.lockedBadges];
+        final bottomPadding =
+            MediaQuery.viewPaddingOf(context).bottom +
+            XScaffold.bottomNavigationHeight +
+            24;
+        return CustomScrollView(
+          key: const PageStorageKey<String>('profile-scroll'),
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                layout.horizontalInset,
+                20,
+                layout.horizontalInset,
+                0,
+              ),
+              sliver: SliverToBoxAdapter(
+                child: _ProfileIntro(
+                  profile: profile,
+                  state: appState,
+                  isAdmin: isAdmin,
+                  layout: layout,
+                ),
+              ),
             ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStudentSettings(BuildContext context, AppState state) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.settings_rounded, color: Color(0xFF6366F1)),
-                SizedBox(width: 8),
-                Text(
-                  'Cài đặt & Tiện ích',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF4F46E5),
-                    fontSize: 16,
+            if (!isAdmin) ...[
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(
+                  layout.horizontalInset,
+                  20,
+                  layout.horizontalInset,
+                  12,
+                ),
+                sliver: SliverToBoxAdapter(
+                  child: _AchievementsHeader(
+                    earned: profile.earnedBadges.length,
+                    total: badges.length,
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            SwitchListTile(
-              secondary: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Color(0xFFEFF6FF),
-                ),
-                child: const Icon(
-                  Icons.wifi_off_rounded,
-                  color: Color(0xFF2563EB),
-                  size: 20,
-                ),
               ),
-              title: const Text(
-                'Chế độ ngoại tuyến',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-              subtitle: const Text(
-                'Giả lập học tập không có mạng internet',
-                style: TextStyle(fontSize: 12),
-              ),
-              value: state.simulateOffline,
-              onChanged: state.setOfflineMode,
-              activeThumbColor: const Color(0xFF2563EB),
-            ),
-            const Divider(),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Color(0xFFECFDF5),
-                ),
-                child: const Icon(
-                  Icons.download_done_rounded,
-                  color: Color(0xFF10B981),
-                  size: 20,
-                ),
-              ),
-              title: const Text(
-                'Bài học tải xuống',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-              subtitle: Text(
-                '${state.downloadedLessons.length} bài học sẵn sàng đọc offline',
-                style: const TextStyle(fontSize: 12),
-              ),
-              trailing: const Icon(
-                Icons.chevron_right_rounded,
-                color: Color(0xFF94A3B8),
-              ),
-              onTap: () => context.go('/offline'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAdminSection(BuildContext context, AppState state) {
-    final roleLabel = state.user?.role == 'TEACHER'
-        ? 'Giáo viên'
-        : 'Quản trị viên';
-    final roleColor = state.user?.role == 'TEACHER'
-        ? const Color(0xFF10B981)
-        : const Color(0xFFEF4444);
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.admin_panel_settings_rounded, color: roleColor),
-                const SizedBox(width: 8),
-                Text(
-                  'Quản trị hệ thống ($roleLabel)',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: roleColor,
-                    fontSize: 16,
+              if (badges.isEmpty)
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(
+                    layout.horizontalInset,
+                    0,
+                    layout.horizontalInset,
+                    0,
+                  ),
+                  sliver: const SliverToBoxAdapter(
+                    child: Card(
+                      child: SizedBox(
+                        height: 160,
+                        child: EmptyView(message: 'Chưa có huy hiệu nào.'),
+                      ),
+                    ),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(
+                    layout.horizontalInset,
+                    0,
+                    layout.horizontalInset,
+                    0,
+                  ),
+                  sliver: _AchievementSliverGrid(
+                    badges: badges,
+                    columns: layout.badgeColumns,
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ListTile(
-              leading: const Icon(
-                Icons.dashboard_rounded,
-                color: Color(0xFF2563EB),
-              ),
-              title: const Text('Bảng điều khiển Admin'),
-              subtitle: const Text('Tổng quan CMS & Quản lý danh sách'),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => context.go('/admin'),
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(
-                Icons.folder_special_rounded,
-                color: Color(0xFFEC4899),
-              ),
-              title: const Text('Quản lý Chương học'),
-              subtitle: const Text('Thêm, sửa, xóa các chương học'),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => context.go('/admin/chapters'),
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(
-                Icons.menu_book_rounded,
-                color: Color(0xFF16A34A),
-              ),
-              title: const Text('Quản lý Bài học'),
-              subtitle: const Text('Chỉnh sửa lý thuyết & mô phỏng'),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => context.go('/admin/lessons'),
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.quiz_rounded, color: Color(0xFFEC4899)),
-              title: const Text('Quản lý Câu hỏi'),
-              subtitle: const Text('Ngân hàng câu hỏi trắc nghiệm'),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => context.go('/admin/questions'),
-            ),
+            ],
+            SliverPadding(padding: EdgeInsets.only(bottom: bottomPadding)),
           ],
-        ),
-      ),
+        );
+      },
     );
   }
 }
 
-class _ThemeModeTile extends StatelessWidget {
-  const _ThemeModeTile({required this.state});
+class _ProfileLayout {
+  const _ProfileLayout({
+    required this.contentWidth,
+    required this.horizontalInset,
+    required this.badgeColumns,
+    required this.isCompact,
+    required this.isDesktop,
+  });
 
+  final double contentWidth;
+  final double horizontalInset;
+  final int badgeColumns;
+  final bool isCompact;
+  final bool isDesktop;
+
+  static _ProfileLayout fromWidth(double width) {
+    final basePadding = width < 600 ? 16.0 : 24.0;
+    final maxWidth = width > 1024 ? 1220.0 : (width >= 600 ? 920.0 : width);
+    final contentWidth = (width - basePadding * 2).clamp(0.0, maxWidth);
+    final horizontalInset = ((width - contentWidth) / 2).clamp(
+      basePadding,
+      double.infinity,
+    );
+    return _ProfileLayout(
+      contentWidth: contentWidth,
+      horizontalInset: horizontalInset,
+      badgeColumns: width < 600 ? 2 : (contentWidth >= 1040 ? 4 : 3),
+      isCompact: width < 700,
+      isDesktop: width > 1024,
+    );
+  }
+}
+
+class _ProfileIntro extends StatelessWidget {
+  const _ProfileIntro({
+    required this.profile,
+    required this.state,
+    required this.isAdmin,
+    required this.layout,
+  });
+
+  final ProfileSummary profile;
   final AppState state;
+  final bool isAdmin;
+  final _ProfileLayout layout;
 
   @override
   Widget build(BuildContext context) {
+    final settings = _SettingsSection(profile: profile, state: state);
+    final adminSection = isAdmin ? _AdminSection(state: state) : null;
+    final chart = _RecentScoreChart(
+      attempts: profile.recentAttempts,
+      isLoading: state.isProfileLoading,
+      error: state.profileError,
+    );
+
+    final side = Column(
+      children: [
+        settings,
+        if (adminSection != null) ...[const SizedBox(height: 16), adminSection],
+      ],
+    );
+
+    return Column(
+      children: [
+        if (state.isProfileLoading) ...[
+          const LinearProgressIndicator(minHeight: 3),
+          const SizedBox(height: 12),
+        ],
+        if (state.profileError != null && !state.isProfileLoading) ...[
+          _InlineErrorBanner(message: state.profileError!),
+          const SizedBox(height: 12),
+        ],
+        _ProfileHeader(
+          profile: profile,
+          state: state,
+          compact: layout.isCompact,
+        ),
+        const SizedBox(height: 16),
+        if (layout.isDesktop)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (!isAdmin)
+                Expanded(flex: 7, child: chart)
+              else
+                Expanded(child: adminSection ?? const SizedBox.shrink()),
+              const SizedBox(width: 16),
+              SizedBox(width: 360, child: settings),
+            ],
+          )
+        else ...[
+          if (!isAdmin) ...[chart, const SizedBox(height: 16)],
+          side,
+        ],
+      ],
+    );
+  }
+}
+
+class _InlineErrorBanner extends StatelessWidget {
+  const _InlineErrorBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Card(
+      color: colorScheme.errorContainer,
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            ListTile(
-              leading: Icon(_iconFor(state.themeMode)),
-              title: const Text(
-                'Giao diện',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: Text(_labelFor(state.themeMode)),
+            Icon(
+              Icons.error_outline_rounded,
+              color: colorScheme.onErrorContainer,
             ),
-            SegmentedButton<ThemeMode>(
-              segments: const [
-                ButtonSegment(
-                  value: ThemeMode.system,
-                  icon: Icon(Icons.brightness_auto_rounded),
-                  label: Text('Hệ thống'),
-                ),
-                ButtonSegment(
-                  value: ThemeMode.light,
-                  icon: Icon(Icons.light_mode_rounded),
-                  label: Text('Sáng'),
-                ),
-                ButtonSegment(
-                  value: ThemeMode.dark,
-                  icon: Icon(Icons.dark_mode_rounded),
-                  label: Text('Tối'),
-                ),
-              ],
-              selected: {state.themeMode},
-              onSelectionChanged: (values) {
-                if (values.isNotEmpty) {
-                  state.setThemeMode(values.first);
-                }
-              },
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: colorScheme.onErrorContainer),
+              ),
             ),
           ],
         ),
       ),
     );
   }
-
-  String _labelFor(ThemeMode mode) => switch (mode) {
-    ThemeMode.system => 'Theo cài đặt hệ thống',
-    ThemeMode.light => 'Luôn dùng giao diện sáng',
-    ThemeMode.dark => 'Luôn dùng giao diện tối',
-  };
-
-  IconData _iconFor(ThemeMode mode) => switch (mode) {
-    ThemeMode.system => Icons.brightness_auto_rounded,
-    ThemeMode.light => Icons.light_mode_rounded,
-    ThemeMode.dark => Icons.dark_mode_rounded,
-  };
 }
 
 class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({required this.profile});
+  const _ProfileHeader({
+    required this.profile,
+    required this.state,
+    required this.compact,
+  });
 
   final ProfileSummary profile;
+  final AppState state;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final user = profile.user;
     final initial = user.name.isNotEmpty ? user.name.characters.first : '?';
+    final roleLabel = _roleLabel(state.user?.role);
+    final stats = [
+      _ProfileStatData(
+        icon: Icons.monetization_on_rounded,
+        label: 'Xu',
+        value: '${profile.totalCoins}',
+      ),
+      _ProfileStatData(
+        icon: Icons.task_alt_rounded,
+        label: 'Bài đã hoàn thành',
+        value: '${profile.completedLessons}',
+      ),
+      _ProfileStatData(
+        icon: Icons.leaderboard_rounded,
+        label: 'Điểm trung bình',
+        value: profile.averageScore.toStringAsFixed(2),
+      ),
+    ];
+
     return Card(
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(18),
-        leading: CircleAvatar(
-          radius: 30,
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: compact
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _ProfileIdentity(
+                    initial: initial,
+                    user: user,
+                    roleLabel: roleLabel,
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    onPressed: () =>
+                        _showEditProfileDialog(context, profile.user.name),
+                    icon: const Icon(Icons.edit_rounded),
+                    label: const Text('Chỉnh sửa hồ sơ'),
+                  ),
+                  const SizedBox(height: 16),
+                  _StatsGrid(stats: stats, columns: 1),
+                ],
+              )
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    flex: 5,
+                    child: _ProfileIdentity(
+                      initial: initial,
+                      user: user,
+                      roleLabel: roleLabel,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    flex: 6,
+                    child: _StatsGrid(stats: stats, columns: 3),
+                  ),
+                  const SizedBox(width: 16),
+                  FilledButton.icon(
+                    onPressed: () =>
+                        _showEditProfileDialog(context, profile.user.name),
+                    icon: const Icon(Icons.edit_rounded),
+                    label: const Text('Chỉnh sửa'),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+class _ProfileIdentity extends StatelessWidget {
+  const _ProfileIdentity({
+    required this.initial,
+    required this.user,
+    required this.roleLabel,
+  });
+
+  final String initial;
+  final ProfileUser user;
+  final String roleLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        CircleAvatar(
+          radius: 34,
           backgroundImage: user.avatarUrl == null || user.avatarUrl!.isEmpty
               ? null
               : NetworkImage(user.avatarUrl!),
@@ -431,158 +452,124 @@ class _ProfileHeader extends StatelessWidget {
                 )
               : null,
         ),
-        title: Text(
-          user.name.isEmpty ? 'Học sinh' : user.name,
-          style: const TextStyle(fontWeight: FontWeight.w900),
-        ),
-        subtitle: Text(user.email),
-      ),
-    );
-  }
-}
-
-class _StatsRow extends StatelessWidget {
-  const _StatsRow({required this.profile});
-
-  final ProfileSummary profile;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: [
-        _StatCard(label: 'Xu', value: '${profile.totalCoins}'),
-        _StatCard(label: 'Bài đã xong', value: '${profile.completedLessons}'),
-        _StatCard(
-          label: 'Điểm TB',
-          value: profile.averageScore.toStringAsFixed(2),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                user.name.isEmpty ? 'Học sinh' : user.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.titleLarge,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                user.email,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 8),
+              Semantics(
+                label: 'Vai trò $roleLabel',
+                child: Chip(
+                  visualDensity: VisualDensity.compact,
+                  avatar: Icon(
+                    Icons.verified_user_rounded,
+                    size: 16,
+                    color: colorScheme.primary,
+                  ),
+                  label: Text(roleLabel),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
   }
 }
 
-class _StatCard extends StatelessWidget {
-  const _StatCard({required this.label, required this.value});
+class _ProfileStatData {
+  const _ProfileStatData({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
 
+  final IconData icon;
   final String label;
   final String value;
+}
+
+class _StatsGrid extends StatelessWidget {
+  const _StatsGrid({required this.stats, required this.columns});
+
+  final List<_ProfileStatData> stats;
+  final int columns;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 130,
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: Theme.of(context).textTheme.labelMedium),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final spacing = columns == 1 ? 8.0 : 10.0;
+        final width =
+            (constraints.maxWidth - spacing * (columns - 1)) / columns;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (final stat in stats)
+              SizedBox(
+                width: width,
+                child: _StatTile(stat: stat),
               ),
-            ],
-          ),
-        ),
-      ),
+          ],
+        );
+      },
     );
   }
 }
 
-class _RecentScoreChart extends StatelessWidget {
-  const _RecentScoreChart({required this.attempts});
+class _StatTile extends StatelessWidget {
+  const _StatTile({required this.stat});
 
-  final List<RecentQuizAttempt> attempts;
+  final _ProfileStatData stat;
 
   @override
   Widget build(BuildContext context) {
-    final chronological = attempts.reversed.toList();
-    return Card(
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.all(12),
+        child: Row(
           children: [
-            Text(
-              'Điểm gần đây',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 210,
-              child: chronological.isEmpty
-                  ? const Center(child: Text('Chưa có điểm quiz nào.'))
-                  : LineChart(
-                      LineChartData(
-                        minY: 0,
-                        maxY: 10,
-                        gridData: const FlGridData(show: true),
-                        borderData: FlBorderData(show: false),
-                        lineBarsData: [
-                          LineChartBarData(
-                            spots: [
-                              for (var i = 0; i < chronological.length; i++)
-                                FlSpot(i.toDouble(), chronological[i].score),
-                            ],
-                            isCurved: chronological.length > 2,
-                            barWidth: 3,
-                            dotData: const FlDotData(show: true),
-                          ),
-                        ],
-                        titlesData: FlTitlesData(
-                          topTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
-                          rightTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
-                          leftTitles: const AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 28,
-                              interval: 2,
-                            ),
-                          ),
-                          bottomTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 42,
-                              getTitlesWidget: (value, meta) {
-                                final index = value.toInt();
-                                if (index < 0 ||
-                                    index >= chronological.length) {
-                                  return const SizedBox.shrink();
-                                }
-                                return Padding(
-                                  padding: const EdgeInsets.only(top: 6),
-                                  child: SizedBox(
-                                    width: 48,
-                                    child: Text(
-                                      chronological[index].lessonTitle.isEmpty
-                                          ? 'Quiz ${index + 1}'
-                                          : chronological[index].lessonTitle,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(fontSize: 10),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
+            Icon(stat.icon, color: colorScheme.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    stat.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelMedium,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    stat.value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -591,32 +578,242 @@ class _RecentScoreChart extends StatelessWidget {
   }
 }
 
-class _BadgeGrid extends StatelessWidget {
-  const _BadgeGrid({required this.badges});
+class _RecentScoreChart extends StatelessWidget {
+  const _RecentScoreChart({
+    required this.attempts,
+    required this.isLoading,
+    required this.error,
+  });
 
-  final List<AchievementBadge> badges;
+  final List<RecentQuizAttempt> attempts;
+  final bool isLoading;
+  final String? error;
 
   @override
   Widget build(BuildContext context) {
-    if (badges.isEmpty) {
-      return const EmptyView(message: 'Chưa có huy hiệu nào.');
-    }
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 560 ? 3 : 2;
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: badges.length,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: columns == 3 ? 1.15 : 1.05,
+    final recent = attempts.take(5).toList().reversed.toList();
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.bar_chart_rounded, color: colorScheme.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Điểm gần đây',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+              ],
+            ),
+            if (isLoading) ...[
+              const SizedBox(height: 12),
+              const LinearProgressIndicator(minHeight: 3),
+            ],
+            if (error != null && attempts.isEmpty && !isLoading) ...[
+              const SizedBox(height: 12),
+              ErrorView(
+                message: error!,
+                onRetry: context.read<AppState>().refreshProfile,
+              ),
+            ] else ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 240,
+                child: recent.isEmpty
+                    ? const EmptyView(
+                        message: 'Chưa có điểm quiz nào.',
+                        icon: Icons.query_stats_rounded,
+                      )
+                    : BarChart(
+                        BarChartData(
+                          minY: 0,
+                          maxY: 10,
+                          alignment: BarChartAlignment.spaceAround,
+                          gridData: FlGridData(
+                            show: true,
+                            drawVerticalLine: false,
+                            horizontalInterval: 2,
+                            getDrawingHorizontalLine: (value) => FlLine(
+                              color: colorScheme.outlineVariant,
+                              strokeWidth: 1,
+                            ),
+                          ),
+                          borderData: FlBorderData(show: false),
+                          barTouchData: BarTouchData(
+                            touchTooltipData: BarTouchTooltipData(
+                              fitInsideHorizontally: true,
+                              fitInsideVertically: true,
+                              getTooltipColor: (_) =>
+                                  colorScheme.inverseSurface,
+                              getTooltipItem:
+                                  (group, groupIndex, rod, rodIndex) {
+                                    final attempt = recent[group.x.toInt()];
+                                    final title = attempt.lessonTitle.isEmpty
+                                        ? 'Quiz ${group.x + 1}'
+                                        : attempt.lessonTitle;
+                                    return BarTooltipItem(
+                                      '$title\n${rod.toY.toStringAsFixed(1)}/10',
+                                      TextStyle(
+                                        color: colorScheme.onInverseSurface,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    );
+                                  },
+                            ),
+                          ),
+                          titlesData: FlTitlesData(
+                            topTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false),
+                            ),
+                            rightTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false),
+                            ),
+                            leftTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                reservedSize: 32,
+                                interval: 2,
+                                getTitlesWidget: (value, meta) {
+                                  if (value % 2 != 0) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return SideTitleWidget(
+                                    meta: meta,
+                                    child: Text(
+                                      value.toInt().toString(),
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.labelSmall,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            bottomTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                reservedSize: 46,
+                                interval: 1,
+                                getTitlesWidget: (value, meta) {
+                                  if (value != value.roundToDouble()) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  final index = value.toInt();
+                                  if (index < 0 || index >= recent.length) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  final title =
+                                      recent[index].lessonTitle.isEmpty
+                                      ? 'Quiz ${index + 1}'
+                                      : recent[index].lessonTitle;
+                                  return SideTitleWidget(
+                                    meta: meta,
+                                    space: 8,
+                                    child: Tooltip(
+                                      message: title,
+                                      child: SizedBox(
+                                        width: 58,
+                                        child: Text(
+                                          _shortQuizTitle(title),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          textAlign: TextAlign.center,
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.labelSmall,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                          barGroups: [
+                            for (var index = 0; index < recent.length; index++)
+                              BarChartGroupData(
+                                x: index,
+                                barRods: [
+                                  BarChartRodData(
+                                    toY: recent[index].score.clamp(0, 10),
+                                    width: 20,
+                                    borderRadius: const BorderRadius.vertical(
+                                      top: Radius.circular(6),
+                                    ),
+                                    color: colorScheme.primary,
+                                    backDrawRodData: BackgroundBarChartRodData(
+                                      show: true,
+                                      toY: 10,
+                                      color:
+                                          colorScheme.surfaceContainerHighest,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                          ],
+                        ),
+                      ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AchievementsHeader extends StatelessWidget {
+  const _AchievementsHeader({required this.earned, required this.total});
+
+  final int earned;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            'Thành tích',
+            style: Theme.of(context).textTheme.titleMedium,
           ),
-          itemBuilder: (context, index) => _BadgeTile(badge: badges[index]),
-        );
-      },
+        ),
+        Text(
+          '$earned/$total đã đạt',
+          style: Theme.of(context).textTheme.labelLarge,
+        ),
+      ],
+    );
+  }
+}
+
+class _AchievementSliverGrid extends StatelessWidget {
+  const _AchievementSliverGrid({required this.badges, required this.columns});
+
+  final List<AchievementBadge> badges;
+  final int columns;
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverGrid(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) => _BadgeTile(badge: badges[index]),
+        childCount: badges.length,
+      ),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: columns,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        mainAxisExtent: 168,
+      ),
     );
   }
 }
@@ -642,26 +839,64 @@ class _BadgeTile extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Icon(
-                badge.isEarned
-                    ? Icons.workspace_premium_rounded
-                    : Icons.lock_rounded,
-                color: foreground,
-                size: 30,
+              Row(
+                children: [
+                  Icon(
+                    badge.isEarned
+                        ? Icons.workspace_premium_rounded
+                        : Icons.lock_rounded,
+                    color: foreground,
+                    size: 30,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      badge.isEarned ? 'Đã đạt' : 'Đang khóa',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: foreground,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               Text(
                 badge.name,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
                 style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 4),
+              Expanded(
+                child: Text(
+                  badge.isEarned
+                      ? (badge.achievedAt == null
+                            ? 'Thành tích đã mở khóa'
+                            : 'Mở khóa ${_formatDate(badge.achievedAt!)}')
+                      : (badge.description.isEmpty
+                            ? 'Hoàn thành điều kiện để mở khóa'
+                            : badge.description),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ),
               if (!badge.isEarned && badge.progressTarget > 0) ...[
                 const SizedBox(height: 8),
                 LinearProgressIndicator(value: badge.progressValue),
+                const SizedBox(height: 4),
+                Text(
+                  '${badge.progressCurrent}/${badge.progressTarget}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
               ],
             ],
           ),
@@ -717,6 +952,246 @@ void _showBadgeDetail(BuildContext context, AchievementBadge badge) {
       ),
     ),
   );
+}
+
+class _SettingsSection extends StatelessWidget {
+  const _SettingsSection({required this.profile, required this.state});
+
+  final ProfileSummary profile;
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.settings_rounded),
+              title: Text(
+                'Cài đặt',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: Icon(_themeModeIcon(state.themeMode)),
+              title: const Text('Giao diện'),
+              subtitle: Text(_themeModeLabel(state.themeMode)),
+              minLeadingWidth: 24,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<ThemeMode>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(
+                      value: ThemeMode.system,
+                      icon: Icon(Icons.brightness_auto_rounded),
+                      label: Text('Hệ thống'),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.light,
+                      icon: Icon(Icons.light_mode_rounded),
+                      label: Text('Sáng'),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.dark,
+                      icon: Icon(Icons.dark_mode_rounded),
+                      label: Text('Tối'),
+                    ),
+                  ],
+                  selected: {state.themeMode},
+                  onSelectionChanged: (values) {
+                    if (values.isNotEmpty) {
+                      state.setThemeMode(values.first);
+                    }
+                  },
+                ),
+              ),
+            ),
+            const Divider(height: 1),
+            if (kDebugMode) ...[
+              SwitchListTile(
+                secondary: const Icon(Icons.wifi_off_rounded),
+                title: const Text('Giả lập ngoại tuyến'),
+                subtitle: const Text('Chỉ sử dụng để kiểm tra và trình diễn'),
+                value: state.simulateOffline,
+                onChanged: state.setOfflineMode,
+              ),
+              const Divider(height: 1),
+            ],
+            ListTile(
+              leading: const Icon(Icons.download_done_rounded),
+              title: const Text('Bài học đã tải'),
+              subtitle: Text(
+                '${state.downloadedLessons.length} bài học sẵn sàng đọc offline',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => context.go('/offline'),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.edit_rounded),
+              title: const Text('Cập nhật họ tên'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => _showEditProfileDialog(context, profile.user.name),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.lock_reset_rounded),
+              title: const Text('Đổi mật khẩu'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => _showChangePasswordDialog(context),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: Icon(Icons.logout_rounded, color: colorScheme.error),
+              title: Text(
+                'Đăng xuất',
+                style: TextStyle(
+                  color: colorScheme.error,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              onTap: () => _confirmLogout(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminSection extends StatelessWidget {
+  const _AdminSection({required this.state});
+
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final roleLabel = state.user?.role == 'TEACHER'
+        ? 'Giáo viên'
+        : 'Quản trị viên';
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          children: [
+            ListTile(
+              leading: Icon(
+                Icons.admin_panel_settings_rounded,
+                color: colorScheme.primary,
+              ),
+              title: Text(
+                'Quản trị hệ thống ($roleLabel)',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.dashboard_rounded),
+              title: const Text('Bảng điều khiển Admin'),
+              subtitle: const Text('Tổng quan CMS & Quản lý danh sách'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => context.go('/admin'),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.folder_special_rounded),
+              title: const Text('Quản lý Chương học'),
+              subtitle: const Text('Thêm, sửa, xóa các chương học'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => context.go('/admin/chapters'),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.menu_book_rounded),
+              title: const Text('Quản lý Bài học'),
+              subtitle: const Text('Chỉnh sửa lý thuyết & mô phỏng'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => context.go('/admin/lessons'),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.quiz_rounded),
+              title: const Text('Quản lý Câu hỏi'),
+              subtitle: const Text('Ngân hàng câu hỏi trắc nghiệm'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => context.go('/admin/questions'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> _confirmLogout(BuildContext context) async {
+  final confirmed =
+      await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Đăng xuất?'),
+          content: const Text('Bạn sẽ cần đăng nhập lại để tiếp tục học.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Hủy'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              icon: const Icon(Icons.logout_rounded),
+              label: const Text('Đăng xuất'),
+            ),
+          ],
+        ),
+      ) ??
+      false;
+  if (confirmed && context.mounted) {
+    await context.read<AppState>().logout();
+  }
+}
+
+String _themeModeLabel(ThemeMode mode) => switch (mode) {
+  ThemeMode.system => 'Theo cài đặt hệ thống',
+  ThemeMode.light => 'Luôn dùng giao diện sáng',
+  ThemeMode.dark => 'Luôn dùng giao diện tối',
+};
+
+IconData _themeModeIcon(ThemeMode mode) => switch (mode) {
+  ThemeMode.system => Icons.brightness_auto_rounded,
+  ThemeMode.light => Icons.light_mode_rounded,
+  ThemeMode.dark => Icons.dark_mode_rounded,
+};
+
+String _roleLabel(String? role) => switch (role) {
+  'ADMIN' => 'Quản trị viên',
+  'TEACHER' => 'Giáo viên',
+  _ => 'Học sinh',
+};
+
+String _shortQuizTitle(String title) {
+  final normalized = title.trim();
+  if (normalized.isEmpty) {
+    return 'Quiz';
+  }
+  final words = normalized.split(RegExp(r'\s+'));
+  if (words.length == 1) {
+    return words.first.length <= 12
+        ? words.first
+        : '${words.first.substring(0, 11)}...';
+  }
+  final firstTwo = words.take(2).join(' ');
+  return firstTwo.length <= 14 ? firstTwo : '${firstTwo.substring(0, 13)}...';
 }
 
 Future<void> _showEditProfileDialog(

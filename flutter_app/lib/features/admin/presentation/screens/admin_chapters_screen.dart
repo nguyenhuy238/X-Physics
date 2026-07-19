@@ -33,7 +33,10 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
             return const LoadingWidget();
           }
           if (provider.error != null && provider.lastChapters.isEmpty) {
-            return ErrorView(message: provider.error!, onRetry: () => provider.fetchChapters());
+            return ErrorView(
+              message: provider.error!,
+              onRetry: () => provider.fetchChapters(),
+            );
           }
 
           final chapters = provider.lastChapters;
@@ -58,7 +61,8 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                 key: ValueKey(chapter['id']),
                 chapter: chapter,
                 onEdit: () => _showChapterForm(context, chapter),
-                onDelete: () => _deleteChapter(context, chapter['id'] as String),
+                onDelete: () =>
+                    _deleteChapter(context, chapter['id'] as String),
               );
             },
           );
@@ -78,10 +82,18 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Xoa chuong?'),
-        content: const Text('Hanh dong nay se an chuong cung cac bai hoc ben trong.'),
+        content: const Text(
+          'Hanh dong nay se an chuong cung cac bai hoc ben trong.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Huy')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Xoa')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Huy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Xoa'),
+          ),
         ],
       ),
     );
@@ -92,19 +104,32 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
       final api = ApiClient();
       await api.delete('admin/chapters/$id');
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Da xoa chuong')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Da xoa chuong')));
       await provider.fetchChapters();
     } on Exception catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
 
-  Future<void> _showChapterForm(BuildContext context, [Map<String, dynamic>? chapter]) async {
+  Future<void> _showChapterForm(
+    BuildContext context, [
+    Map<String, dynamic>? chapter,
+  ]) async {
     final isEdit = chapter != null;
-    final titleController = TextEditingController(text: chapter?['title'] ?? '');
-    final descriptionController = TextEditingController(text: chapter?['description'] ?? '');
-    final orderController = TextEditingController(text: chapter?['orderIndex']?.toString() ?? '');
+    final titleController = TextEditingController(
+      text: chapter?['title'] ?? '',
+    );
+    final descriptionController = TextEditingController(
+      text: chapter?['description'] ?? '',
+    );
+    final orderController = TextEditingController(
+      text: chapter?['orderIndex']?.toString() ?? '',
+    );
     bool published = chapter?['isPublished'] ?? true;
 
     final result = await showDialog<bool>(
@@ -118,7 +143,9 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
               children: [
                 TextField(
                   controller: titleController,
-                  decoration: const InputDecoration(labelText: 'Tieu de chuong'),
+                  decoration: const InputDecoration(
+                    labelText: 'Tieu de chuong',
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -141,7 +168,10 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Huy')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Huy'),
+            ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
               child: Text(isEdit ? 'Luu' : 'Tao'),
@@ -155,7 +185,8 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
 
     final provider = context.read<AdminProvider>();
     final payload = <String, dynamic>{
-      'id': chapter?['id'] ?? 'chapter_${DateTime.now().millisecondsSinceEpoch}',
+      'id':
+          chapter?['id'] ?? 'chapter_${DateTime.now().millisecondsSinceEpoch}',
       'title': titleController.text,
       'description': descriptionController.text,
       'orderIndex': int.tryParse(orderController.text) ?? 0,
@@ -170,11 +201,15 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
         await api.post('admin/chapters', payload);
       }
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isEdit ? 'Da cap nhat' : 'Da tao chuong')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(isEdit ? 'Da cap nhat' : 'Da tao chuong')),
+      );
       await provider.fetchChapters();
     } on Exception catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
 }
@@ -289,7 +324,10 @@ class _ChapterCardState extends State<_ChapterCard> {
             else if (_error != null)
               Padding(
                 padding: const EdgeInsets.all(16),
-                child: Text('Loi: $_error', style: const TextStyle(color: Colors.red)),
+                child: Text(
+                  'Loi: $_error',
+                  style: const TextStyle(color: Colors.red),
+                ),
               )
             else if (_lessons.isEmpty)
               const Padding(
@@ -297,12 +335,14 @@ class _ChapterCardState extends State<_ChapterCard> {
                 child: Text('Chua co bai hoc nao'),
               )
             else
-              ..._lessons.map((lesson) => _LessonTile(
-                    key: ValueKey(lesson['id']),
-                    lesson: lesson,
-                    onEdit: () => _showLessonForm(context, lesson),
-                    onDelete: () => _deleteLesson(lesson['id'] as String),
-                  )),
+              ..._lessons.map(
+                (lesson) => _LessonTile(
+                  key: ValueKey(lesson['id']),
+                  lesson: lesson,
+                  onEdit: () => _showLessonForm(context, lesson),
+                  onDelete: () => _deleteLesson(lesson['id'] as String),
+                ),
+              ),
           ],
         ],
       ),
@@ -322,7 +362,10 @@ class _ChapterCardState extends State<_ChapterCard> {
           TextButton.icon(
             onPressed: widget.onDelete,
             icon: Icon(Icons.delete, size: 18, color: theme.colorScheme.error),
-            label: Text('Xoa', style: TextStyle(color: theme.colorScheme.error)),
+            label: Text(
+              'Xoa',
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
           ),
         ],
       ),
@@ -335,10 +378,18 @@ class _ChapterCardState extends State<_ChapterCard> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Xoa bai hoc?'),
-        content: const Text('Hanh dong nay se an bai hoc cung cac cau hoi quiz.'),
+        content: const Text(
+          'Hanh dong nay se an bai hoc cung cac cau hoi quiz.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Huy')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Xoa')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Huy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Xoa'),
+          ),
         ],
       ),
     );
@@ -349,21 +400,36 @@ class _ChapterCardState extends State<_ChapterCard> {
       final api = ApiClient();
       await api.delete('admin/lessons/$id');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Da xoa bai hoc')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Da xoa bai hoc')));
       await _loadLessons();
     } on Exception catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
 
-  Future<void> _showLessonForm(BuildContext context, [Map<String, dynamic>? lesson]) async {
+  Future<void> _showLessonForm(
+    BuildContext context, [
+    Map<String, dynamic>? lesson,
+  ]) async {
     final isEdit = lesson != null;
     final titleController = TextEditingController(text: lesson?['title'] ?? '');
-    final contentController = TextEditingController(text: lesson?['contentMarkdown'] ?? '');
-    final minutesController = TextEditingController(text: (lesson?['estimatedMinutes'] ?? 10).toString());
-    final orderController = TextEditingController(text: (lesson?['orderIndex'] ?? 0).toString());
-    final formulaController = TextEditingController(text: lesson?['formulaLatex'] ?? '');
+    final contentController = TextEditingController(
+      text: lesson?['contentMarkdown'] ?? '',
+    );
+    final minutesController = TextEditingController(
+      text: (lesson?['estimatedMinutes'] ?? 10).toString(),
+    );
+    final orderController = TextEditingController(
+      text: (lesson?['orderIndex'] ?? 0).toString(),
+    );
+    final formulaController = TextEditingController(
+      text: lesson?['formulaLatex'] ?? '',
+    );
     bool published = lesson?['isPublished'] ?? true;
 
     final result = await showDialog<bool>(
@@ -377,24 +443,32 @@ class _ChapterCardState extends State<_ChapterCard> {
               children: [
                 TextField(
                   controller: titleController,
-                  decoration: const InputDecoration(labelText: 'Tieu de bai hoc'),
+                  decoration: const InputDecoration(
+                    labelText: 'Tieu de bai hoc',
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: contentController,
                   maxLines: 4,
-                  decoration: const InputDecoration(labelText: 'Noi dung (Markdown)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Noi dung (Markdown)',
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: formulaController,
-                  decoration: const InputDecoration(labelText: 'Cong thuc LaTeX'),
+                  decoration: const InputDecoration(
+                    labelText: 'Cong thuc LaTeX',
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: minutesController,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Thoi gian uoc tinh (phut)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Thoi gian uoc tinh (phut)',
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -411,7 +485,10 @@ class _ChapterCardState extends State<_ChapterCard> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Huy')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Huy'),
+            ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
               child: Text(isEdit ? 'Luu' : 'Tao'),
@@ -442,11 +519,15 @@ class _ChapterCardState extends State<_ChapterCard> {
         await api.post('admin/lessons', payload);
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isEdit ? 'Da cap nhat' : 'Da tao bai hoc')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(isEdit ? 'Da cap nhat' : 'Da tao bai hoc')),
+      );
       await _loadLessons();
     } on Exception catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
 }
@@ -534,14 +615,25 @@ class _LessonTileState extends State<_LessonTile> {
           ),
           subtitle: Row(
             children: [
-              Icon(Icons.schedule, size: 12, color: isPublished ? null : Colors.grey),
+              Icon(
+                Icons.schedule,
+                size: 12,
+                color: isPublished ? null : Colors.grey,
+              ),
               const SizedBox(width: 4),
               Text(
                 '$minutes phut',
-                style: TextStyle(color: isPublished ? null : Colors.grey, fontSize: 12),
+                style: TextStyle(
+                  color: isPublished ? null : Colors.grey,
+                  fontSize: 12,
+                ),
               ),
               const SizedBox(width: 12),
-              Icon(Icons.quiz_outlined, size: 12, color: isPublished ? null : Colors.grey),
+              Icon(
+                Icons.quiz_outlined,
+                size: 12,
+                color: isPublished ? null : Colors.grey,
+              ),
               const SizedBox(width: 4),
               Text(
                 '$questionCount cau hoi',
@@ -559,7 +651,10 @@ class _LessonTileState extends State<_LessonTile> {
               if (questionCount > 0)
                 FilledButton.tonalIcon(
                   onPressed: _toggleExpand,
-                  icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more, size: 18),
+                  icon: Icon(
+                    _expanded ? Icons.expand_less : Icons.expand_more,
+                    size: 18,
+                  ),
                   label: Text(_expanded ? 'Dong' : 'Mo rong'),
                 )
               else
@@ -580,11 +675,17 @@ class _LessonTileState extends State<_LessonTile> {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.help_outline, size: 18, color: theme.colorScheme.primary),
+                    Icon(
+                      Icons.help_outline,
+                      size: 18,
+                      color: theme.colorScheme.primary,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'Danh sach cau hoi ($questionCount)',
-                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const Spacer(),
                     TextButton.icon(
@@ -594,8 +695,15 @@ class _LessonTileState extends State<_LessonTile> {
                     ),
                     TextButton.icon(
                       onPressed: widget.onDelete,
-                      icon: Icon(Icons.delete, size: 16, color: theme.colorScheme.error),
-                      label: Text('Xoa', style: TextStyle(color: theme.colorScheme.error)),
+                      icon: Icon(
+                        Icons.delete,
+                        size: 16,
+                        color: theme.colorScheme.error,
+                      ),
+                      label: Text(
+                        'Xoa',
+                        style: TextStyle(color: theme.colorScheme.error),
+                      ),
                     ),
                   ],
                 ),
@@ -620,8 +728,18 @@ class _LessonTileState extends State<_LessonTile> {
                     children: [
                       Icon(Icons.error_outline, color: theme.colorScheme.error),
                       const SizedBox(width: 8),
-                      Expanded(child: Text('Loi: $_error', style: TextStyle(color: theme.colorScheme.onErrorContainer))),
-                      TextButton(onPressed: _loadQuestions, child: const Text('Thu lai')),
+                      Expanded(
+                        child: Text(
+                          'Loi: $_error',
+                          style: TextStyle(
+                            color: theme.colorScheme.onErrorContainer,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _loadQuestions,
+                        child: const Text('Thu lai'),
+                      ),
                     ],
                   ),
                 ),
@@ -633,9 +751,16 @@ class _LessonTileState extends State<_LessonTile> {
                 padding: const EdgeInsets.all(32),
                 child: Column(
                   children: [
-                    Icon(Icons.quiz_outlined, size: 48, color: Colors.grey.shade400),
+                    Icon(
+                      Icons.quiz_outlined,
+                      size: 48,
+                      color: Colors.grey.shade400,
+                    ),
                     const SizedBox(height: 12),
-                    const Text('Chua co cau hoi quiz nao', style: TextStyle(color: Colors.grey)),
+                    const Text(
+                      'Chua co cau hoi quiz nao',
+                      style: TextStyle(color: Colors.grey),
+                    ),
                     const SizedBox(height: 12),
                     FilledButton.icon(
                       onPressed: () => _showQuestionForm(context),
@@ -678,7 +803,11 @@ class _LessonTileState extends State<_LessonTile> {
         padding: EdgeInsets.symmetric(horizontal: 32, vertical: 4),
         child: Text(
           'Chua co noi dung',
-          style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.grey),
+          style: TextStyle(
+            fontSize: 12,
+            fontStyle: FontStyle.italic,
+            color: Colors.grey,
+          ),
         ),
       );
     }
@@ -695,14 +824,20 @@ class _LessonTileState extends State<_LessonTile> {
         children: [
           if (content.isNotEmpty)
             Text(
-              content.length > 100 ? '${content.substring(0, 100)}...' : content,
+              content.length > 100
+                  ? '${content.substring(0, 100)}...'
+                  : content,
               style: const TextStyle(fontSize: 12),
             ),
           if (formula.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
               'Formula: $formula',
-              style: TextStyle(fontSize: 12, fontFamily: 'monospace', color: Colors.grey.shade700),
+              style: TextStyle(
+                fontSize: 12,
+                fontFamily: 'monospace',
+                color: Colors.grey.shade700,
+              ),
             ),
           ],
         ],
@@ -718,8 +853,14 @@ class _LessonTileState extends State<_LessonTile> {
         title: const Text('Xoa cau hoi?'),
         content: const Text('Hanh dong nay se xoa cau hoi khoi he thong.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Huy')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Xoa')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Huy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Xoa'),
+          ),
         ],
       ),
     );
@@ -730,19 +871,32 @@ class _LessonTileState extends State<_LessonTile> {
       final api = ApiClient();
       await api.delete('admin/questions/$id');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Da xoa cau hoi')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Da xoa cau hoi')));
       await _loadQuestions();
     } on Exception catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
 
-  Future<void> _showQuestionForm(BuildContext context, [Map<String, dynamic>? question]) async {
+  Future<void> _showQuestionForm(
+    BuildContext context, [
+    Map<String, dynamic>? question,
+  ]) async {
     final isEdit = question != null;
-    final questionTextController = TextEditingController(text: question?['question'] ?? '');
-    final explanationController = TextEditingController(text: question?['explanation'] ?? '');
-    final orderController = TextEditingController(text: (question?['orderIndex'] ?? 0).toString());
+    final questionTextController = TextEditingController(
+      text: question?['question'] ?? '',
+    );
+    final explanationController = TextEditingController(
+      text: question?['explanation'] ?? '',
+    );
+    final orderController = TextEditingController(
+      text: (question?['orderIndex'] ?? 0).toString(),
+    );
     List<String> options = List<String>.from(
       question?['options'] ?? List.filled(4, ''),
     );
@@ -761,29 +915,40 @@ class _LessonTileState extends State<_LessonTile> {
                 TextField(
                   controller: questionTextController,
                   maxLines: 3,
-                  decoration: const InputDecoration(labelText: 'Noi dung cau hoi'),
+                  decoration: const InputDecoration(
+                    labelText: 'Noi dung cau hoi',
+                  ),
                 ),
                 const SizedBox(height: 12),
-                ...List.generate(4, (i) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: TextField(
-                        controller: TextEditingController(text: options[i]),
-                        decoration: InputDecoration(
-                          labelText: 'Lua chon ${i + 1}',
-                          suffixIcon: selectedCorrect == i
-                              ? const Icon(Icons.check_circle, color: Colors.green)
-                              : null,
-                        ),
-                        onChanged: (value) => options[i] = value,
+                ...List.generate(
+                  4,
+                  (i) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: TextField(
+                      controller: TextEditingController(text: options[i]),
+                      decoration: InputDecoration(
+                        labelText: 'Lua chon ${i + 1}',
+                        suffixIcon: selectedCorrect == i
+                            ? const Icon(
+                                Icons.check_circle,
+                                color: Colors.green,
+                              )
+                            : null,
                       ),
-                    )),
+                      onChanged: (value) => options[i] = value,
+                    ),
+                  ),
+                ),
                 DropdownButtonFormField<int>(
                   value: selectedCorrect,
                   decoration: const InputDecoration(labelText: 'Dap an dung'),
-                  items: List.generate(4, (i) => DropdownMenuItem(
-                        value: i,
-                        child: Text('Lua chon ${i + 1}'),
-                      )),
+                  items: List.generate(
+                    4,
+                    (i) => DropdownMenuItem(
+                      value: i,
+                      child: Text('Lua chon ${i + 1}'),
+                    ),
+                  ),
                   onChanged: (value) {
                     if (value == null) return;
                     setState(() => selectedCorrect = value);
@@ -795,7 +960,10 @@ class _LessonTileState extends State<_LessonTile> {
                   decoration: const InputDecoration(labelText: 'Do kho'),
                   items: const [
                     DropdownMenuItem(value: 'EASY', child: Text('De')),
-                    DropdownMenuItem(value: 'MEDIUM', child: Text('Trung binh')),
+                    DropdownMenuItem(
+                      value: 'MEDIUM',
+                      child: Text('Trung binh'),
+                    ),
                     DropdownMenuItem(value: 'HARD', child: Text('Kho')),
                   ],
                   onChanged: (value) {
@@ -819,7 +987,10 @@ class _LessonTileState extends State<_LessonTile> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Huy')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Huy'),
+            ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
               child: Text(isEdit ? 'Luu' : 'Tao'),
@@ -832,7 +1003,9 @@ class _LessonTileState extends State<_LessonTile> {
     if (result != true || !mounted) return;
 
     final payload = <String, dynamic>{
-      'id': question?['id'] ?? 'question_${DateTime.now().millisecondsSinceEpoch}',
+      'id':
+          question?['id'] ??
+          'question_${DateTime.now().millisecondsSinceEpoch}',
       'lessonId': widget.lesson['id'],
       'question': questionTextController.text,
       'options': options,
@@ -850,11 +1023,15 @@ class _LessonTileState extends State<_LessonTile> {
         await api.post('admin/questions', payload);
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isEdit ? 'Da cap nhat' : 'Da tao cau hoi')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(isEdit ? 'Da cap nhat' : 'Da tao cau hoi')),
+      );
       await _loadQuestions();
     } on Exception catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
 
@@ -871,21 +1048,21 @@ class _LessonTileState extends State<_LessonTile> {
       final api = ApiClient();
       final updates = <Map<String, dynamic>>[];
       for (var i = 0; i < _questions.length; i++) {
-        updates.add({
-          'id': _questions[i]['id'],
-          'orderIndex': i,
-        });
+        updates.add({'id': _questions[i]['id'], 'orderIndex': i});
       }
       await api.put('admin/questions/reorder', {'questions': updates});
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Da sap xep cau hoi'), duration: Duration(seconds: 1)),
+        const SnackBar(
+          content: Text('Da sap xep cau hoi'),
+          duration: Duration(seconds: 1),
+        ),
       );
     } on Exception catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Loi khi sap xep: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Loi khi sap xep: $e')));
     }
   }
 }
@@ -967,7 +1144,10 @@ class _QuestionCard extends StatelessWidget {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: difficultyColor.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(12),
@@ -982,11 +1162,18 @@ class _QuestionCard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          Icon(Icons.check_circle_outline, size: 16, color: Colors.green.shade600),
+                          Icon(
+                            Icons.check_circle_outline,
+                            size: 16,
+                            color: Colors.green.shade600,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             'Dap an: ${String.fromCharCode(65 + correctOption)}',
-                            style: TextStyle(fontSize: 13, color: Colors.green.shade700),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.green.shade700,
+                            ),
                           ),
                         ],
                       ),
@@ -998,60 +1185,74 @@ class _QuestionCard extends StatelessWidget {
             const SizedBox(height: 16),
             Container(
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                color: theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.5,
+                ),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Column(
-                children: List.generate(
-                  options.length,
-                  (i) {
-                    final isCorrect = i == correctOption;
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: isCorrect ? Colors.green.shade50 : null,
-                        border: Border(
-                          bottom: i < options.length - 1 ? BorderSide(color: Colors.grey.shade200) : BorderSide.none,
-                        ),
+                children: List.generate(options.length, (i) {
+                  final isCorrect = i == correctOption;
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isCorrect ? Colors.green.shade50 : null,
+                      border: Border(
+                        bottom: i < options.length - 1
+                            ? BorderSide(color: Colors.grey.shade200)
+                            : BorderSide.none,
                       ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 24,
-                            height: 24,
-                            decoration: BoxDecoration(
-                              color: isCorrect ? Colors.green : Colors.grey.shade300,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Center(
-                              child: Text(
-                                String.fromCharCode(65 + i),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: isCorrect ? Colors.white : Colors.grey.shade700,
-                                ),
-                              ),
-                            ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: isCorrect
+                                ? Colors.green
+                                : Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
+                          child: Center(
                             child: Text(
-                              options[i].isEmpty ? '(Trong)' : options[i],
+                              String.fromCharCode(65 + i),
                               style: TextStyle(
-                                fontSize: 14,
-                                color: options[i].isEmpty ? Colors.grey : null,
-                                fontStyle: options[i].isEmpty ? FontStyle.italic : null,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: isCorrect
+                                    ? Colors.white
+                                    : Colors.grey.shade700,
                               ),
                             ),
                           ),
-                          if (isCorrect)
-                            const Icon(Icons.check, color: Colors.green, size: 20),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            options[i].isEmpty ? '(Trong)' : options[i],
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: options[i].isEmpty ? Colors.grey : null,
+                              fontStyle: options[i].isEmpty
+                                  ? FontStyle.italic
+                                  : null,
+                            ),
+                          ),
+                        ),
+                        if (isCorrect)
+                          const Icon(
+                            Icons.check,
+                            color: Colors.green,
+                            size: 20,
+                          ),
+                      ],
+                    ),
+                  );
+                }),
               ),
             ),
             if ((question['explanation'] ?? '').isNotEmpty) ...[
@@ -1066,12 +1267,19 @@ class _QuestionCard extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.lightbulb_outline, size: 18, color: Colors.blue.shade700),
+                    Icon(
+                      Icons.lightbulb_outline,
+                      size: 18,
+                      color: Colors.blue.shade700,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         question['explanation'] ?? '',
-                        style: TextStyle(fontSize: 13, color: Colors.blue.shade800),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.blue.shade800,
+                        ),
                       ),
                     ),
                   ],
@@ -1087,16 +1295,29 @@ class _QuestionCard extends StatelessWidget {
                   icon: const Icon(Icons.edit, size: 18),
                   label: const Text('Sua'),
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 OutlinedButton.icon(
                   onPressed: () => _showDeleteConfirmation(context),
-                  icon: Icon(Icons.delete_outline, size: 18, color: theme.colorScheme.error),
-                  label: Text('Xoa', style: TextStyle(color: theme.colorScheme.error)),
+                  icon: Icon(
+                    Icons.delete_outline,
+                    size: 18,
+                    color: theme.colorScheme.error,
+                  ),
+                  label: Text(
+                    'Xoa',
+                    style: TextStyle(color: theme.colorScheme.error),
+                  ),
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                   ),
                 ),
               ],
@@ -1114,10 +1335,15 @@ class _QuestionCard extends StatelessWidget {
         title: const Text('Xoa cau hoi?'),
         content: Text('Ban co chac chan muon xoa cau hoi "$index"?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Huy')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Huy'),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
             child: const Text('Xoa'),
           ),
         ],

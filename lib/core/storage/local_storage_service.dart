@@ -132,7 +132,9 @@ class LocalStorageService {
         _readInt(existingMap?['progressPercent'])?.clamp(0, 100).toInt() ?? 0;
     final mergedPercent = incomingPercent == null
         ? existingPercent
-        : (incomingPercent < existingPercent ? existingPercent : incomingPercent);
+        : (incomingPercent < existingPercent
+              ? existingPercent
+              : incomingPercent);
     final operationId =
         _readNonEmptyString(item['operationId']) ??
         (incomingPercent != null && incomingPercent > existingPercent
