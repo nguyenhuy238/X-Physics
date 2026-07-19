@@ -24,13 +24,29 @@ export class AuthService {
 
   async register(dto: RegisterDto) {
     if (dto.confirmPassword && dto.confirmPassword !== dto.password) {
-      throw new BadRequestException("Password confirmation does not match");
+      throw new BadRequestException({
+        message: "Registration failed",
+        errors: [
+          {
+            field: "confirmPassword",
+            message: "Mật khẩu xác nhận không khớp.",
+          },
+        ],
+      });
     }
     const email = this.normalizeEmail(dto.email);
     const name = dto.name.trim();
     const existing = await this.database.findUserByEmail(email);
     if (existing) {
-      throw new ConflictException("Email already exists");
+      throw new ConflictException({
+        message: "Registration failed",
+        errors: [
+          {
+            field: "email",
+            message: "Email này đã được sử dụng.",
+          },
+        ],
+      });
     }
     const passwordHash = await bcrypt.hash(dto.password, 10);
     const user = await this.database.createUser({

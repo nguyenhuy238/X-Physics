@@ -77,6 +77,7 @@ class AppState extends ChangeNotifier {
   bool isProfileLoading = false;
   bool isSyncingProgress = false;
   String? errorMessage;
+  Map<String, String> authFieldErrors = const {};
   String? quizLoadError;
   String? quizSubmitError;
   String? progressDashboardError;
@@ -311,6 +312,15 @@ class AppState extends ChangeNotifier {
       );
       return response.data?['data'] as Map<String, dynamic>;
     });
+  }
+
+  void clearAuthErrors() {
+    if (errorMessage == null && authFieldErrors.isEmpty) {
+      return;
+    }
+    errorMessage = null;
+    authFieldErrors = const {};
+    notifyListeners();
   }
 
   Future<void> logout() async {
@@ -1366,6 +1376,7 @@ class AppState extends ChangeNotifier {
   ) async {
     isBusy = true;
     errorMessage = null;
+    authFieldErrors = const {};
     notifyListeners();
     try {
       final data = await request();
@@ -1382,6 +1393,7 @@ class AppState extends ChangeNotifier {
       await loadHomeData();
       return true;
     } catch (error) {
+      authFieldErrors = _fieldErrors(error);
       errorMessage = _readableError(error);
       return false;
     } finally {
@@ -1583,8 +1595,46 @@ class AppState extends ChangeNotifier {
       if (error.type == DioExceptionType.connectionError) {
         return 'Không kết nối được backend. Hãy kiểm tra server API.';
       }
-      return error.message ?? 'Lỗi kết nối API.';
+      if (error.response?.statusCode == 400) {
+        return 'Yêu cầu không hợp lệ. Vui lòng kiểm tra lại thông tin.';
+      }
+      if (error.response?.statusCode == 401) {
+        return 'Email hoặc mật khẩu không đúng.';
+      }
+      if (error.response?.statusCode == 409) {
+        return 'Dữ liệu đã tồn tại trong hệ thống.';
+      }
+      return 'Lỗi kết nối API.';
     }
     return error.toString();
+  }
+
+  Map<String, String> _fieldErrors(Object error) {
+    if (error is! DioException) {
+      return const {};
+    }
+    final data = error.response?.data;
+    if (data is! Map) {
+      return const {};
+    }
+    final errors = data['errors'];
+    if (errors is! List) {
+      return const {};
+    }
+    final result = <String, String>{};
+    for (final item in errors) {
+      if (item is! Map) {
+        continue;
+      }
+      final field = item['field'];
+      final message = item['message'];
+      if (field is String &&
+          field.trim().isNotEmpty &&
+          message is String &&
+          message.trim().isNotEmpty) {
+        result.putIfAbsent(field.trim(), () => message.trim());
+      }
+    }
+    return result;
   }
 }

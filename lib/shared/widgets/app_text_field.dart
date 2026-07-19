@@ -12,7 +12,9 @@ class AppTextField extends StatelessWidget {
     this.suffixIcon,
     this.textInputAction,
     this.onSubmitted,
+    this.onChanged,
     this.enabled = true,
+    this.errorText,
   });
 
   final TextEditingController controller;
@@ -24,7 +26,9 @@ class AppTextField extends StatelessWidget {
   final Widget? suffixIcon;
   final TextInputAction? textInputAction;
   final ValueChanged<String>? onSubmitted;
+  final ValueChanged<String>? onChanged;
   final bool enabled;
+  final String? errorText;
 
   @override
   Widget build(BuildContext context) {
@@ -34,10 +38,12 @@ class AppTextField extends StatelessWidget {
       obscureText: obscureText,
       textInputAction: textInputAction,
       onSubmitted: onSubmitted,
+      onChanged: onChanged,
       enabled: enabled,
       decoration: InputDecoration(
         labelText: label,
         hintText: hintText,
+        errorText: errorText,
         prefixIcon: prefixIcon == null ? null : Icon(prefixIcon),
         suffixIcon: suffixIcon,
       ),
