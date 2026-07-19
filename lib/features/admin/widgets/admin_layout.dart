@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../progress/application/app_state.dart';
+import '../../notifications/widgets/notification_icon.dart';
+
 
 class AdminLayout extends StatelessWidget {
   const AdminLayout({
@@ -115,6 +117,14 @@ class AdminLayout extends StatelessWidget {
                   icon: Icons.people_alt_rounded,
                   route: '/admin/students',
                   isActive: activeRoute == '/admin/students',
+                  onBackRequested: onBackRequested,
+                ),
+                const SizedBox(height: 8),
+                _SidebarLink(
+                  label: 'Thông báo',
+                  icon: Icons.notifications_none_rounded,
+                  route: '/notifications',
+                  isActive: activeRoute == '/notifications',
                   onBackRequested: onBackRequested,
                 ),
               ],
@@ -328,29 +338,7 @@ class AdminLayout extends StatelessWidget {
             ),
             const SizedBox(width: 16),
           ],
-          Stack(
-            children: [
-              IconButton(
-                onPressed: () {},
-                icon: const Icon(
-                  Icons.notifications_none_rounded,
-                  color: Color(0xFF64748B),
-                ),
-              ),
-              Positioned(
-                right: 12,
-                top: 12,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-            ],
-          ),
+          const NotificationIcon(color: Color(0xFF64748B)),
           const SizedBox(width: 8),
           Container(
             width: 36,

@@ -2,13 +2,17 @@ import { BadRequestException, ConflictException, Injectable } from "@nestjs/comm
 
 import { AuthenticatedUser } from "../../common/current-user";
 import { DatabaseRepository } from "../../database/database.repository";
+import { NotificationsService } from "../notifications/notifications.service";
 import { SubmitQuizDto } from "./dto/submit-quiz.dto";
 
 const MAX_DURATION_SECONDS = 3600;
 
 @Injectable()
 export class QuizService {
-  constructor(private readonly database: DatabaseRepository) {}
+  constructor(
+    private readonly database: DatabaseRepository,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async submit(user: AuthenticatedUser, dto: SubmitQuizDto) {
     return this.database.withTransaction(async (client) => {
@@ -113,7 +117,7 @@ export class QuizService {
         client,
       );
 
-      const newBadges = await this.awardBadges(
+      const newBadges = await this.notificationsService.awardBadgesAndNotify(
         user.id,
         lesson.id,
         lesson.chapterId,
@@ -295,107 +299,5 @@ export class QuizService {
       client,
     );
     return event?.coins ?? 0;
-  }
-
-  private async awardBadges(
-    userId: string,
-    lessonId: string,
-    chapterId: string,
-    perfectScore: boolean,
-    client: Parameters<Parameters<DatabaseRepository["withTransaction"]>[0]>[0],
-  ) {
-    const awarded = [];
-    const completedLessons = await this.database.countCompletedLessons(
-      userId,
-      client,
-    );
-    const totalLessons = await this.database.countTotalLessons(client);
-
-    if (completedLessons >= 1) {
-      awarded.push(
-        ...(await this.awardBadgesByRule(
-          userId,
-          "complete_first_lesson",
-          client,
-        )),
-      );
-    }
-    if (perfectScore) {
-      awarded.push(
-        ...(await this.awardBadgesByRule(userId, "quiz_score_10", client)),
-      );
-    }
-
-    const streak = await this.database.currentLearningStreak(userId, client);
-    const streakBadges = await this.database.listBadgesByRule(
-      "streak_days",
-      client,
-    );
-    for (const badge of streakBadges) {
-      const target = Number(badge.conditionValue ?? 0);
-      if (target > 0 && streak >= target) {
-        const awardedBadge = await this.database.awardBadge(
-          userId,
-          badge.id,
-          client,
-        );
-        if (awardedBadge) awarded.push(awardedBadge);
-      }
-    }
-
-    const chapterLessons = await this.database.countLessonsInChapter(
-      chapterId,
-      client,
-    );
-    const chapterCompleted = await this.database.countCompletedLessonsInChapter(
-      userId,
-      chapterId,
-      client,
-    );
-    if (chapterLessons > 0 && chapterCompleted >= chapterLessons) {
-      const chapterBadges = await this.database.listBadgesByRule(
-        "complete_chapter",
-        client,
-      );
-      for (const badge of chapterBadges) {
-        if (badge.conditionValue !== chapterId) continue;
-        const awardedBadge = await this.database.awardBadge(
-          userId,
-          badge.id,
-          client,
-        );
-        if (awardedBadge) awarded.push(awardedBadge);
-      }
-    }
-
-    if (totalLessons > 0 && completedLessons >= totalLessons) {
-      awarded.push(
-        ...(await this.awardBadgesByRule(
-          userId,
-          "complete_all_lessons",
-          client,
-        )),
-      );
-    }
-
-    return awarded;
-  }
-
-  private async awardBadgesByRule(
-    userId: string,
-    ruleKey: string,
-    client: Parameters<Parameters<DatabaseRepository["withTransaction"]>[0]>[0],
-  ) {
-    const awarded = [];
-    const badges = await this.database.listBadgesByRule(ruleKey, client);
-    for (const badge of badges) {
-      const awardedBadge = await this.database.awardBadge(
-        userId,
-        badge.id,
-        client,
-      );
-      if (awardedBadge) awarded.push(awardedBadge);
-    }
-    return awarded;
   }
 }

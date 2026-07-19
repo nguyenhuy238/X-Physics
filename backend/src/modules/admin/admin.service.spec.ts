@@ -317,7 +317,7 @@ describe("AdminService questions", () => {
 
   beforeEach(() => {
     database = new FakeAdminDatabase();
-    service = new AdminService(database as any);
+    service = new AdminService(database as any, { notifyAllStudents: jest.fn() } as any);
   });
 
   it("lists questions with filter and pagination metadata", async () => {
@@ -549,7 +549,7 @@ describe("AdminService lesson simulations", () => {
 
   beforeEach(() => {
     database = new FakeAdminDatabase();
-    service = new AdminService(database as any);
+    service = new AdminService(database as any, { notifyAllStudents: jest.fn() } as any);
   });
 
   it("creates a lesson with a formula simulation in one transaction", async () => {

@@ -6,6 +6,7 @@ import {
 import { randomUUID } from "node:crypto";
 
 import { DatabaseRepository } from "../../database/database.repository";
+import { NotificationsService } from "../notifications/notifications.service";
 import {
   AdminChapterDto,
   AdminFormulaSimulationDto,
@@ -23,7 +24,10 @@ import { FormulaExpression } from "./formula-expression";
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly database: DatabaseRepository) {}
+  constructor(
+    private readonly database: DatabaseRepository,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   users(query: {
     search?: string;
@@ -63,6 +67,16 @@ export class AdminService {
     return this.database.adminUserProgress(userId);
   }
 
+  async sendNotificationToUser(userId: string, title: string, message: string, type: string = 'INFO') {
+    return this.notificationsService.createNotification(
+      userId,
+      type,
+      title,
+      message,
+    );
+  }
+
+
   chapters() {
     return this.database.adminListChapters();
   }
@@ -86,8 +100,15 @@ export class AdminService {
     return this.database.findAdminQuestion(id);
   }
 
-  createChapter(dto: AdminChapterDto) {
-    return this.database.createChapter(dto);
+  async createChapter(dto: AdminChapterDto) {
+    const chapter = await this.database.createChapter(dto);
+    await this.notificationsService.notifyAllStudents(
+      "SYSTEM",
+      "Chương học mới!",
+      `Chương học "${chapter.title}" vừa được thêm vào. Bắt đầu học ngay nhé!`,
+      { chapterId: chapter.id },
+    );
+    return chapter;
   }
 
   updateChapter(id: string, dto: AdminChapterDto) {
@@ -108,6 +129,14 @@ export class AdminService {
         lesson.id,
         client,
       );
+
+      await this.notificationsService.notifyAllStudents(
+        "SYSTEM",
+        "Bài học mới!",
+        `Bài học "${lesson.title}" vừa được thêm vào. Vào học ngay thôi!`,
+        { lessonId: lesson.id },
+      );
+
       return { ...lesson, simulation: simulations[0] ?? null };
     });
   }
@@ -157,6 +186,17 @@ export class AdminService {
       const ids = existing.map((question) => question.id);
       ids.splice(insertAt - 1, 0, id);
       await this.database.setQuestionOrder(input.lessonId, ids, client);
+      
+      const lesson = await this.database.findAdminLesson(input.lessonId, client);
+      if (lesson) {
+        await this.notificationsService.notifyAllStudents(
+          "SYSTEM",
+          "Câu hỏi ôn tập mới!",
+          `Bài học "${lesson.title}" vừa cập nhật thêm câu hỏi quiz mới. Thử sức ngay!`,
+          { lessonId: lesson.id },
+        );
+      }
+
       return this.database.findAdminQuestion(id, client);
     });
   }

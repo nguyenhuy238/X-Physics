@@ -134,6 +134,18 @@ interface ChapterProgressRow {
   total_lessons: string;
 }
 
+export interface NotificationRow {
+  id: string;
+  user_id: string;
+  type: string;
+  title: string;
+  message: string;
+  data_json: unknown;
+  is_read: boolean;
+  created_at: Date;
+  updated_at: Date;
+}
+
 @Injectable()
 export class DatabaseRepository {
   private learningActivitySchemaReady = false;
@@ -2449,4 +2461,107 @@ export class DatabaseRepository {
       };
     });
   }
+
+  // --- Notifications ---
+
+  async createNotification(
+    input: {
+      userId: string;
+      type: string;
+      title: string;
+      message: string;
+      data?: unknown;
+    },
+    db: Db = this.pool,
+  ) {
+    const result = await db.query<NotificationRow>(
+      `insert into notifications (user_id, type, title, message, data_json)
+       values ($1, $2, $3, $4, $5::jsonb)
+       returning *`,
+      [
+        input.userId,
+        input.type,
+        input.title,
+        input.message,
+        input.data ? JSON.stringify(input.data) : "{}",
+      ],
+    );
+    return result.rows[0];
+  }
+
+  async listNotifications(
+    userId: string,
+    query: { page?: number; limit?: number } = {},
+  ) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const offset = (page - 1) * limit;
+
+    const countResult = await this.pool.query<{ count: string }>(
+      "select count(*) from notifications where user_id = $1",
+      [userId],
+    );
+    const total = Number(countResult.rows[0]?.count ?? 0);
+
+    const result = await this.pool.query<NotificationRow>(
+      `select * from notifications
+       where user_id = $1
+       order by created_at desc
+       limit $2 offset $3`,
+      [userId, limit, offset],
+    );
+
+    const unreadCountResult = await this.pool.query<{ count: string }>(
+      "select count(*) from notifications where user_id = $1 and is_read = false",
+      [userId],
+    );
+    const unreadCount = Number(unreadCountResult.rows[0]?.count ?? 0);
+
+    return {
+      items: result.rows,
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+      unreadCount,
+    };
+  }
+
+  async markNotificationAsRead(id: string, userId: string) {
+    const result = await this.pool.query<NotificationRow>(
+      `update notifications
+       set is_read = true, updated_at = now()
+       where id = $1 and user_id = $2
+       returning *`,
+      [id, userId],
+    );
+    if (!result.rows[0]) {
+      throw new NotFoundException("Notification not found");
+    }
+    return result.rows[0];
+  }
+
+  async markAllNotificationsAsRead(userId: string) {
+    await this.pool.query(
+      `update notifications
+       set is_read = true, updated_at = now()
+       where user_id = $1 and is_read = false`,
+      [userId],
+    );
+  }
+
+  async listAllStudentIds(db: Db = this.pool): Promise<string[]> {
+    const result = await db.query<{ id: string }>(
+      "select id from users where role = 'STUDENT'"
+    );
+    return result.rows.map((row) => row.id);
+  }
+
+  async listAllAdminAndTeacherIds(db: Db = this.pool): Promise<string[]> {
+    const result = await db.query<{ id: string }>(
+      "select id from users where role in ('ADMIN', 'TEACHER')"
+    );
+    return result.rows.map((row) => row.id);
+  }
 }
+

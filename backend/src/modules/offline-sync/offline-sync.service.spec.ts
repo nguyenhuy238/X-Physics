@@ -29,6 +29,10 @@ class FakeDatabase {
     return { id };
   }
 
+  async findAdminLesson(id: string) {
+    return { id, chapterId: "chapter-1" };
+  }
+
   async recordLessonDownload(input: any) {
     this.recordedDownloads.push(input);
   }
@@ -37,10 +41,14 @@ class FakeDatabase {
 describe("OfflineSyncService.syncProgress", () => {
   let database: FakeDatabase;
   let service: OfflineSyncService;
+  let notificationsService: any;
 
   beforeEach(() => {
     database = new FakeDatabase();
-    service = new OfflineSyncService(database as any);
+    notificationsService = {
+      awardBadgesAndNotify: jest.fn().mockResolvedValue([]),
+    };
+    service = new OfflineSyncService(database as any, notificationsService as any);
   });
 
   it("upserts progress for every item and reports accepted items", async () => {
@@ -113,10 +121,14 @@ describe("OfflineSyncService.syncProgress", () => {
 describe("OfflineSyncService.recordDownload", () => {
   let database: FakeDatabase;
   let service: OfflineSyncService;
+  let notificationsService: any;
 
   beforeEach(() => {
     database = new FakeDatabase();
-    service = new OfflineSyncService(database as any);
+    notificationsService = {
+      awardBadgesAndNotify: jest.fn().mockResolvedValue([]),
+    };
+    service = new OfflineSyncService(database as any, notificationsService as any);
   });
 
   it("records a download event for a published lesson", async () => {

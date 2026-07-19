@@ -85,7 +85,10 @@ describe("ProgressService dashboard", () => {
 
   beforeEach(() => {
     database = new FakeDatabase();
-    service = new ProgressService(database as any);
+    const notificationsService = {
+      awardBadgesAndNotify: jest.fn().mockResolvedValue([]),
+    };
+    service = new ProgressService(database as any, notificationsService as any);
   });
 
   it("returns safe empty values for a user without progress", async () => {
@@ -231,7 +234,10 @@ describe("ProgressService profile", () => {
         totalLessons: 2,
       },
     ];
-    service = new ProgressService(database as any);
+    const notificationsService = {
+      awardBadgesAndNotify: jest.fn().mockResolvedValue([]),
+    };
+    service = new ProgressService(database as any, notificationsService as any);
   });
 
   it("returns earned badges with achievedAt and nullable icon", async () => {

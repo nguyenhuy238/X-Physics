@@ -79,6 +79,19 @@ export class AdminController {
     return ApiResponseDto.ok(await this.adminService.userProgress(id));
   }
 
+  @Post('users/:id/notify')
+  @ApiParam({ name: 'id', description: 'User ID' })
+  async sendUserNotification(
+    @Param('id') id: string,
+    @Body() dto: { title: string; message: string; type?: string },
+  ) {
+    return ApiResponseDto.ok(
+      await this.adminService.sendNotificationToUser(id, dto.title, dto.message, dto.type),
+      'Notification sent',
+    );
+  }
+
+
   @Get('statistics')
   @ApiOkResponse({
     description: 'Admin statistics overview.',

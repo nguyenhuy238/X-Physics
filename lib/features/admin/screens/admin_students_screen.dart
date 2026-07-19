@@ -615,6 +615,98 @@ class _StudentBanner extends StatelessWidget {
   final Map<String, dynamic> student;
   final VoidCallback onBack;
 
+  void _showSendNotificationDialog(BuildContext context, String studentId, String studentName) {
+    final titleController = TextEditingController(text: 'Thông báo từ Ban quản trị');
+    final messageController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            'Gửi thông báo tới $studentName',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          ),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Tiêu đề',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) =>
+                      (value == null || value.trim().isEmpty) ? 'Vui lòng nhập tiêu đề' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: messageController,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Nội dung thông báo',
+                    border: OutlineInputBorder(),
+                    alignLabelWithHint: true,
+                  ),
+                  validator: (value) =>
+                      (value == null || value.trim().isEmpty) ? 'Vui lòng nhập nội dung thông báo' : null,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Hủy'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (formKey.currentState?.validate() ?? false) {
+                  // Show loading
+                  showDialog<void>(
+                    context: dialogContext,
+                    barrierDismissible: false,
+                    builder: (_) => const Center(child: CircularProgressIndicator()),
+                  );
+
+                  final success = await context.read<AppState>().sendAdminNotification(
+                    userId: studentId,
+                    title: titleController.text.trim(),
+                    message: messageController.text.trim(),
+                  );
+
+                  // Pop loading
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext); // pop progress indicator
+                    Navigator.pop(dialogContext); // pop dialog
+                  }
+
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          success
+                              ? 'Đã gửi thông báo thành công!'
+                              : 'Gửi thông báo thất bại: ${context.read<AppState>().errorMessage ?? 'Lỗi không xác định'}',
+                        ),
+                        backgroundColor: success ? Colors.green : Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Gửi'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -694,6 +786,20 @@ class _StudentBanner extends StatelessWidget {
                 ],
               ),
             ),
+          const SizedBox(width: 10),
+          IconButton(
+            tooltip: 'Gửi thông báo',
+            icon: const Icon(Icons.campaign_rounded, color: Colors.white),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white.withValues(alpha: 0.15),
+              padding: const EdgeInsets.all(8),
+            ),
+            onPressed: () => _showSendNotificationDialog(
+              context,
+              student['id'] as String,
+              student['name'] as String? ?? 'học sinh',
+            ),
+          ),
         ],
       ),
     );

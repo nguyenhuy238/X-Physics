@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../features/progress/application/app_state.dart';
+import '../../features/notifications/widgets/notification_icon.dart';
+
 
 class XScaffold extends StatelessWidget {
   const XScaffold({
@@ -48,6 +50,8 @@ class XScaffold extends StatelessWidget {
             : null,
         title: Text(title),
         actions: [
+          NotificationIcon(color: Theme.of(context).colorScheme.onSurface),
+          const SizedBox(width: 8),
           if (bottomNavIndex == null) ...[
             IconButton(
               tooltip: 'Bài học offline',
