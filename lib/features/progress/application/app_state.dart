@@ -77,10 +77,12 @@ class AppState extends ChangeNotifier {
   bool isProfileLoading = false;
   bool isSyncingProgress = false;
   String? errorMessage;
+  Map<String, String> authFieldErrors = const {};
   String? quizLoadError;
   String? quizSubmitError;
   String? progressDashboardError;
   String? profileError;
+  Map<String, String> profileFieldErrors = const {};
   String? syncError;
   int coins = 0;
   bool simulateOffline = false;
@@ -313,6 +315,15 @@ class AppState extends ChangeNotifier {
     });
   }
 
+  void clearAuthErrors() {
+    if (errorMessage == null && authFieldErrors.isEmpty) {
+      return;
+    }
+    errorMessage = null;
+    authFieldErrors = const {};
+    notifyListeners();
+  }
+
   Future<void> logout() async {
     _authGeneration++;
     try {
@@ -391,6 +402,7 @@ class AppState extends ChangeNotifier {
   Future<void> loadProfile() async {
     isProfileLoading = true;
     profileError = null;
+    profileFieldErrors = const {};
     notifyListeners();
     try {
       profileSummary = await _profileRepository.me();
@@ -424,12 +436,14 @@ class AppState extends ChangeNotifier {
     final trimmedName = name.trim();
     if (trimmedName.isEmpty) {
       profileError = 'Vui lòng nhập họ tên.';
+      profileFieldErrors = {'name': profileError!};
       notifyListeners();
       return false;
     }
 
     isProfileLoading = true;
     profileError = null;
+    profileFieldErrors = const {};
     notifyListeners();
     try {
       final updatedUser = await _profileRepository.updateName(trimmedName);
@@ -438,7 +452,8 @@ class AppState extends ChangeNotifier {
       await loadProfile();
       return true;
     } catch (error) {
-      profileError = _readableError(error);
+      profileFieldErrors = _fieldErrors(error);
+      profileError = profileFieldErrors.isEmpty ? _readableError(error) : null;
       return false;
     } finally {
       isProfileLoading = false;
@@ -452,12 +467,16 @@ class AppState extends ChangeNotifier {
     required String confirmNewPassword,
   }) async {
     if (newPassword != confirmNewPassword) {
-      profileError = 'Xác nhận mật khẩu không khớp.';
+      profileError = null;
+      profileFieldErrors = {
+        'confirmNewPassword': 'Mật khẩu xác nhận không khớp.',
+      };
       notifyListeners();
       return false;
     }
     isProfileLoading = true;
     profileError = null;
+    profileFieldErrors = const {};
     notifyListeners();
     try {
       await _profileRepository.changePassword(
@@ -467,7 +486,11 @@ class AppState extends ChangeNotifier {
       );
       return true;
     } catch (error) {
-      profileError = _readableError(error);
+      final fieldErrors = _fieldErrors(error);
+      profileFieldErrors = fieldErrors.isEmpty
+          ? {'_form': _readableError(error)}
+          : fieldErrors;
+      profileError = null;
       return false;
     } finally {
       isProfileLoading = false;
@@ -478,6 +501,15 @@ class AppState extends ChangeNotifier {
   Future<void> signOutAfterPasswordChange() async {
     await _tokenStorage.clear();
     _handleUnauthorized();
+  }
+
+  void clearProfileErrors() {
+    if (profileError == null && profileFieldErrors.isEmpty) {
+      return;
+    }
+    profileError = null;
+    profileFieldErrors = const {};
+    notifyListeners();
   }
 
   Future<void> loadChapters() async {
@@ -1366,6 +1398,7 @@ class AppState extends ChangeNotifier {
   ) async {
     isBusy = true;
     errorMessage = null;
+    authFieldErrors = const {};
     notifyListeners();
     try {
       final data = await request();
@@ -1382,6 +1415,7 @@ class AppState extends ChangeNotifier {
       await loadHomeData();
       return true;
     } catch (error) {
+      authFieldErrors = _fieldErrors(error);
       errorMessage = _readableError(error);
       return false;
     } finally {
@@ -1523,6 +1557,7 @@ class AppState extends ChangeNotifier {
     progressDashboardError = null;
     profileSummary = null;
     profileError = null;
+    profileFieldErrors = const {};
     downloadedLessons.clear();
     offlineUpdateAvailableLessons.clear();
     _offlineUpdateChecksInFlight.clear();
@@ -1577,14 +1612,59 @@ class AppState extends ChangeNotifier {
   String _readableError(Object error) {
     if (error is DioException) {
       final data = error.response?.data;
+      final errorItems = data is Map ? data['errors'] : null;
+      if (errorItems is List && errorItems.isNotEmpty) {
+        final first = errorItems.first;
+        if (first is Map && first['message'] is String) {
+          return first['message'] as String;
+        }
+      }
       if (data is Map && data['message'] is String) {
         return data['message'] as String;
       }
       if (error.type == DioExceptionType.connectionError) {
         return 'Không kết nối được backend. Hãy kiểm tra server API.';
       }
-      return error.message ?? 'Lỗi kết nối API.';
+      if (error.response?.statusCode == 400) {
+        return 'Yêu cầu không hợp lệ. Vui lòng kiểm tra lại thông tin.';
+      }
+      if (error.response?.statusCode == 401) {
+        return 'Email hoặc mật khẩu không đúng.';
+      }
+      if (error.response?.statusCode == 409) {
+        return 'Dữ liệu đã tồn tại trong hệ thống.';
+      }
+      return 'Lỗi kết nối API.';
     }
     return error.toString();
+  }
+
+  Map<String, String> _fieldErrors(Object error) {
+    if (error is! DioException) {
+      return const {};
+    }
+    final data = error.response?.data;
+    if (data is! Map) {
+      return const {};
+    }
+    final errors = data['errors'];
+    if (errors is! List) {
+      return const {};
+    }
+    final result = <String, String>{};
+    for (final item in errors) {
+      if (item is! Map) {
+        continue;
+      }
+      final field = item['field'];
+      final message = item['message'];
+      if (field is String &&
+          field.trim().isNotEmpty &&
+          message is String &&
+          message.trim().isNotEmpty) {
+        result.putIfAbsent(field.trim(), () => message.trim());
+      }
+    }
+    return result;
   }
 }

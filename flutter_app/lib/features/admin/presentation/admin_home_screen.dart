@@ -24,8 +24,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
   int _selectedIndex = 0;
 
   static const _navItems = [
-    _NavItem(icon: Icons.people, label: 'Nguoi dung'),
-    _NavItem(icon: Icons.menu_book, label: 'Noi dung'),
+    _NavItem(icon: Icons.people, label: 'Người dùng'),
+    _NavItem(icon: Icons.menu_book, label: 'Nội dung'),
   ];
 
   @override

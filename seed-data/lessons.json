@@ -2,55 +2,55 @@
   {
     "id": "motion-1",
     "chapterId": "motion",
-    "title": "Chuyen dong deu",
+    "title": "Chuyển động đều",
     "formulaLatex": "s = v \\times t",
     "estimatedMinutes": 12,
     "orderIndex": 1,
-    "contentMarkdown": "# Chuyen dong deu\n\nChuyen dong deu la chuyen dong co van toc khong doi theo thoi gian.\n\nCong thuc: $s = v \\times t$."
+    "contentMarkdown": "# Chuyển động đều\n\nChuyển động đều là chuyển động có vận tốc không đổi theo thời gian.\n\nCông thức: $s = v \\times t$."
   },
   {
     "id": "motion-2",
     "chapterId": "motion",
-    "title": "Van toc trung binh",
+    "title": "Vận tốc trung bình",
     "formulaLatex": "v = \\frac{s}{t}",
     "estimatedMinutes": 12,
     "orderIndex": 2,
-    "contentMarkdown": "# Van toc trung binh\n\nVan toc trung binh cho biet muc do nhanh cham cua chuyen dong tren ca quang duong.\n\nCong thuc: $v = \\frac{s}{t}$."
+    "contentMarkdown": "# Vận tốc trung bình\n\nVận tốc trung bình cho biết mức độ nhanh chậm của chuyển động trên cả quãng đường.\n\nCông thức: $v = \\frac{s}{t}$."
   },
   {
     "id": "force-1",
     "chapterId": "force",
-    "title": "Ap suat",
+    "title": "Áp suất",
     "formulaLatex": "p = \\frac{F}{S}",
     "estimatedMinutes": 14,
     "orderIndex": 1,
-    "contentMarkdown": "# Ap suat\n\nAp suat la do lon cua ap luc tren mot don vi dien tich bi ep.\n\nCong thuc: $p = \\frac{F}{S}$."
+    "contentMarkdown": "# Áp suất\n\nÁp suất là độ lớn của áp lực trên một đơn vị diện tích bị ép.\n\nCông thức: $p = \\frac{F}{S}$."
   },
   {
     "id": "force-2",
     "chapterId": "force",
-    "title": "Luc day Ac-si-met",
+    "title": "Lực đẩy Ác-si-mét",
     "formulaLatex": "F_A = d \\times V",
     "estimatedMinutes": 15,
     "orderIndex": 2,
-    "contentMarkdown": "# Luc day Ac-si-met\n\nVat nhung trong chat long chiu luc day tu duoi len.\n\nCong thuc: $F_A = d \\times V$."
+    "contentMarkdown": "# Lực đẩy Ác-si-mét\n\nVật nhúng trong chất lỏng chịu lực đẩy từ dưới lên.\n\nCông thức: $F_A = d \\times V$."
   },
   {
     "id": "electric-1",
     "chapterId": "electric",
-    "title": "Dinh luat Ohm",
+    "title": "Định luật Ohm",
     "formulaLatex": "I = \\frac{U}{R}",
     "estimatedMinutes": 13,
     "orderIndex": 1,
-    "contentMarkdown": "# Dinh luat Ohm\n\nCuong do dong dien ty le thuan voi hieu dien the va ty le nghich voi dien tro.\n\nCong thuc: $I = \\frac{U}{R}$."
+    "contentMarkdown": "# Định luật Ohm\n\nCường độ dòng điện tỷ lệ thuận với hiệu điện thế và tỷ lệ nghịch với điện trở.\n\nCông thức: $I = \\frac{U}{R}$."
   },
   {
     "id": "electric-2",
     "chapterId": "electric",
-    "title": "Cong suat dien",
+    "title": "Công suất điện",
     "formulaLatex": "P = U \\times I",
     "estimatedMinutes": 13,
     "orderIndex": 2,
-    "contentMarkdown": "# Cong suat dien\n\nCong suat dien cho biet dien nang tieu thu trong mot don vi thoi gian.\n\nCong thuc: $P = U \\times I$."
+    "contentMarkdown": "# Công suất điện\n\nCông suất điện cho biết điện năng tiêu thụ trong một đơn vị thời gian.\n\nCông thức: $P = U \\times I$."
   }
 ]

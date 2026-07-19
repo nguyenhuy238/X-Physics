@@ -1243,6 +1243,11 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
       _controller.text.trim() != widget.currentName.trim();
 
   void _handleTextChanged() {
+    final appState = context.read<AppState>();
+    if (appState.profileFieldErrors.isNotEmpty ||
+        appState.profileError != null) {
+      appState.clearProfileErrors();
+    }
     setState(() {});
   }
 
@@ -1314,7 +1319,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                 textInputAction: TextInputAction.done,
                 decoration: const InputDecoration(labelText: 'Họ tên'),
                 validator: (value) =>
-                    value == null || value.trim().isEmpty ? 'Bắt buộc' : null,
+                    value == null || value.trim().isEmpty ? 'Không được để trống!' : null,
                 onFieldSubmitted: (_) => _submit(),
               ),
               if (_errorMessage != null) ...[
@@ -1349,6 +1354,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
 
 Future<void> _showChangePasswordDialog(BuildContext context) async {
   final appState = context.read<AppState>();
+  appState.clearProfileErrors();
   final dialogDisposed = Completer<void>();
   final changed = await showDialog<bool>(
     context: context,
@@ -1364,12 +1370,17 @@ Future<void> _showChangePasswordDialog(BuildContext context) async {
     return;
   }
   await dialogDisposed.future;
-  await appState.signOutAfterPasswordChange();
+  appState.clearProfileErrors();
+  if (context.mounted) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Đổi mật khẩu thành công.')));
+  }
 }
 
 String? _passwordValidator(String? value) {
   if (value == null || value.isEmpty) {
-    return 'Bắt buộc';
+    return 'Không được để trống!';
   }
   if (value.length < 6) {
     return 'Tối thiểu 6 ký tự';
@@ -1393,6 +1404,7 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
   final _confirmNewPassword = TextEditingController();
   bool _isSubmitting = false;
   String? _errorMessage;
+  Map<String, String> _fieldErrors = const {};
 
   @override
   void dispose() {
@@ -1420,6 +1432,14 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
       _confirmNewPassword.text.isNotEmpty;
 
   void _handleTextChanged() {
+    if (_fieldErrors.isNotEmpty) {
+      _fieldErrors = const {};
+    }
+    final appState = context.read<AppState>();
+    if (appState.profileFieldErrors.isNotEmpty ||
+        appState.profileError != null) {
+      appState.clearProfileErrors();
+    }
     setState(() {});
   }
 
@@ -1450,8 +1470,10 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
+      _fieldErrors = const {};
     });
     final appState = context.read<AppState>();
+    appState.clearProfileErrors();
     final ok = await appState.changePassword(
       currentPassword: _currentPassword.text,
       newPassword: _newPassword.text,
@@ -1466,12 +1488,17 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
     }
     setState(() {
       _isSubmitting = false;
-      _errorMessage = appState.profileError ?? 'Đổi mật khẩu thất bại.';
+      _fieldErrors = appState.profileFieldErrors;
+      _errorMessage = appState.profileFieldErrors.isEmpty
+          ? appState.profileError ?? 'Đổi mật khẩu thất bại.'
+          : appState.profileFieldErrors['_form'];
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    context.watch<AppState>();
+    final fieldErrors = _fieldErrors;
     return PopScope(
       canPop: !_isSubmitting && !_hasUnsavedChanges,
       onPopInvokedWithResult: (didPop, _) async {
@@ -1492,8 +1519,9 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
                 enabled: !_isSubmitting,
                 obscureText: true,
                 textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Mật khẩu hiện tại',
+                  errorText: fieldErrors['currentPassword'],
                 ),
                 validator: _passwordValidator,
               ),
@@ -1503,7 +1531,10 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
                 enabled: !_isSubmitting,
                 obscureText: true,
                 textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(labelText: 'Mật khẩu mới'),
+                decoration: InputDecoration(
+                  labelText: 'Mật khẩu mới',
+                  errorText: fieldErrors['newPassword'],
+                ),
                 validator: _passwordValidator,
               ),
               const SizedBox(height: 12),
@@ -1512,8 +1543,9 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
                 enabled: !_isSubmitting,
                 obscureText: true,
                 textInputAction: TextInputAction.done,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Xác nhận mật khẩu mới',
+                  errorText: fieldErrors['confirmNewPassword'],
                 ),
                 validator: (value) {
                   final passwordError = _passwordValidator(value);

@@ -14,16 +14,19 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final name = TextEditingController(text: 'Học sinh mới');
+  final name = TextEditingController();
   final email = TextEditingController();
-  final password = TextEditingController(text: '123456');
-  final confirmPassword = TextEditingController(text: '123456');
+  final password = TextEditingController();
+  final confirmPassword = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  Map<String, String> _localFieldErrors = const {};
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
+    final fieldErrors = {...state.authFieldErrors, ..._localFieldErrors};
+    final showGeneralError = state.errorMessage != null && fieldErrors.isEmpty;
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -75,6 +78,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     prefixIcon: Icons.person_outline_rounded,
                     textInputAction: TextInputAction.next,
                     enabled: !state.isBusy,
+                    errorText: fieldErrors['name'],
+                    onChanged: (_) => _clearFieldError(context, 'name'),
                   ),
                   const SizedBox(height: 12),
                   AppTextField(
@@ -85,6 +90,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.next,
                     enabled: !state.isBusy,
+                    errorText: fieldErrors['email'],
+                    onChanged: (_) => _clearFieldError(context, 'email'),
                   ),
                   const SizedBox(height: 12),
                   AppTextField(
@@ -94,6 +101,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     obscureText: _obscurePassword,
                     textInputAction: TextInputAction.next,
                     enabled: !state.isBusy,
+                    errorText: fieldErrors['password'],
+                    onChanged: (_) => _clearFieldError(context, 'password'),
                     suffixIcon: IconButton(
                       tooltip: _obscurePassword
                           ? 'Hiện mật khẩu'
@@ -116,6 +125,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) => _submit(context),
                     enabled: !state.isBusy,
+                    errorText: fieldErrors['confirmPassword'],
+                    onChanged: (_) =>
+                        _clearFieldError(context, 'confirmPassword'),
                     suffixIcon: IconButton(
                       tooltip: _obscureConfirmPassword
                           ? 'Hiện mật khẩu'
@@ -131,7 +143,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                   ),
-                  if (state.errorMessage != null) ...[
+                  if (showGeneralError) ...[
                     const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -177,6 +189,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (context.read<AppState>().isBusy) {
       return;
     }
+    final validationErrors = _validateFields();
+    if (validationErrors.isNotEmpty) {
+      context.read<AppState>().clearAuthErrors();
+      setState(() => _localFieldErrors = validationErrors);
+      return;
+    }
+    setState(() => _localFieldErrors = const {});
     final ok = await context.read<AppState>().registerWithConfirmation(
       name.text.trim(),
       email.text.trim(),
@@ -185,6 +204,50 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
     if (ok && context.mounted) {
       context.go('/');
+    }
+  }
+
+  Map<String, String> _validateFields() {
+    final errors = <String, String>{};
+    final trimmedName = name.text.trim();
+    final trimmedEmail = email.text.trim();
+    if (trimmedName.isEmpty) {
+      errors['name'] = 'Vui lòng nhập họ tên.';
+    } else if (trimmedName.length > 120) {
+      errors['name'] = 'Họ tên không được vượt quá 120 ký tự.';
+    }
+
+    final emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+    if (trimmedEmail.isEmpty) {
+      errors['email'] = 'Vui lòng nhập email.';
+    } else if (!emailRegex.hasMatch(trimmedEmail)) {
+      errors['email'] = 'Email không đúng định dạng.';
+    } else if (trimmedEmail.length > 180) {
+      errors['email'] = 'Email không được vượt quá 180 ký tự.';
+    }
+
+    if (password.text.length < 6) {
+      errors['password'] = 'Mật khẩu phải có ít nhất 6 ký tự.';
+    } else if (password.text.length > 72) {
+      errors['password'] = 'Mật khẩu không được vượt quá 72 ký tự.';
+    }
+
+    if (confirmPassword.text.isEmpty) {
+      errors['confirmPassword'] = 'Vui lòng xác nhận mật khẩu.';
+    } else if (confirmPassword.text != password.text) {
+      errors['confirmPassword'] = 'Mật khẩu xác nhận không khớp.';
+    }
+    return errors;
+  }
+
+  void _clearFieldError(BuildContext context, String field) {
+    if (_localFieldErrors.containsKey(field)) {
+      final next = Map<String, String>.from(_localFieldErrors)..remove(field);
+      setState(() => _localFieldErrors = next);
+    }
+    final appState = context.read<AppState>();
+    if (appState.authFieldErrors.isNotEmpty || appState.errorMessage != null) {
+      appState.clearAuthErrors();
     }
   }
 

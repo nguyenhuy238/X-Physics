@@ -207,8 +207,6 @@ export class DatabaseRepository {
     const result = await this.pool.query<UserRow>(
       `update users
        set password_hash = $2,
-           refresh_token_hash = null,
-           refresh_token_expires_at = null,
            updated_at = now()
        where id = $1
        returning *`,

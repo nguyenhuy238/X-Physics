@@ -21,12 +21,12 @@ class AdminDrawer extends StatelessWidget {
         NavigationRailDestination(
           icon: Icon(Icons.people_outline),
           selectedIcon: Icon(Icons.people),
-          label: Text('Nguoi dung'),
+          label: Text('Người dùng'),
         ),
         NavigationRailDestination(
           icon: Icon(Icons.menu_book_outlined),
           selectedIcon: Icon(Icons.menu_book),
-          label: Text('Noi dung'),
+          label: Text('Nội dung'),
         ),
       ],
     );

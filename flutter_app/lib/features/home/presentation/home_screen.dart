@@ -10,13 +10,13 @@ class HomeScreen extends StatelessWidget {
       children: const [
         ListTile(
           leading: Icon(Icons.book_outlined),
-          title: Text('Chuong 1'),
-          subtitle: Text('Chuyen dong co hoc'),
+          title: Text('Chương 1'),
+          subtitle: Text('Chuyển động cơ học'),
         ),
         ListTile(
           leading: Icon(Icons.calculate_outlined),
-          title: Text('Chuong 2'),
-          subtitle: Text('Luc va ap suat'),
+          title: Text('Chương 2'),
+          subtitle: Text('Lực và áp suất'),
         ),
       ],
     );
