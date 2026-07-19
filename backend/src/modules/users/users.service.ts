@@ -2,7 +2,6 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
-  UnauthorizedException,
 } from "@nestjs/common";
 import * as bcrypt from "bcrypt";
 
@@ -31,7 +30,15 @@ export class UsersService {
 
   async changePassword(userId: string, dto: ChangePasswordDto) {
     if (dto.newPassword !== dto.confirmNewPassword) {
-      throw new BadRequestException("New password confirmation does not match");
+      throw new BadRequestException({
+        message: "Đổi mật khẩu thất bại.",
+        errors: [
+          {
+            field: "confirmNewPassword",
+            message: "Mật khẩu xác nhận không khớp.",
+          },
+        ],
+      });
     }
     const user = await this.database.findUserById(userId);
     if (!user) {
@@ -42,11 +49,30 @@ export class UsersService {
       user.passwordHash,
     );
     if (!currentPasswordMatches) {
-      throw new UnauthorizedException("Current password is incorrect");
+      throw new BadRequestException({
+        message: "Đổi mật khẩu thất bại.",
+        errors: [
+          {
+            field: "currentPassword",
+            message: "Mật khẩu hiện tại không đúng.",
+          },
+        ],
+      });
     }
-    const samePassword = await bcrypt.compare(dto.newPassword, user.passwordHash);
+    const samePassword = await bcrypt.compare(
+      dto.newPassword,
+      user.passwordHash,
+    );
     if (samePassword) {
-      throw new BadRequestException("New password must be different");
+      throw new BadRequestException({
+        message: "Đổi mật khẩu thất bại.",
+        errors: [
+          {
+            field: "newPassword",
+            message: "Mật khẩu mới phải khác mật khẩu hiện tại.",
+          },
+        ],
+      });
     }
     await this.database.updatePassword(
       userId,

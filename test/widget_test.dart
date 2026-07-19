@@ -109,6 +109,7 @@ class FakeAppState extends AppState {
   int profileNameUpdateCount = 0;
   int passwordChangeCount = 0;
   int passwordChangeSignOutCount = 0;
+  bool rejectPasswordChange = false;
   int loginCount = 0;
   String? updatedProfileName;
   int submitCount = 0;
@@ -248,6 +249,12 @@ class FakeAppState extends AppState {
     notifyListeners();
     await Future<void>.delayed(Duration.zero);
     isProfileLoading = false;
+    if (rejectPasswordChange) {
+      profileError = null;
+      profileFieldErrors = {'currentPassword': 'Mật khẩu hiện tại không đúng.'};
+      notifyListeners();
+      return false;
+    }
     notifyListeners();
     return true;
   }
@@ -1738,7 +1745,7 @@ void main() {
     },
   );
 
-  testWidgets('password change closes dialog before navigating to login', (
+  testWidgets('password change stays on profile and shows success', (
     tester,
   ) async {
     final state = FakeAppState()
@@ -1765,20 +1772,51 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(state.passwordChangeCount, 1);
-    expect(state.passwordChangeSignOutCount, 1);
-    expect(router.routerDelegate.currentConfiguration.uri.path, '/login');
-    expect(find.text('Đăng nhập X-Physics'), findsOneWidget);
+    expect(state.passwordChangeSignOutCount, 0);
+    expect(router.routerDelegate.currentConfiguration.uri.path, '/profile');
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('Đổi mật khẩu thành công.'), findsOneWidget);
+    expect(find.text('Đăng nhập X-Physics'), findsNothing);
+  });
 
-    final loginFields = find.byType(TextField);
-    await tester.enterText(loginFields.at(0), 'nam@example.com');
-    await tester.enterText(loginFields.at(1), '654321');
-    await tester.tap(find.text('Đăng nhập'));
+  testWidgets('password change shows current password field error', (
+    tester,
+  ) async {
+    final state = FakeAppState()
+      ..rejectPasswordChange = true
+      ..user = const XUser(
+        id: 'user-1',
+        name: 'Nam',
+        email: 'nam@example.com',
+        role: 'STUDENT',
+      )
+      ..profileSummary = makeProfile();
+
+    final router = await _pumpProfile(tester, state, useRealLogin: true);
+    await tester.scrollUntilVisible(
+      find.widgetWithIcon(ListTile, Icons.lock_reset_rounded),
+      500,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithIcon(ListTile, Icons.lock_reset_rounded));
     await tester.pumpAndSettle();
 
-    expect(tester.takeException(), isNull);
-    expect(state.loginCount, 1);
-    expect(router.routerDelegate.currentConfiguration.uri.path, '/');
-    expect(find.text('Home route'), findsOneWidget);
+    final fields = find.byType(TextFormField);
+    await tester.enterText(fields.at(0), 'wrong-password');
+    await tester.enterText(fields.at(1), '654321');
+    await tester.enterText(fields.at(2), '654321');
+    await tester.tap(find.byType(FilledButton).last);
+    await tester.pumpAndSettle();
+
+    expect(state.passwordChangeCount, 1);
+    expect(state.passwordChangeSignOutCount, 0);
+    expect(router.routerDelegate.currentConfiguration.uri.path, '/profile');
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.text('Mật khẩu hiện tại không đúng.'), findsOneWidget);
+
+    await tester.enterText(fields.at(0), '123456');
+    await tester.pumpAndSettle();
+    expect(find.text('Mật khẩu hiện tại không đúng.'), findsNothing);
   });
 
   testWidgets('logout clears sensitive state and goes to login', (

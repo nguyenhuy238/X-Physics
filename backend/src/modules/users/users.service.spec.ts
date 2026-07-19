@@ -1,4 +1,5 @@
-import { NotFoundException } from "@nestjs/common";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
+import * as bcrypt from "bcrypt";
 
 import { DatabaseRepository } from "../../database/database.repository";
 import { UsersService } from "./users.service";
@@ -76,5 +77,68 @@ describe("UsersService", () => {
       role: "STUDENT",
       coins: 20,
     });
+  });
+
+  it("rejects password changes when the current password is wrong", async () => {
+    const { service, database } = makeService();
+    database.findUserById.mockResolvedValue({
+      ...dbUser,
+      passwordHash: await bcrypt.hash("123456", 10),
+    });
+
+    await expect(
+      service.changePassword("user-1", {
+        currentPassword: "wrong-password",
+        newPassword: "654321",
+        confirmNewPassword: "654321",
+      }),
+    ).rejects.toMatchObject({
+      response: {
+        errors: [
+          {
+            field: "currentPassword",
+            message: "Mật khẩu hiện tại không đúng.",
+          },
+        ],
+      },
+    });
+    expect(database.updatePassword).not.toHaveBeenCalled();
+  });
+
+  it("changes password only after validating the current password", async () => {
+    const { service, database } = makeService();
+    database.findUserById.mockResolvedValue({
+      ...dbUser,
+      passwordHash: await bcrypt.hash("123456", 10),
+    });
+
+    await expect(
+      service.changePassword("user-1", {
+        currentPassword: "123456",
+        newPassword: "654321",
+        confirmNewPassword: "654321",
+      }),
+    ).resolves.toEqual({ passwordChanged: true, requiresLogin: true });
+    expect(database.updatePassword).toHaveBeenCalledTimes(1);
+    await expect(
+      bcrypt.compare("654321", database.updatePassword.mock.calls[0][1]),
+    ).resolves.toBe(true);
+  });
+
+  it("returns field errors for invalid password change input", async () => {
+    const { service, database } = makeService();
+    database.findUserById.mockResolvedValue({
+      ...dbUser,
+      passwordHash: await bcrypt.hash("123456", 10),
+    });
+
+    await expect(
+      service.changePassword("user-1", {
+        currentPassword: "123456",
+        newPassword: "654321",
+        confirmNewPassword: "000000",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(database.updatePassword).not.toHaveBeenCalled();
   });
 });
