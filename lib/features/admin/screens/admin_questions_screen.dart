@@ -106,7 +106,10 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _loadReferenceData();
-      _loadQuestions(refresh: _questions.isNotEmpty, initial: _questions.isEmpty);
+      _loadQuestions(
+        refresh: _questions.isNotEmpty,
+        initial: _questions.isEmpty,
+      );
     });
   }
 
@@ -136,7 +139,9 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
       _lessonId = null;
       changed = true;
     }
-    if (lesson != null && _chapterId != null && lesson.chapterId != _chapterId) {
+    if (lesson != null &&
+        _chapterId != null &&
+        lesson.chapterId != _chapterId) {
       _lessonId = null;
       changed = true;
     }
@@ -269,9 +274,7 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
 
     return AdminLayout(
       activeRoute: '/admin/questions',
-      title: _lessonId != null
-          ? 'Câu hỏi: $lessonTitle'
-          : 'Quản lý Câu hỏi',
+      title: _lessonId != null ? 'Câu hỏi: $lessonTitle' : 'Quản lý Câu hỏi',
       subtitle: _lessonId != null
           ? 'Danh sách câu hỏi trắc nghiệm thuộc ${chapter?.title ?? lesson.chapterId}'
           : 'Ngân hàng câu hỏi trắc nghiệm',
@@ -408,10 +411,11 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
   void _setLesson(String? value) {
     setState(() {
       _lessonId = value;
-      final lesson = context.read<AppState>().adminLessons.cast<Lesson?>().firstWhere(
-            (item) => item?.id == value,
-            orElse: () => null,
-          );
+      final lesson = context
+          .read<AppState>()
+          .adminLessons
+          .cast<Lesson?>()
+          .firstWhere((item) => item?.id == value, orElse: () => null);
       if (lesson != null) {
         _chapterId = lesson.chapterId;
       }
@@ -441,7 +445,9 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
       if (_search.text.trim().isNotEmpty) 'search': _search.text.trim(),
       if (_page > 1) 'page': '$_page',
     };
-    context.go(Uri(path: '/admin/questions', queryParameters: query).toString());
+    context.go(
+      Uri(path: '/admin/questions', queryParameters: query).toString(),
+    );
   }
 
   String _lessonBackRoute(Lesson lesson) {
@@ -721,10 +727,7 @@ class _Toolbar extends StatelessWidget {
           value: difficultyValue,
           hint: 'Độ khó',
           items: const [
-            DropdownMenuItem<String>(
-              value: null,
-              child: Text('Tất cả độ khó'),
-            ),
+            DropdownMenuItem<String>(value: null, child: Text('Tất cả độ khó')),
             DropdownMenuItem(value: 'EASY', child: Text('Dễ')),
             DropdownMenuItem(value: 'MEDIUM', child: Text('Trung bình')),
             DropdownMenuItem(value: 'HARD', child: Text('Khó')),

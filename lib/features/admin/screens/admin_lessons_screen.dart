@@ -97,9 +97,7 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
           ? 'Soạn nội dung, công thức và bài tập'
           : 'Đang lọc theo chương ${selectedChapter.title}',
       activeRoute: '/admin/lessons',
-      backFallbackRoute: selectedChapter == null
-          ? '/admin'
-          : '/admin/chapters',
+      backFallbackRoute: selectedChapter == null ? '/admin' : '/admin/chapters',
       breadcrumbs: [
         const AdminBreadcrumbItem(label: 'Quản lý nội dung'),
         if (selectedChapter != null)
@@ -364,7 +362,8 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                         // Quiz questions edit button
                         IconButton(
                           tooltip: 'Câu hỏi Quiz',
-                          onPressed: () => context.push(_questionsRoute(lesson)),
+                          onPressed: () =>
+                              context.push(_questionsRoute(lesson)),
                           icon: const Icon(Icons.quiz_rounded),
                           iconSize: 15,
                           color: const Color(0xFFF59E0B),
@@ -379,7 +378,8 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                         // View content button
                         IconButton(
                           tooltip: 'Xem nội dung',
-                          onPressed: () => context.push(_lessonDetailRoute(lesson)),
+                          onPressed: () =>
+                              context.push(_lessonDetailRoute(lesson)),
                           icon: const Icon(Icons.description_rounded),
                           iconSize: 15,
                           color: const Color(0xFF2563EB),
@@ -603,7 +603,8 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                           ),
                           const SizedBox(width: 8),
                           FilledButton.icon(
-                            onPressed: () => context.push(_questionsRoute(lesson)),
+                            onPressed: () =>
+                                context.push(_questionsRoute(lesson)),
                             icon: const Icon(Icons.quiz_rounded, size: 12),
                             label: const Text(
                               'Quiz',
@@ -730,7 +731,10 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
                   value: null,
                   child: Text('Tất cả trạng thái'),
                 ),
-                DropdownMenuItem(value: 'published', child: Text('Đã xuất bản')),
+                DropdownMenuItem(
+                  value: 'published',
+                  child: Text('Đã xuất bản'),
+                ),
                 DropdownMenuItem(value: 'draft', child: Text('Bản nháp')),
               ],
               onChanged: (value) {
@@ -805,21 +809,28 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
 
   void _updateLocation() {
     if (!mounted) return;
-    final query = <String, String>{
-      if (_selectedChapterId != null && _selectedChapterId!.isNotEmpty)
-        'chapterId': _selectedChapterId!,
-      if (_selectedStatus != null) 'status': _selectedStatus!,
-      if (_searchQuery.trim().isNotEmpty) 'search': _searchQuery.trim(),
-    };
+    final query = <String, String>{};
+    final chapterId = _selectedChapterId;
+    final status = _selectedStatus;
+    final search = _searchQuery.trim();
+    if (chapterId != null && chapterId.isNotEmpty) {
+      query['chapterId'] = chapterId;
+    }
+    if (status != null) {
+      query['status'] = status;
+    }
+    if (search.isNotEmpty) {
+      query['search'] = search;
+    }
     context.go(Uri(path: '/admin/lessons', queryParameters: query).toString());
   }
 
   String _lessonDetailRoute(Lesson lesson) {
-    final query = <String, String>{
-      'from': 'lessons',
-      if (_selectedChapterId != null && _selectedChapterId!.isNotEmpty)
-        'chapterId': _selectedChapterId!,
-    };
+    final query = <String, String>{'from': 'lessons'};
+    final chapterId = _selectedChapterId;
+    if (chapterId != null && chapterId.isNotEmpty) {
+      query['chapterId'] = chapterId;
+    }
     return Uri(
       path: '/admin/lessons/${lesson.id}',
       queryParameters: query,
@@ -909,11 +920,7 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
         ) ??
         false;
     if (ok && context.mounted) {
-      await Provider.of(
-        context,
-        listen: false,
-      ).deleteAdminLesson(lesson.id);
+      await Provider.of(context, listen: false).deleteAdminLesson(lesson.id);
     }
   }
-
 }

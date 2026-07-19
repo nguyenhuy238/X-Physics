@@ -40,7 +40,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
         children: [
           NavigationRail(
             selectedIndex: _selectedIndex,
-            onDestinationSelected: (index) => setState(() => _selectedIndex = index),
+            onDestinationSelected: (index) =>
+                setState(() => _selectedIndex = index),
             labelType: NavigationRailLabelType.all,
             backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
             leading: Padding(
@@ -56,9 +57,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   Text(
                     'Admin',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                   ),
                 ],
               ),
@@ -67,7 +68,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 .map(
                   (item) => NavigationRailDestination(
                     icon: Icon(item.icon),
-                    selectedIcon: Icon(item.icon, color: Theme.of(context).colorScheme.primary),
+                    selectedIcon: Icon(
+                      item.icon,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                     label: Text(item.label),
                   ),
                 )

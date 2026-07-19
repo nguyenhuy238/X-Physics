@@ -73,12 +73,13 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.physics, size: 64, color: theme.colorScheme.primary),
-                  const SizedBox(height: 24),
-                  Text(
-                    'X-Physics',
-                    style: theme.textTheme.headlineMedium,
+                  Icon(
+                    Icons.physics,
+                    size: 64,
+                    color: theme.colorScheme.primary,
                   ),
+                  const SizedBox(height: 24),
+                  Text('X-Physics', style: theme.textTheme.headlineMedium),
                   const SizedBox(height: 32),
                   if (_error != null)
                     Padding(
@@ -119,9 +120,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               : Icons.visibility,
                         ),
                         onPressed: () {
-                          setState(
-                            () => _obscurePassword = !_obscurePassword,
-                          );
+                          setState(() => _obscurePassword = !_obscurePassword);
                         },
                       ),
                     ),

@@ -110,6 +110,11 @@ class ProgressSyncService {
       if (syncedItems is int && syncedItems == snapshot.length) {
         return snapshot;
       }
+      if (data['success'] == true &&
+          !data.containsKey('accepted') &&
+          !data.containsKey('rejected')) {
+        return snapshot;
+      }
       return const {};
     }
 

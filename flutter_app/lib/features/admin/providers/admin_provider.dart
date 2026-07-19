@@ -27,7 +27,8 @@ class AdminProvider extends ChangeNotifier {
   int get usersPage => _usersPage;
   int get usersLimit => _usersLimit;
   int? get usersTotal => _usersTotal;
-  int get usersTotalPages => _usersTotal == null ? 1 : (_usersTotal! / _usersLimit).ceil();
+  int get usersTotalPages =>
+      _usersTotal == null ? 1 : (_usersTotal! / _usersLimit).ceil();
 
   Future<void> setUsersPage(int page) async {
     _usersPage = page;
@@ -68,13 +69,16 @@ class AdminProvider extends ChangeNotifier {
     int limit = 20,
   }) {
     return _withLoading(() async {
-      final data = await _api.get('admin/users', queryParameters: {
-        if (search != null && search.isNotEmpty) 'search': search,
-        if (sortBy != null) 'sortBy': sortBy,
-        if (sortOrder != null) 'sortOrder': sortOrder,
-        'page': page,
-        'limit': limit,
-      });
+      final data = await _api.get(
+        'admin/users',
+        queryParameters: {
+          if (search != null && search.isNotEmpty) 'search': search,
+          if (sortBy != null) 'sortBy': sortBy,
+          if (sortOrder != null) 'sortOrder': sortOrder,
+          'page': page,
+          'limit': limit,
+        },
+      );
       _lastUsers = data['items'] as List<dynamic>;
       return _lastUsers;
     });

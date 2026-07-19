@@ -591,7 +591,10 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
     await state.updateAdminChapter(updated);
   }
 
-  Future<void> _confirmDeleteChapter(BuildContext context, Chapter chapter) async {
+  Future<void> _confirmDeleteChapter(
+    BuildContext context,
+    Chapter chapter,
+  ) async {
     final state = Provider.of<AppState>(context, listen: false);
     final ok =
         await showDialog<bool>(

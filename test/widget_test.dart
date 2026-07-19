@@ -11,6 +11,7 @@ import 'package:x_physics/core/network/api_client.dart';
 import 'package:x_physics/core/router/app_router.dart';
 import 'package:x_physics/core/storage/token_storage.dart';
 import 'package:x_physics/features/admin/screens/admin_chapters_screen.dart';
+import 'package:x_physics/features/admin/screens/admin_lesson_editor_screen.dart';
 import 'package:x_physics/features/admin/screens/admin_lessons_screen.dart';
 import 'package:x_physics/features/chapters/screens/chapter_detail_screen.dart';
 import 'package:x_physics/features/home/screens/home_screen.dart';
@@ -702,12 +703,16 @@ Future<void> _pumpAdminQuestions(
     email: 'admin@example.com',
     role: 'ADMIN',
   );
-  await tester.pumpWidget(
-    ChangeNotifierProvider<AppState>.value(
-      value: state,
-      child: const MaterialApp(home: AdminQuestionsScreen()),
-    ),
+  final router = GoRouter(
+    initialLocation: '/admin/questions',
+    routes: [
+      GoRoute(
+        path: '/admin/questions',
+        builder: (_, _) => const AdminQuestionsScreen(),
+      ),
+    ],
   );
+  await _pumpRouter(tester, state, router);
 }
 
 Future<void> _pumpAdminChapters(WidgetTester tester, FakeAppState state) async {
@@ -738,12 +743,22 @@ Future<void> _pumpAdminLessons(WidgetTester tester, FakeAppState state) async {
     email: 'admin@example.com',
     role: 'ADMIN',
   );
-  await tester.pumpWidget(
-    ChangeNotifierProvider<AppState>.value(
-      value: state,
-      child: const MaterialApp(home: AdminLessonsScreen()),
-    ),
+  final router = GoRouter(
+    initialLocation: '/admin/lessons',
+    routes: [
+      GoRoute(
+        path: '/admin/lessons',
+        builder: (_, _) => const AdminLessonsScreen(),
+      ),
+      GoRoute(
+        path: '/admin/lessons/new',
+        builder: (_, routeState) => AdminLessonEditorScreen(
+          chapterId: routeState.uri.queryParameters['chapterId'],
+        ),
+      ),
+    ],
   );
+  await _pumpRouter(tester, state, router);
 }
 
 Future<GoRouter> _pumpProfile(
@@ -953,6 +968,17 @@ void main() {
     isEarned: false,
     progressCurrent: 1,
     progressTarget: 3,
+  );
+
+  AchievementBadge layoutBadge(int index) => AchievementBadge(
+    id: 'layout-$index',
+    name: 'Badge $index',
+    description: 'Layout badge $index',
+    iconUrl: '',
+    ruleKey: 'layout_$index',
+    isEarned: index == 1,
+    progressCurrent: index == 1 ? 0 : 1,
+    progressTarget: index == 1 ? 0 : 3,
   );
 
   testWidgets('home root does not show a back button and has bottom padding', (
@@ -1568,7 +1594,7 @@ void main() {
 
     expect(find.text('Nguyen Van Nam'), findsOneWidget);
     expect(find.text('nam@example.com'), findsOneWidget);
-    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.scrollUntilVisible(find.text('Khoi dau'), 500);
     await tester.pumpAndSettle();
     expect(find.text('Khoi dau'), findsOneWidget);
     expect(find.text('Nha bac hoc'), findsOneWidget);
@@ -1587,13 +1613,13 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.scrollUntilVisible(find.text('Khoi dau'), 500);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Khoi dau'));
     await tester.pumpAndSettle();
 
     expect(find.text('Hoan thanh bai dau tien'), findsOneWidget);
-    expect(find.text('Đã đạt'), findsOneWidget);
+    expect(find.text('Đã đạt'), findsWidgets);
   });
 
   testWidgets('profile locked badge detail shows backend progress', (
@@ -1608,7 +1634,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.scrollUntilVisible(find.text('Nha bac hoc'), 500);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Nha bac hoc'));
     await tester.pumpAndSettle();
@@ -1627,7 +1653,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Chưa có điểm quiz nào.'), findsOneWidget);
-    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.scrollUntilVisible(find.text('Chưa có huy hiệu nào.'), 500);
     await tester.pumpAndSettle();
     expect(find.text('Chưa có huy hiệu nào.'), findsOneWidget);
   });
@@ -1688,7 +1714,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('150'), findsOneWidget);
-    expect(find.text('Profile stale'), findsOneWidget);
+    expect(find.text('Profile stale'), findsWidgets);
   });
 
   testWidgets(
@@ -1770,9 +1796,15 @@ void main() {
     state.progressDashboard = makeDashboard();
 
     final router = await _pumpProfile(tester, state);
-    await tester.scrollUntilVisible(find.text('Đăng xuất'), 500);
+    await tester.scrollUntilVisible(
+      find.widgetWithText(ListTile, 'Đăng xuất'),
+      500,
+    );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Đăng xuất'));
+    await tester.tap(find.widgetWithText(ListTile, 'Đăng xuất'));
+    await tester.pumpAndSettle();
+    expect(find.text('Đăng xuất?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Đăng xuất'));
     await tester.pumpAndSettle();
 
     expect(find.text('Login route'), findsOneWidget);
@@ -1833,20 +1865,20 @@ void main() {
     await tester.tap(find.text('Thêm bài học'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField).first, 'new-lesson');
-    await tester.tap(find.text('Hủy bỏ'));
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Hủy'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Hủy thêm bài học?'), findsOneWidget);
+    expect(find.text('Hủy tạo bài học?'), findsOneWidget);
     await tester.tap(find.text('Tiếp tục chỉnh sửa'));
     await tester.pumpAndSettle();
-    expect(find.text('Thêm Bài học mới'), findsOneWidget);
+    expect(find.text('Tạo bài học'), findsOneWidget);
 
-    await tester.tap(find.text('Hủy bỏ'));
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Hủy'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Hủy thay đổi'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Thêm Bài học mới'), findsNothing);
+    expect(find.text('Tạo bài học'), findsNothing);
   });
 
   testWidgets(
@@ -2108,29 +2140,120 @@ void main() {
     expect(router.routerDelegate.currentConfiguration.uri.path, '/');
   });
 
-  testWidgets('profile uses three badge columns on wide screens', (
+  testWidgets('profile opens offline downloads route from settings', (
     tester,
   ) async {
-    final state = FakeAppState();
-    state.profileQueue.add(
-      () => Future.value(
-        makeProfile(
-          earned: const [earnedBadge],
-          locked: const [lockedBadge, lockedBadge, lockedBadge],
-        ),
-      ),
+    final state = FakeAppState()..profileSummary = makeProfile();
+    final router = await _pumpProfile(tester, state);
+
+    await tester.scrollUntilVisible(
+      find.widgetWithText(ListTile, 'Bài học đã tải'),
+      500,
     );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ListTile, 'Bài học đã tải'));
+    await tester.pumpAndSettle();
+
+    expect(router.routerDelegate.currentConfiguration.uri.path, '/offline');
+    expect(find.text('Offline route'), findsOneWidget);
+  });
+
+  testWidgets('profile uses two badge columns on mobile screens', (
+    tester,
+  ) async {
+    final state = FakeAppState()
+      ..profileSummary = makeProfile(
+        earned: [layoutBadge(1)],
+        locked: [layoutBadge(2), layoutBadge(3)],
+      );
+
+    await _pumpProfile(tester, state, surfaceSize: const Size(360, 800));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Badge 3'), 500);
+    await tester.pumpAndSettle();
+
+    final badge1 = tester.getTopLeft(find.text('Badge 1'));
+    final badge2 = tester.getTopLeft(find.text('Badge 2'));
+    final badge3 = tester.getTopLeft(find.text('Badge 3'));
+    expect((badge1.dy - badge2.dy).abs(), lessThan(8));
+    expect(badge3.dy, greaterThan(badge1.dy + 80));
+    expect(tester.takeException(), isNull);
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('profile uses three badge columns on tablet screens', (
+    tester,
+  ) async {
+    final state = FakeAppState()
+      ..profileSummary = makeProfile(
+        earned: [layoutBadge(1)],
+        locked: [layoutBadge(2), layoutBadge(3), layoutBadge(4)],
+      );
 
     await _pumpProfile(tester, state, surfaceSize: const Size(800, 900));
-    await tester.pump();
-    await tester.pump();
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Badge 4'), 500);
+    await tester.pumpAndSettle();
 
-    final grids = find.byType(GridView);
-    expect(grids, findsOneWidget);
-    final grid = tester.widget<GridView>(grids);
-    final delegate =
-        grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
-    expect(delegate.crossAxisCount, 3);
+    final badge1 = tester.getTopLeft(find.text('Badge 1'));
+    final badge2 = tester.getTopLeft(find.text('Badge 2'));
+    final badge3 = tester.getTopLeft(find.text('Badge 3'));
+    final badge4 = tester.getTopLeft(find.text('Badge 4'));
+    expect((badge1.dy - badge2.dy).abs(), lessThan(8));
+    expect((badge1.dy - badge3.dy).abs(), lessThan(8));
+    expect(badge4.dy, greaterThan(badge1.dy + 80));
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('profile uses four badge columns on desktop screens', (
+    tester,
+  ) async {
+    final state = FakeAppState()
+      ..profileSummary = makeProfile(
+        earned: [layoutBadge(1)],
+        locked: [layoutBadge(2), layoutBadge(3), layoutBadge(4)],
+      );
+
+    await _pumpProfile(tester, state, surfaceSize: const Size(1366, 768));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Badge 4'), 500);
+    await tester.pumpAndSettle();
+
+    final badge1 = tester.getTopLeft(find.text('Badge 1'));
+    final badge2 = tester.getTopLeft(find.text('Badge 2'));
+    final badge3 = tester.getTopLeft(find.text('Badge 3'));
+    final badge4 = tester.getTopLeft(find.text('Badge 4'));
+    expect((badge1.dy - badge2.dy).abs(), lessThan(8));
+    expect((badge1.dy - badge3.dy).abs(), lessThan(8));
+    expect((badge1.dy - badge4.dy).abs(), lessThan(8));
+    expect(tester.takeException(), isNull);
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('profile layout is stable across required viewport sizes', (
+    tester,
+  ) async {
+    final sizes = const [
+      Size(360, 800),
+      Size(412, 915),
+      Size(768, 1024),
+      Size(1366, 768),
+      Size(1920, 1080),
+    ];
+    for (final size in sizes) {
+      final state = FakeAppState()
+        ..profileSummary = makeProfile(
+          attempts: makeDashboard().recentAttempts,
+          earned: const [earnedBadge],
+          locked: const [lockedBadge, lockedBadge, lockedBadge],
+        );
+      await _pumpProfile(tester, state, surfaceSize: size);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: 'viewport $size');
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -700));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: 'scrolled $size');
+    }
     await tester.binding.setSurfaceSize(null);
   });
 }

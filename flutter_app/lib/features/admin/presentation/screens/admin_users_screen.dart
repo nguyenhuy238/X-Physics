@@ -55,7 +55,10 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             return const LoadingWidget();
           }
           if (provider.error != null) {
-            return ErrorView(message: provider.error!, onRetry: () => provider.fetchUsers());
+            return ErrorView(
+              message: provider.error!,
+              onRetry: () => provider.fetchUsers(),
+            );
           }
 
           final users = provider.lastUsers;
@@ -110,7 +113,9 @@ class _PaginationControls extends StatelessWidget {
         children: [
           AppButton(
             label: 'Truoc',
-            onPressed: provider.usersPage <= 1 ? null : () => provider.setUsersPage(provider.usersPage - 1),
+            onPressed: provider.usersPage <= 1
+                ? null
+                : () => provider.setUsersPage(provider.usersPage - 1),
           ),
           const SizedBox(width: 12),
           Text('Trang ${provider.usersPage}/${provider.usersTotalPages}'),
@@ -119,7 +124,9 @@ class _PaginationControls extends StatelessWidget {
           const SizedBox(width: 12),
           AppButton(
             label: 'Sau',
-            onPressed: provider.usersPage >= provider.usersTotalPages ? null : () => provider.setUsersPage(provider.usersPage + 1),
+            onPressed: provider.usersPage >= provider.usersTotalPages
+                ? null
+                : () => provider.setUsersPage(provider.usersPage + 1),
           ),
         ],
       ),

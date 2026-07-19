@@ -287,18 +287,21 @@ void main() {
       expect(storage.pendingProgressItems(userB).single['progressPercent'], 90);
     });
 
-    test('queued reading progress never decreases for the same lesson', () async {
-      await storage.queuePendingProgress(userA, _progress(lessonId, 100));
-      await storage.queuePendingProgress(
-        userA,
-        _progress(lessonId, 40, '2026-07-14T00:05:00.000Z'),
-      );
+    test(
+      'queued reading progress never decreases for the same lesson',
+      () async {
+        await storage.queuePendingProgress(userA, _progress(lessonId, 100));
+        await storage.queuePendingProgress(
+          userA,
+          _progress(lessonId, 40, '2026-07-14T00:05:00.000Z'),
+        );
 
-      final item = storage.pendingProgressItems(userA).single;
-      expect(item['progressPercent'], 100);
-      expect(item['isCompleted'], isTrue);
-      expect(item['operationId'], isA<String>());
-    });
+        final item = storage.pendingProgressItems(userA).single;
+        expect(item['progressPercent'], 100);
+        expect(item['isCompleted'], isTrue);
+        expect(item['operationId'], isA<String>());
+      },
+    );
 
     test('empty userId does not queue progress', () async {
       expect(
@@ -406,8 +409,9 @@ void main() {
       await storage.queuePendingProgress(userA, _progress('force-1', 50));
 
       final queued = storage.pendingProgressItems(userA);
-      final acceptedOperationId = queued
-          .firstWhere((item) => item['lessonId'] == 'motion-1')['operationId'];
+      final acceptedOperationId = queued.firstWhere(
+        (item) => item['lessonId'] == 'motion-1',
+      )['operationId'];
       final service = ProgressSyncService(
         localStorage: storage,
         post: (userId, path, data) async {

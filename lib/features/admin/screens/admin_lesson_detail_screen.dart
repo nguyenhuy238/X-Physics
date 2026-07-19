@@ -348,8 +348,7 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
         path: '/admin/questions',
         queryParameters: {
           'lessonId': lesson.id,
-          if (chapterId != null && chapterId.isNotEmpty)
-            'chapterId': chapterId,
+          if (chapterId != null && chapterId.isNotEmpty) 'chapterId': chapterId,
         },
       ).toString();
     }
@@ -381,141 +380,140 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-        // Meta info row
-        _buildCard(
-          child: _buildMetaSummary(
-            [
-              _LessonMetaItem(
-                      icon: Icons.book_rounded,
-                      label: 'Tên bài học',
-                      value: lesson.title,
-                      color: const Color(0xFF2563EB),
-                    ),
-              _LessonMetaItem(
-                      icon: Icons.folder_rounded,
-                      label: 'Chương học',
-                      value: chapter?.title ?? lesson.chapterId,
-                      color: const Color(0xFF7C3AED),
-                    ),
-              _LessonMetaItem(
-                      icon: Icons.timer_rounded,
-                      label: 'Thời lượng',
-                      value: '${lesson.estimatedMinutes} phút',
-                      color: const Color(0xFFF59E0B),
-                    ),
-              _LessonMetaItem(
-                      icon: Icons.sort_rounded,
-                      label: 'Thứ tự',
-                      value: '${lesson.orderIndex}',
-                      color: const Color(0xFF10B981),
-                    ),
-              _LessonMetaItem(
-                      icon: lesson.isPublished
-                          ? Icons.public_rounded
-                          : Icons.public_off_rounded,
-                      label: 'Trạng thái',
-                      value: lesson.isPublished ? 'Đã xuất bản' : 'Bản nháp',
-                      color: lesson.isPublished
-                          ? const Color(0xFF10B981)
-                          : const Color(0xFFF59E0B),
-                    ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
+            // Meta info row
+            _buildCard(
+              child: _buildMetaSummary([
+                _LessonMetaItem(
+                  icon: Icons.book_rounded,
+                  label: 'Tên bài học',
+                  value: lesson.title,
+                  color: const Color(0xFF2563EB),
+                ),
+                _LessonMetaItem(
+                  icon: Icons.folder_rounded,
+                  label: 'Chương học',
+                  value: chapter?.title ?? lesson.chapterId,
+                  color: const Color(0xFF7C3AED),
+                ),
+                _LessonMetaItem(
+                  icon: Icons.timer_rounded,
+                  label: 'Thời lượng',
+                  value: '${lesson.estimatedMinutes} phút',
+                  color: const Color(0xFFF59E0B),
+                ),
+                _LessonMetaItem(
+                  icon: Icons.sort_rounded,
+                  label: 'Thứ tự',
+                  value: '${lesson.orderIndex}',
+                  color: const Color(0xFF10B981),
+                ),
+                _LessonMetaItem(
+                  icon: lesson.isPublished
+                      ? Icons.public_rounded
+                      : Icons.public_off_rounded,
+                  label: 'Trạng thái',
+                  value: lesson.isPublished ? 'Đã xuất bản' : 'Bản nháp',
+                  color: lesson.isPublished
+                      ? const Color(0xFF10B981)
+                      : const Color(0xFFF59E0B),
+                ),
+              ]),
+            ),
+            const SizedBox(height: 16),
 
-        // Formula row
-        if (lesson.formulaLatex.isNotEmpty) ...[
-          _buildCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionLabel('CÔNG THỨC CHÍNH', Icons.functions_rounded),
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
+            // Formula row
+            if (lesson.formulaLatex.isNotEmpty) ...[
+              _buildCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionLabel(
+                      'CÔNG THỨC CHÍNH',
+                      Icons.functions_rounded,
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Text(
+                          lesson.formulaLatex,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 15,
+                            color: Color(0xFF7C3AED),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Content
+            _buildCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSectionLabel(
+                    'NỘI DUNG BÀI HỌC (MARKDOWN)',
+                    Icons.article_rounded,
                   ),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Text(
-                      lesson.formulaLatex,
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 15,
-                        color: Color(0xFF7C3AED),
-                        fontWeight: FontWeight.w600,
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: SelectableText(
+                      lesson.content.isEmpty
+                          ? '(Chưa có nội dung)'
+                          : lesson.content,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: lesson.content.isEmpty
+                            ? const Color(0xFF94A3B8)
+                            : const Color(0xFF0F172A),
+                        height: 1.7,
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-        ],
+            const SizedBox(height: 16),
 
-        // Content
-        _buildCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildSectionLabel(
-                'NỘI DUNG BÀI HỌC (MARKDOWN)',
-                Icons.article_rounded,
-              ),
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: SelectableText(
-                  lesson.content.isEmpty
-                      ? '(Chưa có nội dung)'
-                      : lesson.content,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: lesson.content.isEmpty
-                        ? const Color(0xFF94A3B8)
-                        : const Color(0xFF0F172A),
-                    height: 1.7,
-                  ),
+            if (lesson.simulation.title.isNotEmpty) ...[
+              _buildCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionLabel(
+                      'MÔ PHỎNG TƯƠNG TÁC',
+                      Icons.science_rounded,
+                    ),
+                    const SizedBox(height: 12),
+                    FormulaSimulationWidget(config: lesson.simulation),
+                  ],
                 ),
               ),
+              const SizedBox(height: 16),
             ],
-          ),
-        ),
-        const SizedBox(height: 16),
 
-        if (lesson.simulation.title.isNotEmpty) ...[
-          _buildCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionLabel(
-                  'MÔ PHỎNG TƯƠNG TÁC',
-                  Icons.science_rounded,
-                ),
-                const SizedBox(height: 12),
-                FormulaSimulationWidget(config: lesson.simulation),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
-
-        // Quiz summary
-        _buildCard(
-          child: _buildQuizSummary(lesson, isCompact: isCompact),
-        ),
+            // Quiz summary
+            _buildCard(child: _buildQuizSummary(lesson, isCompact: isCompact)),
           ],
         );
       },
@@ -757,10 +755,10 @@ class _AdminLessonDetailScreenState extends State<AdminLessonDetailScreen> {
         final columns = width >= 900
             ? items.length
             : width >= 620
-                ? 3
-                : width >= 360
-                    ? 2
-                    : 1;
+            ? 3
+            : width >= 360
+            ? 2
+            : 1;
         final itemWidth = (width - spacing * (columns - 1)) / columns;
 
         return Wrap(
