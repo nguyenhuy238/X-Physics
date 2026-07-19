@@ -14,10 +14,10 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final name = TextEditingController(text: 'Học sinh mới');
+  final name = TextEditingController();
   final email = TextEditingController();
-  final password = TextEditingController(text: '123456');
-  final confirmPassword = TextEditingController(text: '123456');
+  final password = TextEditingController();
+  final confirmPassword = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   Map<String, String> _localFieldErrors = const {};

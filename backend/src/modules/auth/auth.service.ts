@@ -64,7 +64,7 @@ export class AuthService {
     const email = this.normalizeEmail(dto.email);
     const user = await this.database.findUserByEmail(email);
     if (!user || !(await bcrypt.compare(dto.password, user.passwordHash))) {
-      throw new UnauthorizedException("Invalid credentials");
+      throw new UnauthorizedException("Email hoặc mật khẩu không đúng.");
     }
     return {
       user: this.database.toPublicUser(user),

@@ -18,6 +18,7 @@ import 'package:x_physics/features/home/screens/home_screen.dart';
 import 'package:x_physics/features/lessons/screens/lesson_screen.dart';
 import 'package:x_physics/features/admin/screens/admin_questions_screen.dart';
 import 'package:x_physics/features/auth/screens/login_screen.dart';
+import 'package:x_physics/features/auth/screens/register_screen.dart';
 import 'package:x_physics/features/progress/application/app_state.dart';
 import 'package:x_physics/features/progress/screens/progress_screen.dart';
 import 'package:x_physics/features/profile/screens/profile_screen.dart';
@@ -110,6 +111,7 @@ class FakeAppState extends AppState {
   int passwordChangeCount = 0;
   int passwordChangeSignOutCount = 0;
   bool rejectPasswordChange = false;
+  bool rejectLogin = false;
   int loginCount = 0;
   String? updatedProfileName;
   int submitCount = 0;
@@ -271,6 +273,12 @@ class FakeAppState extends AppState {
     isBusy = true;
     notifyListeners();
     await Future<void>.delayed(Duration.zero);
+    if (rejectLogin) {
+      errorMessage = 'Email hoặc mật khẩu không đúng.';
+      isBusy = false;
+      notifyListeners();
+      return false;
+    }
     user = XUser(id: 'user-1', name: 'Nam', email: email, role: 'STUDENT');
     isBusy = false;
     notifyListeners();
@@ -835,6 +843,26 @@ Future<GoRouter> _pumpResult(
   return router;
 }
 
+Future<GoRouter> _pumpAuthRoute(
+  WidgetTester tester,
+  FakeAppState state, {
+  String initialLocation = '/login',
+}) async {
+  final router = GoRouter(
+    initialLocation: initialLocation,
+    routes: [
+      GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
+      GoRoute(path: '/register', builder: (_, _) => const RegisterScreen()),
+      GoRoute(
+        path: '/',
+        builder: (_, _) => const Scaffold(body: Text('Home')),
+      ),
+    ],
+  );
+  await _pumpRouter(tester, state, router);
+  return router;
+}
+
 Future<void> _loadQuiz(WidgetTester tester, FakeAppState state) async {
   await _pumpQuiz(tester, state);
   await tester.pump();
@@ -868,6 +896,45 @@ void main() {
     expect(adapter.refreshCalls, 1);
     expect(tokenStorage.cleared, isTrue);
     expect(unauthorized, isTrue);
+  });
+
+  testWidgets('login validates fields before calling API', (tester) async {
+    final state = FakeAppState();
+    await _pumpAuthRoute(tester, state);
+
+    await tester.tap(find.byType(FilledButton).first);
+    await tester.pump();
+
+    expect(state.loginCount, 0);
+    expect(find.text('Vui lòng nhập email.'), findsOneWidget);
+    expect(find.text('Vui lòng nhập mật khẩu.'), findsOneWidget);
+  });
+
+  testWidgets('login failure shows a clean message', (tester) async {
+    final state = FakeAppState()..rejectLogin = true;
+    await _pumpAuthRoute(tester, state);
+
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), 'nam@example.com');
+    await tester.enterText(fields.at(1), 'wrong-password');
+    await tester.tap(find.byType(FilledButton).first);
+    await tester.pumpAndSettle();
+
+    expect(state.loginCount, 1);
+    expect(find.text('Email hoặc mật khẩu không đúng.'), findsOneWidget);
+    expect(find.textContaining('DioException'), findsNothing);
+    expect(find.textContaining('Invalid credentials'), findsNothing);
+  });
+
+  testWidgets('register form starts empty', (tester) async {
+    final state = FakeAppState();
+    await _pumpAuthRoute(tester, state, initialLocation: '/register');
+
+    final fields = find.byType(TextField);
+    expect(tester.widget<TextField>(fields.at(0)).controller?.text, isEmpty);
+    expect(tester.widget<TextField>(fields.at(1)).controller?.text, isEmpty);
+    expect(tester.widget<TextField>(fields.at(2)).controller?.text, isEmpty);
+    expect(tester.widget<TextField>(fields.at(3)).controller?.text, isEmpty);
   });
 
   QuizAttempt makeAttempt({

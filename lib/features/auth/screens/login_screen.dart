@@ -12,13 +12,19 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final email = TextEditingController(text: 'nam@example.com');
-  final password = TextEditingController(text: '123456');
+  final email = TextEditingController();
+  final password = TextEditingController();
   bool _obscureText = true;
+  Map<String, String> _localFieldErrors = const {};
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
+    final fieldErrors = {...state.authFieldErrors, ..._localFieldErrors};
+    final showGeneralError =
+        state.errorMessage != null &&
+        !fieldErrors.containsKey('email') &&
+        !fieldErrors.containsKey('password');
     return Scaffold(
       backgroundColor: Colors.white,
       body: Center(
@@ -93,6 +99,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: email,
                     keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.next,
+                    onChanged: (_) => _clearFieldError(context, 'email'),
                     decoration: InputDecoration(
                       prefixIcon: const Icon(
                         Icons.email_outlined,
@@ -100,6 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         size: 20,
                       ),
                       hintText: 'name@example.com',
+                      errorText: fieldErrors['email'],
                       hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
@@ -137,6 +145,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     obscureText: _obscureText,
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) => _submit(context),
+                    onChanged: (_) => _clearFieldError(context, 'password'),
                     decoration: InputDecoration(
                       prefixIcon: const Icon(
                         Icons.lock_outline_rounded,
@@ -158,6 +167,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         },
                       ),
                       hintText: 'Nhập mật khẩu',
+                      errorText: fieldErrors['password'],
                       hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
@@ -202,7 +212,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  if (state.errorMessage != null)
+                  if (showGeneralError)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: Container(
@@ -366,6 +376,13 @@ class _LoginScreenState extends State<LoginScreen> {
     if (context.read<AppState>().isBusy) {
       return;
     }
+    final validationErrors = _validateFields();
+    if (validationErrors.isNotEmpty) {
+      context.read<AppState>().clearAuthErrors();
+      setState(() => _localFieldErrors = validationErrors);
+      return;
+    }
+    setState(() => _localFieldErrors = const {});
     final ok = await context.read<AppState>().login(
       email.text.trim(),
       password.text,
@@ -373,6 +390,34 @@ class _LoginScreenState extends State<LoginScreen> {
     if (ok && context.mounted) {
       final appState = context.read<AppState>();
       context.go(appState.canAccessAdmin ? '/admin' : '/');
+    }
+  }
+
+  Map<String, String> _validateFields() {
+    final errors = <String, String>{};
+    final trimmedEmail = email.text.trim();
+    final emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+    if (trimmedEmail.isEmpty) {
+      errors['email'] = 'Vui lòng nhập email.';
+    } else if (!emailRegex.hasMatch(trimmedEmail)) {
+      errors['email'] = 'Email không đúng định dạng.';
+    }
+    if (password.text.isEmpty) {
+      errors['password'] = 'Vui lòng nhập mật khẩu.';
+    } else if (password.text.length < 6) {
+      errors['password'] = 'Mật khẩu phải có ít nhất 6 ký tự.';
+    }
+    return errors;
+  }
+
+  void _clearFieldError(BuildContext context, String field) {
+    if (_localFieldErrors.containsKey(field)) {
+      final next = Map<String, String>.from(_localFieldErrors)..remove(field);
+      setState(() => _localFieldErrors = next);
+    }
+    final appState = context.read<AppState>();
+    if (appState.authFieldErrors.isNotEmpty || appState.errorMessage != null) {
+      appState.clearAuthErrors();
     }
   }
 
