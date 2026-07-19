@@ -15,6 +15,7 @@ import '../../features/home/screens/home_screen.dart';
 import '../../features/lessons/screens/lesson_screen.dart';
 import '../../features/offline/screens/offline_downloads_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
+import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/progress/application/app_state.dart';
 import '../../features/progress/screens/progress_screen.dart';
 import '../../features/quiz/screens/quiz_result_screen.dart';
@@ -86,6 +87,10 @@ GoRouter buildRouter(AppState appState) {
       GoRoute(
         path: '/offline',
         builder: (_, _) => const OfflineDownloadsScreen(),
+      ),
+      GoRoute(
+        path: '/notifications',
+        builder: (_, _) => const NotificationsScreen(),
       ),
       GoRoute(path: '/admin', builder: (_, _) => const AdminDashboardScreen()),
       GoRoute(

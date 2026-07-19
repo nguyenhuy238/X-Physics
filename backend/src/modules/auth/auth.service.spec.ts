@@ -63,12 +63,16 @@ describe("AuthService", () => {
         key === "JWT_ACCESS_SECRET" ? accessSecret : refreshSecret,
       ),
     };
+    const notificationsService = {
+      notifyAdminsAndTeachers: jest.fn(async () => {}),
+    };
 
     return {
       service: new AuthService(
         database,
         jwtService,
         configService as unknown as ConfigService,
+        notificationsService as any,
       ),
       database: database as unknown as {
         findUserByEmail: jest.Mock;
@@ -81,12 +85,13 @@ describe("AuthService", () => {
         signAsync: jest.Mock;
         verifyAsync: jest.Mock;
       },
+      notificationsService: notificationsService as any,
       createdUsers,
     };
   };
 
   it("registers a student with normalized email and hashed password", async () => {
-    const { service, database, createdUsers } = makeService();
+    const { service, database, notificationsService, createdUsers } = makeService();
     database.findUserByEmail.mockResolvedValue(null);
 
     const result = await service.register({
@@ -102,6 +107,12 @@ describe("AuthService", () => {
     await expect(
       bcrypt.compare("123456", createdUsers[0].passwordHash),
     ).resolves.toBe(true);
+    expect(notificationsService.notifyAdminsAndTeachers).toHaveBeenCalledWith(
+      "SYSTEM",
+      "Học sinh mới đăng ký",
+      expect.stringContaining("Nguyen Van Nam"),
+      expect.any(Object),
+    );
     expect(result.user).toEqual({
       ...publicUser,
       name: "Nguyen Van Nam",
@@ -110,6 +121,7 @@ describe("AuthService", () => {
     expect(result.accessToken).toBe("access:user-1");
     expect(result.refreshToken).toBe("refresh:user-1");
   });
+
 
   it("rejects duplicate registration emails", async () => {
     const { service, database } = makeService();

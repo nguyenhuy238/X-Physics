@@ -4,10 +4,14 @@ import { AuthenticatedUser } from '../../common/current-user';
 import { DatabaseRepository } from '../../database/database.repository';
 import { RecordDownloadDto } from './dto/record-download.dto';
 import { SyncProgressDto } from './dto/sync-progress.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class OfflineSyncService {
-  constructor(private readonly database: DatabaseRepository) {}
+  constructor(
+    private readonly database: DatabaseRepository,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async syncProgress(user: AuthenticatedUser, dto: SyncProgressDto) {
     const accepted: Array<{
@@ -23,15 +27,29 @@ export class OfflineSyncService {
 
     for (const item of dto.items) {
       try {
+        const status =
+          item.isCompleted || item.progressPercent >= 100
+            ? 'COMPLETED'
+            : 'IN_PROGRESS';
         const progress = await this.database.upsertProgress({
           userId: user.id,
           lessonId: item.lessonId,
-          status:
-            item.isCompleted || item.progressPercent >= 100
-              ? 'COMPLETED'
-              : 'IN_PROGRESS',
+          status,
           progressPercent: item.progressPercent,
         });
+
+        if (status === 'COMPLETED') {
+          const lesson = await this.database.findAdminLesson(item.lessonId);
+          if (lesson) {
+            await this.notificationsService.awardBadgesAndNotify(
+              user.id,
+              item.lessonId,
+              lesson.chapterId,
+              false,
+            );
+          }
+        }
+
         accepted.push({
           operationId: item.operationId,
           lessonId: item.lessonId,

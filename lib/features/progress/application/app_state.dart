@@ -53,6 +53,7 @@ class AppState extends ChangeNotifier {
   }
 
   late final ApiClient _apiClient;
+  ApiClient get apiClient => _apiClient;
   late final ProgressRepository _progressRepository;
   late final ProfileRepository _profileRepository;
   late final ProgressSyncService _progressSyncService;
@@ -1392,6 +1393,38 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<bool> sendAdminNotification({
+    required String userId,
+    required String title,
+    required String message,
+  }) async {
+    isBusy = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      final response = await _apiClient.dio.post<Map<String, dynamic>>(
+        ApiEndpoints.adminUserNotify(userId),
+        data: {
+          'title': title,
+          'message': message,
+          'type': 'INFO',
+        },
+      );
+      final body = response.data;
+      if (body == null || body['success'] != true) {
+        throw StateError(body?['message'] as String? ?? 'API error');
+      }
+      return true;
+    } catch (error) {
+      errorMessage = _readableError(error);
+      return false;
+    } finally {
+      isBusy = false;
+      notifyListeners();
+    }
+  }
+
 
   Future<bool> _authenticate(
     Future<Map<String, dynamic>> Function() request,

@@ -60,6 +60,24 @@ export const databaseProvider = {
 
       create index if not exists learning_activity_user_date_idx
         on learning_activity(user_id, activity_date desc);
+
+      create table if not exists notifications (
+        id uuid primary key default gen_random_uuid(),
+        user_id uuid not null references users(id) on delete cascade,
+        type varchar(60) not null,
+        title varchar(255) not null,
+        message text not null,
+        data_json jsonb not null default '{}'::jsonb,
+        is_read boolean not null default false,
+        created_at timestamptz not null default now(),
+        updated_at timestamptz not null default now()
+      );
+
+      create index if not exists notifications_user_idx
+        on notifications(user_id, created_at desc);
+
+      create index if not exists notifications_is_read_idx
+        on notifications(user_id, is_read);
     `);
     return pool;
   },

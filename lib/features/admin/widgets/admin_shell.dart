@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../progress/application/app_state.dart';
+import '../../notifications/widgets/notification_icon.dart';
 import 'admin_design.dart';
 
 class AdminShell extends StatelessWidget {
@@ -148,10 +149,7 @@ class _AdminHeader extends StatelessWidget {
               ),
             ),
           const SizedBox(width: 12),
-          _RoundHeaderIcon(
-            icon: Icons.notifications_none_rounded,
-            onTap: () {},
-          ),
+          const NotificationIcon(),
           const SizedBox(width: 10),
           const CircleAvatar(
             radius: 20,
@@ -251,6 +249,12 @@ class _AdminSidebar extends StatelessWidget {
                 icon: Icons.group_outlined,
                 label: 'Học sinh',
                 route: '/admin/students',
+                activeRoute: activeRoute,
+              ),
+              _AdminNavItem(
+                icon: Icons.notifications_none_rounded,
+                label: 'Thông báo',
+                route: '/notifications',
                 activeRoute: activeRoute,
               ),
               const Spacer(),

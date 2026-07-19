@@ -3,10 +3,14 @@ import { Injectable } from "@nestjs/common";
 import { AuthenticatedUser } from "../../common/current-user";
 import { DatabaseRepository } from "../../database/database.repository";
 import { UpdateProgressDto } from "./dto/update-progress.dto";
+import { NotificationsService } from "../notifications/notifications.service";
 
 @Injectable()
 export class ProgressService {
-  constructor(private readonly database: DatabaseRepository) {}
+  constructor(
+    private readonly database: DatabaseRepository,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async dashboard(user: AuthenticatedUser) {
     const [
@@ -177,12 +181,29 @@ export class ProgressService {
     return this.database.listProgress(user.id);
   }
 
-  update(user: AuthenticatedUser, dto: UpdateProgressDto) {
-    return this.database.upsertProgress({
-      userId: user.id,
-      lessonId: dto.lessonId,
-      status: dto.status,
-      progressPercent: dto.progressPercent,
+  async update(user: AuthenticatedUser, dto: UpdateProgressDto) {
+    return this.database.withTransaction(async (client) => {
+      const progress = await this.database.upsertProgress({
+        userId: user.id,
+        lessonId: dto.lessonId,
+        status: dto.status,
+        progressPercent: dto.progressPercent,
+      }, client);
+
+      if (dto.status === 'COMPLETED') {
+        const lesson = await this.database.findAdminLesson(dto.lessonId, client);
+        if (lesson) {
+          await this.notificationsService.awardBadgesAndNotify(
+            user.id,
+            dto.lessonId,
+            lesson.chapterId,
+            false,
+            client,
+          );
+        }
+      }
+
+      return progress;
     });
   }
 }

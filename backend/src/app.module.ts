@@ -15,6 +15,7 @@ import { QuizModule } from './modules/quiz/quiz.module';
 import { SimulationsModule } from './modules/simulations/simulations.module';
 import { StatisticsModule } from './modules/statistics/statistics.module';
 import { UsersModule } from './modules/users/users.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { UsersModule } from './modules/users/users.module';
     OfflineSyncModule,
     AdminModule,
     StatisticsModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}

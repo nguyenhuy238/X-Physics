@@ -10,6 +10,7 @@ import * as bcrypt from "bcrypt";
 
 import { AuthenticatedUser } from "../../common/current-user";
 import { DatabaseRepository } from "../../database/database.repository";
+import { NotificationsService } from "../notifications/notifications.service";
 import { LoginDto } from "./dto/login.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
 import { RegisterDto } from "./dto/register.dto";
@@ -20,6 +21,7 @@ export class AuthService {
     private readonly database: DatabaseRepository,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -54,11 +56,22 @@ export class AuthService {
       email,
       passwordHash,
     });
+
+    await this.notificationsService.notifyAdminsAndTeachers(
+      "SYSTEM",
+      "Học sinh mới đăng ký",
+      `Học sinh "${user.name}" (${user.email}) vừa đăng ký tài khoản mới.`,
+      { userId: user.id }
+    ).catch(err => {
+      console.error("Failed to notify admins about new registration:", err);
+    });
+
     return {
       user: this.database.toPublicUser(user),
       ...(await this.issueTokens(user)),
     };
   }
+
 
   async login(dto: LoginDto) {
     const email = this.normalizeEmail(dto.email);
