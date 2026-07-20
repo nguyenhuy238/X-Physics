@@ -1828,7 +1828,7 @@ void main() {
     await tester.tap(find.text('Nha bac hoc'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Tiến độ: 1/3'), findsOneWidget);
+    expect(find.text('Tiến độ: 1/3 bài'), findsOneWidget);
   });
 
   testWidgets('profile shows empty chart and empty badges safely', (
@@ -2383,7 +2383,7 @@ void main() {
     expect(find.text('Offline route'), findsOneWidget);
   });
 
-  testWidgets('profile uses two badge columns on mobile screens', (
+  testWidgets('profile uses three badge columns on mobile screens', (
     tester,
   ) async {
     final state = FakeAppState()
@@ -2401,12 +2401,12 @@ void main() {
     final badge2 = tester.getTopLeft(find.text('Badge 2'));
     final badge3 = tester.getTopLeft(find.text('Badge 3'));
     expect((badge1.dy - badge2.dy).abs(), lessThan(8));
-    expect(badge3.dy, greaterThan(badge1.dy + 80));
+    expect((badge1.dy - badge3.dy).abs(), lessThan(8));
     expect(tester.takeException(), isNull);
     await tester.binding.setSurfaceSize(null);
   });
 
-  testWidgets('profile uses three badge columns on tablet screens', (
+  testWidgets('profile uses four badge columns on tablet screens', (
     tester,
   ) async {
     final state = FakeAppState()
@@ -2426,7 +2426,7 @@ void main() {
     final badge4 = tester.getTopLeft(find.text('Badge 4'));
     expect((badge1.dy - badge2.dy).abs(), lessThan(8));
     expect((badge1.dy - badge3.dy).abs(), lessThan(8));
-    expect(badge4.dy, greaterThan(badge1.dy + 80));
+    expect((badge1.dy - badge4.dy).abs(), lessThan(8));
     await tester.binding.setSurfaceSize(null);
   });
 

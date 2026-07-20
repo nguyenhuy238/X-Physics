@@ -1207,6 +1207,21 @@ export class DatabaseRepository {
     return Number(result.rows[0]?.average_score ?? 0);
   }
 
+  async averageBestScoreInChapter(
+    userId: string,
+    chapterId: string,
+    db: Db = this.pool,
+  ) {
+    const result = await db.query<{ average_score: string | null }>(
+      `select avg(coalesce(p.best_quiz_score, 0)) as average_score
+       from lessons l
+       left join progress p on p.lesson_id = l.id and p.user_id = $1
+       where l.chapter_id = $2 and l.is_published = true`,
+      [userId, chapterId],
+    );
+    return Number(result.rows[0]?.average_score ?? 0);
+  }
+
   async findAttempt(id: string, userId: string) {
     const result = await this.pool.query<AttemptRow>(
       "select * from quiz_attempts where id = $1 and user_id = $2",

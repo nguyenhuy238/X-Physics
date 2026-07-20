@@ -228,7 +228,11 @@ class _ProfileLayout {
     return _ProfileLayout(
       contentWidth: contentWidth,
       horizontalInset: horizontalInset,
-      badgeColumns: width < 600 ? 2 : (contentWidth >= 1040 ? 4 : 3),
+      badgeColumns: width < 420
+          ? 3
+          : width < 720
+          ? 4
+          : (contentWidth >= 1180 ? 6 : (contentWidth >= 900 ? 5 : 4)),
       isCompact: width < 700,
       isDesktop: width > 1024,
     );
@@ -778,19 +782,117 @@ class _AchievementsHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            'Thành tích',
-            style: Theme.of(context).textTheme.titleMedium,
+    final colorScheme = Theme.of(context).colorScheme;
+    final progress = total == 0 ? 0.0 : (earned / total).clamp(0.0, 1.0);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    Icons.emoji_events_rounded,
+                    color: colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Huy hiệu của tôi',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                Text(
+                  '$earned/$total đã đạt',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                minHeight: 8,
+                value: progress,
+                backgroundColor: colorScheme.surfaceContainerHighest,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              children: [
+                _AchievementStatChip(
+                  icon: Icons.verified_rounded,
+                  label: '$earned Đã đạt',
+                  color: colorScheme.primary,
+                ),
+                _AchievementStatChip(
+                  icon: Icons.lock_rounded,
+                  label: '${(total - earned).clamp(0, total)} Đang khóa',
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                _AchievementStatChip(
+                  icon: Icons.pie_chart_rounded,
+                  label: '${(progress * 100).round()}% Hoàn thành',
+                  color: Colors.teal,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AchievementStatChip extends StatelessWidget {
+  const _AchievementStatChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.26)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
           ),
-        ),
-        Text(
-          '$earned/$total đã đạt',
-          style: Theme.of(context).textTheme.labelLarge,
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -810,145 +912,384 @@ class _AchievementSliverGrid extends StatelessWidget {
       ),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: columns,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        mainAxisExtent: 168,
+        crossAxisSpacing: 14,
+        mainAxisSpacing: 14,
+        mainAxisExtent: 176,
       ),
     );
   }
 }
 
-class _BadgeTile extends StatelessWidget {
+class _BadgeTile extends StatefulWidget {
   const _BadgeTile({required this.badge});
 
   final AchievementBadge badge;
 
   @override
+  State<_BadgeTile> createState() => _BadgeTileState();
+}
+
+class _BadgeTileState extends State<_BadgeTile> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
+    final badge = widget.badge;
     final colorScheme = Theme.of(context).colorScheme;
-    final foreground = badge.isEarned
-        ? colorScheme.primary
-        : colorScheme.onSurfaceVariant;
-    return Card(
-      color: badge.isEarned
-          ? colorScheme.primaryContainer
-          : colorScheme.surfaceContainerHighest,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: () => _showBadgeDetail(context, badge),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    badge.isEarned
-                        ? Icons.workspace_premium_rounded
-                        : Icons.lock_rounded,
-                    color: foreground,
-                    size: 30,
+    final visual = _BadgeVisualStyle.forBadge(badge);
+    final progressText = _badgeProgressText(badge);
+    final child = AnimatedScale(
+      scale: _hovered ? 1.02 : 1,
+      duration: const Duration(milliseconds: 150),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        decoration: BoxDecoration(
+          color: badge.isEarned
+              ? visual.background
+              : colorScheme.surfaceContainerHighest.withValues(alpha: 0.9),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: badge.isEarned ? visual.border : colorScheme.outlineVariant,
+            width: badge.isEarned ? 1.4 : 1,
+          ),
+          boxShadow: badge.isEarned
+              ? [
+                  BoxShadow(
+                    color: visual.foreground.withValues(
+                      alpha: _hovered ? 0.20 : 0.12,
+                    ),
+                    blurRadius: _hovered ? 18 : 12,
+                    offset: const Offset(0, 8),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      badge.isEarned ? 'Đã đạt' : 'Đang khóa',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.end,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: foreground,
-                        fontWeight: FontWeight.w800,
+                ]
+              : null,
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () => _showBadgeDetail(context, badge),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 58,
+                      height: 58,
+                      decoration: BoxDecoration(
+                        color: badge.isEarned
+                            ? Colors.white.withValues(alpha: 0.66)
+                            : colorScheme.surface.withValues(alpha: 0.88),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: badge.isEarned
+                              ? visual.border
+                              : colorScheme.outlineVariant,
+                        ),
                       ),
+                      child: Icon(
+                        visual.icon,
+                        color: badge.isEarned
+                            ? visual.foreground
+                            : colorScheme.onSurfaceVariant.withValues(
+                                alpha: 0.58,
+                              ),
+                        size: 34,
+                      ),
+                    ),
+                    Positioned(
+                      right: -5,
+                      top: -6,
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          color: badge.isEarned
+                              ? colorScheme.primary
+                              : colorScheme.onSurfaceVariant,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: colorScheme.surface,
+                            width: 2,
+                          ),
+                        ),
+                        child: Icon(
+                          badge.isEarned
+                              ? Icons.check_rounded
+                              : Icons.lock_rounded,
+                          color: colorScheme.onPrimary,
+                          size: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  badge.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: badge.isEarned
+                        ? colorScheme.onSurface
+                        : colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  badge.isEarned ? 'Đã đạt' : progressText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: badge.isEarned
+                        ? visual.foreground
+                        : colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                if (!badge.isEarned && badge.progressTarget > 0) ...[
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: LinearProgressIndicator(
+                      minHeight: 5,
+                      value: badge.progressValue,
+                      backgroundColor: colorScheme.surface,
+                      color: visual.foreground,
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                badge.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 4),
-              Expanded(
-                child: Text(
-                  badge.isEarned
-                      ? (badge.achievedAt == null
-                            ? 'Thành tích đã mở khóa'
-                            : 'Mở khóa ${_formatDate(badge.achievedAt!)}')
-                      : (badge.description.isEmpty
-                            ? 'Hoàn thành điều kiện để mở khóa'
-                            : badge.description),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
-              if (!badge.isEarned && badge.progressTarget > 0) ...[
-                const SizedBox(height: 8),
-                LinearProgressIndicator(value: badge.progressValue),
-                const SizedBox(height: 4),
-                Text(
-                  '${badge.progressCurrent}/${badge.progressTarget}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall,
-                ),
               ],
-            ],
+            ),
           ),
+        ),
+      ),
+    );
+    return Semantics(
+      button: true,
+      label:
+          '${badge.name}, ${badge.isEarned ? 'đã mở khóa' : 'chưa mở khóa, tiến độ $progressText'}.',
+      child: Tooltip(
+        message: '${badge.name} - ${badge.isEarned ? 'Đã đạt' : progressText}',
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _hovered = true),
+          onExit: (_) => setState(() => _hovered = false),
+          child: child,
         ),
       ),
     );
   }
 }
 
+class _BadgeVisualStyle {
+  const _BadgeVisualStyle({
+    required this.icon,
+    required this.foreground,
+    required this.background,
+    required this.border,
+  });
+
+  final IconData icon;
+  final Color foreground;
+  final Color background;
+  final Color border;
+
+  static _BadgeVisualStyle forBadge(AchievementBadge badge) {
+    final key = '${badge.id} ${badge.ruleKey}'.toLowerCase();
+    if (key.contains('perfect') || key.contains('quiz_score_10')) {
+      return const _BadgeVisualStyle(
+        icon: Icons.star_rounded,
+        foreground: Color(0xFFD97706),
+        background: Color(0xFFFFF7D6),
+        border: Color(0xFFFBBF24),
+      );
+    }
+    if (key.contains('motion')) {
+      return const _BadgeVisualStyle(
+        icon: Icons.speed_rounded,
+        foreground: Color(0xFF0891B2),
+        background: Color(0xFFDDFBFF),
+        border: Color(0xFF22D3EE),
+      );
+    }
+    if (key.contains('force')) {
+      return const _BadgeVisualStyle(
+        icon: Icons.fitness_center_rounded,
+        foreground: Color(0xFF7C3AED),
+        background: Color(0xFFF0E7FF),
+        border: Color(0xFFA78BFA),
+      );
+    }
+    if (key.contains('electric')) {
+      return const _BadgeVisualStyle(
+        icon: Icons.electric_bolt_rounded,
+        foreground: Color(0xFF2563EB),
+        background: Color(0xFFE0F2FE),
+        border: Color(0xFF7DD3FC),
+      );
+    }
+    if (key.contains('streak')) {
+      return const _BadgeVisualStyle(
+        icon: Icons.local_fire_department_rounded,
+        foreground: Color(0xFFEA580C),
+        background: Color(0xFFFFEDD5),
+        border: Color(0xFFFB923C),
+      );
+    }
+    if (key.contains('all') ||
+        key.contains('scientist') ||
+        key.contains('complete_all_lessons')) {
+      return const _BadgeVisualStyle(
+        icon: Icons.diamond_rounded,
+        foreground: Color(0xFF9333EA),
+        background: Color(0xFFF5E8FF),
+        border: Color(0xFFC084FC),
+      );
+    }
+    if (key.contains('first') || key.contains('starter')) {
+      return const _BadgeVisualStyle(
+        icon: Icons.rocket_launch_rounded,
+        foreground: Color(0xFF2563EB),
+        background: Color(0xFFEFF6FF),
+        border: Color(0xFF93C5FD),
+      );
+    }
+    return const _BadgeVisualStyle(
+      icon: Icons.workspace_premium_rounded,
+      foreground: Color(0xFF475569),
+      background: Color(0xFFF1F5F9),
+      border: Color(0xFFCBD5E1),
+    );
+  }
+}
+
+String _badgeProgressText(AchievementBadge badge) {
+  if (badge.isEarned) {
+    return 'Đã đạt';
+  }
+  if (badge.progressTarget <= 0) {
+    return badge.ruleKey == 'quiz_score_10' ? 'Chưa đạt điểm 10' : 'Chưa đạt';
+  }
+  final current = badge.progressCurrent.clamp(0, badge.progressTarget);
+  final key = '${badge.ruleKey} ${badge.id}'.toLowerCase();
+  final unit = key.contains('streak') ? 'ngày' : 'bài';
+  return '$current/${badge.progressTarget} $unit';
+}
+
 void _showBadgeDetail(BuildContext context, AchievementBadge badge) {
+  final visual = _BadgeVisualStyle.forBadge(badge);
+  final colorScheme = Theme.of(context).colorScheme;
+  final progressText = _badgeProgressText(badge);
   showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
-    builder: (context) => Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                badge.isEarned
-                    ? Icons.workspace_premium_rounded
-                    : Icons.lock_rounded,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  badge.name,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+    isScrollControlled: true,
+    builder: (context) => SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          24,
+          0,
+          24,
+          MediaQuery.viewInsetsOf(context).bottom + 24,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Align(
+              child: Container(
+                width: 76,
+                height: 76,
+                decoration: BoxDecoration(
+                  color: badge.isEarned
+                      ? visual.background
+                      : colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: badge.isEarned
+                        ? visual.border
+                        : colorScheme.outlineVariant,
+                  ),
+                ),
+                child: Icon(
+                  badge.isEarned ? visual.icon : Icons.lock_rounded,
+                  size: 42,
+                  color: badge.isEarned
+                      ? visual.foreground
+                      : colorScheme.onSurfaceVariant,
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(badge.description),
-          const SizedBox(height: 12),
-          if (badge.isEarned)
+            ),
+            const SizedBox(height: 16),
             Text(
-              badge.achievedAt == null
-                  ? 'Đã đạt'
-                  : 'Đã đạt: ${_formatDate(badge.achievedAt!)}',
-            )
-          else ...[
-            Text('Tiến độ: ${badge.progressCurrent}/${badge.progressTarget}'),
+              badge.name,
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+            ),
             const SizedBox(height: 8),
-            LinearProgressIndicator(value: badge.progressValue),
+            Text(
+              badge.isEarned ? 'Đã mở khóa' : 'Chưa mở khóa',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: badge.isEarned
+                    ? visual.foreground
+                    : colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              badge.description.isEmpty
+                  ? 'Hoàn thành điều kiện để mở khóa huy hiệu này.'
+                  : badge.description,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 18),
+            if (badge.isEarned)
+              Text(
+                badge.achievedAt == null
+                    ? 'Ngày mở khóa: chưa có dữ liệu'
+                    : 'Mở khóa ngày: ${_formatDate(badge.achievedAt!)}',
+                textAlign: TextAlign.center,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+              )
+            else ...[
+              Text(
+                'Tiến độ: $progressText',
+                textAlign: TextAlign.center,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              if (badge.progressTarget > 0) ...[
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    minHeight: 8,
+                    value: badge.progressValue,
+                    color: visual.foreground,
+                    backgroundColor: colorScheme.surfaceContainerHighest,
+                  ),
+                ),
+              ],
+            ],
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Đóng'),
+            ),
           ],
-        ],
+        ),
       ),
     ),
   );
