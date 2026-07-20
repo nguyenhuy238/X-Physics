@@ -102,15 +102,6 @@ export function Login({ onLogin, onRegister }: LoginProps) {
           Đăng nhập
         </button>
 
-        <div className="flex items-center gap-3 my-1">
-          <div className="flex-1 h-px bg-border" />
-          <span className="text-muted-foreground text-xs font-medium">hoặc</span>
-          <div className="flex-1 h-px bg-border" />
-        </div>
-
-        <button className="w-full py-3.5 bg-card rounded-2xl border border-border font-semibold text-sm text-foreground flex items-center justify-center gap-2 active:scale-95 transition-transform">
-          <span>🌐</span> Đăng nhập với Google
-        </button>
       </motion.div>
 
       <div className="mt-auto pt-6 text-center">

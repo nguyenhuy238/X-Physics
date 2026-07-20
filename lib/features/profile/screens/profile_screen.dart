@@ -465,7 +465,9 @@ class _ProfileIdentity extends StatelessWidget {
                 user.name.isEmpty ? 'Học sinh' : user.name,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: textTheme.titleLarge,
+                style: textTheme.titleLarge?.copyWith(
+                  color: colorScheme.onSurface,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
@@ -484,7 +486,10 @@ class _ProfileIdentity extends StatelessWidget {
                     size: 16,
                     color: colorScheme.primary,
                   ),
-                  label: Text(roleLabel),
+                  label: Text(
+                    roleLabel,
+                    style: TextStyle(color: colorScheme.onSurface),
+                  ),
                 ),
               ),
             ],
