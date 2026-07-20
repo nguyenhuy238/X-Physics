@@ -167,6 +167,20 @@ class FakeDatabase {
     ).length;
   }
 
+  async averageBestScoreInChapter(userId: string, chapterId: string) {
+    const scores = [...this.lessons.values()]
+      .filter(
+        (lesson) =>
+          lesson.chapterId === chapterId && !lesson.id.startsWith("empty"),
+      )
+      .map(
+        (lesson) =>
+          this.progress.get(`${userId}:${lesson.id}`)?.bestQuizScore ?? 0,
+      );
+    if (scores.length === 0) return 0;
+    return scores.reduce((sum, score) => sum + score, 0) / scores.length;
+  }
+
   async countCompletedLessons(userId: string) {
     return [...this.progress.values()].filter(
       (progress) =>
@@ -255,59 +269,79 @@ describe("QuizService submit", () => {
     database = new FakeDatabase();
     const notificationsService = {
       createNotification: jest.fn(),
-      awardBadgesAndNotify: jest.fn().mockImplementation(
-        async (userId, lessonId, chapterId, perfectScore, client) => {
-          const awarded = [];
-          const completedLessons = await database.countCompletedLessons(userId);
-          const totalLessons = await database.countTotalLessons();
+      awardBadgesAndNotify: jest
+        .fn()
+        .mockImplementation(
+          async (userId, lessonId, chapterId, perfectScore, client) => {
+            const awarded = [];
+            const completedLessons =
+              await database.countCompletedLessons(userId);
+            const totalLessons = await database.countTotalLessons();
 
-          if (completedLessons >= 1) {
-            const badges = await database.listBadgesByRule("complete_first_lesson");
-            for (const b of badges) {
-              const awardedBadge = await database.awardBadge(userId, b.id);
-              if (awardedBadge) awarded.push(awardedBadge);
+            if (completedLessons >= 1) {
+              const badges = await database.listBadgesByRule(
+                "complete_first_lesson",
+              );
+              for (const b of badges) {
+                const awardedBadge = await database.awardBadge(userId, b.id);
+                if (awardedBadge) awarded.push(awardedBadge);
+              }
             }
-          }
-          if (perfectScore) {
-            const badges = await database.listBadgesByRule("quiz_score_10");
-            for (const b of badges) {
-              const awardedBadge = await database.awardBadge(userId, b.id);
-              if (awardedBadge) awarded.push(awardedBadge);
+            if (perfectScore) {
+              const badges = await database.listBadgesByRule("quiz_score_10");
+              for (const b of badges) {
+                const awardedBadge = await database.awardBadge(userId, b.id);
+                if (awardedBadge) awarded.push(awardedBadge);
+              }
             }
-          }
 
-          const streak = await database.currentLearningStreak();
-          const streakBadges = await database.listBadgesByRule("streak_days");
-          for (const badge of streakBadges) {
-            const target = Number(badge.conditionValue ?? 0);
-            if (target > 0 && streak >= target) {
-              const awardedBadge = await database.awardBadge(userId, badge.id);
-              if (awardedBadge) awarded.push(awardedBadge);
+            const streak = await database.currentLearningStreak();
+            const streakBadges = await database.listBadgesByRule("streak_days");
+            for (const badge of streakBadges) {
+              const target = Number(badge.conditionValue ?? 0);
+              if (target > 0 && streak >= target) {
+                const awardedBadge = await database.awardBadge(
+                  userId,
+                  badge.id,
+                );
+                if (awardedBadge) awarded.push(awardedBadge);
+              }
             }
-          }
 
-          const chapterLessons = await database.countLessonsInChapter(chapterId);
-          const chapterCompleted = await database.countCompletedLessonsInChapter(userId, chapterId);
-          if (chapterLessons > 0 && chapterCompleted >= chapterLessons) {
-            const chapterBadges = await database.listBadgesByRule("complete_chapter");
-            for (const badge of chapterBadges) {
-              if (badge.conditionValue !== chapterId) continue;
-              const awardedBadge = await database.awardBadge(userId, badge.id);
-              if (awardedBadge) awarded.push(awardedBadge);
+            const chapterLessons =
+              await database.countLessonsInChapter(chapterId);
+            const chapterCompleted =
+              await database.countCompletedLessonsInChapter(userId, chapterId);
+            if (chapterLessons > 0 && chapterCompleted >= chapterLessons) {
+              const chapterAverageScore =
+                await database.averageBestScoreInChapter(userId, chapterId);
+              if (chapterAverageScore > 5) {
+                const chapterBadges =
+                  await database.listBadgesByRule("complete_chapter");
+                for (const badge of chapterBadges) {
+                  if (badge.conditionValue !== chapterId) continue;
+                  const awardedBadge = await database.awardBadge(
+                    userId,
+                    badge.id,
+                  );
+                  if (awardedBadge) awarded.push(awardedBadge);
+                }
+              }
             }
-          }
 
-          if (totalLessons > 0 && completedLessons >= totalLessons) {
-            const badges = await database.listBadgesByRule("complete_all_lessons");
-            for (const b of badges) {
-              const awardedBadge = await database.awardBadge(userId, b.id);
-              if (awardedBadge) awarded.push(awardedBadge);
+            if (totalLessons > 0 && completedLessons >= totalLessons) {
+              const badges = await database.listBadgesByRule(
+                "complete_all_lessons",
+              );
+              for (const b of badges) {
+                const awardedBadge = await database.awardBadge(userId, b.id);
+                if (awardedBadge) awarded.push(awardedBadge);
+              }
             }
-          }
 
-          return awarded;
-        }
-      ),
+            return awarded;
+          },
+        ),
     };
     service = new QuizService(database as any, notificationsService as any);
   });
@@ -462,6 +496,27 @@ describe("QuizService submit", () => {
     await submit(service, "lesson-1", answersFor("lesson-1", 3));
     const result = await submit(service, "lesson-2", answersFor("lesson-2", 3));
 
+    expect(result.newBadges.map((badge: any) => badge.id)).toContain(
+      "chapter-1-master",
+    );
+  });
+
+  it("does not reward chapter completion when chapter average score is not above 5", async () => {
+    await submit(service, "lesson-1", answersFor("lesson-1", 3));
+    const result = await submit(service, "lesson-2", answersFor("lesson-2", 2));
+
+    expect(result.earnedCoins).toBe(10);
+    expect(result.newBadges.map((badge: any) => badge.id)).not.toContain(
+      "chapter-1-master",
+    );
+  });
+
+  it("rewards chapter completion after a retake raises chapter average score above 5", async () => {
+    await submit(service, "lesson-1", answersFor("lesson-1", 3));
+    await submit(service, "lesson-2", answersFor("lesson-2", 2));
+    const result = await submit(service, "lesson-2", answersFor("lesson-2", 3));
+
+    expect(result.earnedCoins).toBe(65);
     expect(result.newBadges.map((badge: any) => badge.id)).toContain(
       "chapter-1-master",
     );

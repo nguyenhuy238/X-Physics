@@ -16,7 +16,7 @@
   {
     "id": "motion-master",
     "name": "Bậc thầy chuyển động",
-    "description": "Hoàn thành tất cả bài trong chương Chuyển động.",
+    "description": "Hoàn thành tất cả bài trong chương Chuyển động với điểm trung bình trên 5.",
     "icon": "rocket_launch",
     "ruleKey": "complete_chapter",
     "conditionValue": "motion"
@@ -24,7 +24,7 @@
   {
     "id": "force-master",
     "name": "Bậc thầy lực",
-    "description": "Hoàn thành tất cả bài trong chương Lực và áp suất.",
+    "description": "Hoàn thành tất cả bài trong chương Lực và áp suất với điểm trung bình trên 5.",
     "icon": "fitness_center",
     "ruleKey": "complete_chapter",
     "conditionValue": "force"
@@ -32,7 +32,7 @@
   {
     "id": "electric-master",
     "name": "Điện thần",
-    "description": "Hoàn thành tất cả bài trong chương Điện học.",
+    "description": "Hoàn thành tất cả bài trong chương Điện học với điểm trung bình trên 5.",
     "icon": "bolt",
     "ruleKey": "complete_chapter",
     "conditionValue": "electric"

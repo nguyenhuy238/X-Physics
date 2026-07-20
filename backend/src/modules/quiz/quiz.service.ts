@@ -1,4 +1,8 @@
-import { BadRequestException, ConflictException, Injectable } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from "@nestjs/common";
 
 import { AuthenticatedUser } from "../../common/current-user";
 import { DatabaseRepository } from "../../database/database.repository";
@@ -6,6 +10,7 @@ import { NotificationsService } from "../notifications/notifications.service";
 import { SubmitQuizDto } from "./dto/submit-quiz.dto";
 
 const MAX_DURATION_SECONDS = 3600;
+const CHAPTER_BADGE_MIN_AVERAGE_SCORE = 5;
 
 @Injectable()
 export class QuizService {
@@ -285,6 +290,14 @@ export class QuizService {
       this.database.countCompletedLessonsInChapter(userId, chapterId, client),
     ]);
     if (chapterLessons === 0 || chapterCompleted < chapterLessons) {
+      return 0;
+    }
+    const chapterAverageScore = await this.database.averageBestScoreInChapter(
+      userId,
+      chapterId,
+      client,
+    );
+    if (chapterAverageScore <= CHAPTER_BADGE_MIN_AVERAGE_SCORE) {
       return 0;
     }
     const event = await this.database.createRewardEvent(
