@@ -938,7 +938,7 @@ void main() {
 
     expect(state.loginCount, 0);
     expect(find.text('Vui lòng nhập email.'), findsOneWidget);
-    expect(find.text('Vui lòng nhập mật khẩu.'), findsOneWidget);
+    expect(find.text('Mật khẩu không được để trống.'), findsOneWidget);
   });
 
   testWidgets('login failure shows a clean message', (tester) async {
@@ -1353,6 +1353,7 @@ void main() {
     await tester.pump();
 
     await tester.pump(const Duration(seconds: 299));
+    await tester.ensureVisible(find.text('Nộp bài'));
     await tester.tap(find.text('Nộp bài'));
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
@@ -1946,8 +1947,8 @@ void main() {
 
     final fields = find.byType(TextFormField);
     await tester.enterText(fields.at(0), '123456');
-    await tester.enterText(fields.at(1), '654321');
-    await tester.enterText(fields.at(2), '654321');
+    await tester.enterText(fields.at(1), '6543217');
+    await tester.enterText(fields.at(2), '6543217');
     await tester.tap(find.text('Lưu'));
     await tester.pumpAndSettle();
 
@@ -1984,8 +1985,8 @@ void main() {
 
     final fields = find.byType(TextFormField);
     await tester.enterText(fields.at(0), 'wrong-password');
-    await tester.enterText(fields.at(1), '654321');
-    await tester.enterText(fields.at(2), '654321');
+    await tester.enterText(fields.at(1), '6543217');
+    await tester.enterText(fields.at(2), '6543217');
     await tester.tap(find.byType(FilledButton).last);
     await tester.pumpAndSettle();
 
@@ -2176,7 +2177,11 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Lưu'));
       await tester.pump();
-      expect(find.text('Bắt buộc'), findsWidgets);
+      expect(
+        find.text('Nội dung câu hỏi không được để trống.'),
+        findsOneWidget,
+      );
+      expect(find.text('Lời giải không được để trống.'), findsOneWidget);
       expect(state.adminWriteCount, 0);
 
       await tester.enterText(find.byType(TextFormField).at(0), 'New question');

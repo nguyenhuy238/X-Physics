@@ -69,6 +69,29 @@ class FakeAdminDatabase {
     ],
   ]);
 
+  chapters = new Map([
+    [
+      "chapter-1",
+      {
+        id: "chapter-1",
+        title: "Electric",
+        description: "Electric chapter",
+        orderIndex: 0,
+        isPublished: true,
+      },
+    ],
+    [
+      "chapter-2",
+      {
+        id: "chapter-2",
+        title: "Force",
+        description: "Force chapter",
+        orderIndex: 1,
+        isPublished: true,
+      },
+    ],
+  ]);
+
   simulations = new Map<string, any>();
 
   questions = new Map<string, any>([
@@ -97,12 +120,14 @@ class FakeAdminDatabase {
   async withTransaction<T>(work: (client: this) => Promise<T>) {
     const snapshot = new Map(this.questions);
     const lessonSnapshot = new Map(this.lessons);
+    const chapterSnapshot = new Map(this.chapters);
     const simulationSnapshot = new Map(this.simulations);
     try {
       return await work(this);
     } catch (error) {
       this.questions = snapshot;
       this.lessons = lessonSnapshot;
+      this.chapters = chapterSnapshot;
       this.simulations = simulationSnapshot;
       throw error;
     }
@@ -164,6 +189,52 @@ class FakeAdminDatabase {
     return this.lessons.get(id) ?? null;
   }
 
+  async findAdminChapter(id: string) {
+    return this.chapters.get(id) ?? null;
+  }
+
+  async listAdminChaptersOrdered() {
+    return Array.from(this.chapters.values()).sort(
+      (a, b) => a.orderIndex - b.orderIndex,
+    );
+  }
+
+  async createChapter(input: any) {
+    const chapter = { ...input };
+    this.chapters.set(input.id, chapter);
+    return chapter;
+  }
+
+  async updateChapter(id: string, input: any) {
+    if (!this.chapters.has(id)) {
+      throw new NotFoundException("Chapter not found");
+    }
+    const chapter = { id, ...input };
+    this.chapters.set(id, chapter);
+    return chapter;
+  }
+
+  async setChapterOrder(chapterIds: string[]) {
+    chapterIds.forEach((id, index) => {
+      const chapter = this.chapters.get(id);
+      if (chapter) {
+        this.chapters.set(id, { ...chapter, orderIndex: index });
+      }
+    });
+    return chapterIds.map((id) => this.chapters.get(id)).filter(Boolean);
+  }
+
+  async removeChapterWithLessonCheck(id: string) {
+    if ([...this.lessons.values()].some((lesson) => lesson.chapterId === id)) {
+      throw new BadRequestException(
+        "Cannot delete chapter because it still has lessons.",
+      );
+    }
+    if (!this.chapters.delete(id))
+      throw new NotFoundException("Chapter not found");
+    return { id, deleted: true, mode: "hard" };
+  }
+
   async createLesson(input: any) {
     const lesson = { ...input };
     this.lessons.set(input.id, lesson);
@@ -175,6 +246,28 @@ class FakeAdminDatabase {
     const lesson = { id, ...input };
     this.lessons.set(id, lesson);
     return lesson;
+  }
+
+  async listAdminLessonsByChapter(chapterId: string) {
+    return Array.from(this.lessons.values())
+      .filter((lesson) => lesson.chapterId === chapterId)
+      .sort((a, b) => a.orderIndex - b.orderIndex);
+  }
+
+  async setLessonOrder(lessonIds: string[]) {
+    lessonIds.forEach((id, index) => {
+      const lesson = this.lessons.get(id);
+      if (lesson) {
+        this.lessons.set(id, { ...lesson, orderIndex: index });
+      }
+    });
+    return lessonIds.map((id) => this.lessons.get(id)).filter(Boolean);
+  }
+
+  async softDeleteLesson(id: string) {
+    if (!this.lessons.delete(id))
+      throw new NotFoundException("Lesson not found");
+    return { id, deleted: true, mode: "hard" };
   }
 
   async listSimulationsByLesson(lessonId: string) {
@@ -345,7 +438,10 @@ describe("AdminService questions", () => {
 
   beforeEach(() => {
     database = new FakeAdminDatabase();
-    service = new AdminService(database as any, { notifyAllStudents: jest.fn() } as any);
+    service = new AdminService(
+      database as any,
+      { notifyAllStudents: jest.fn() } as any,
+    );
   });
 
   it("lists questions with filter and pagination metadata", async () => {
@@ -577,7 +673,10 @@ describe("AdminService lesson simulations", () => {
 
   beforeEach(() => {
     database = new FakeAdminDatabase();
-    service = new AdminService(database as any, { notifyAllStudents: jest.fn() } as any);
+    service = new AdminService(
+      database as any,
+      { notifyAllStudents: jest.fn() } as any,
+    );
   });
 
   it("creates a lesson with a formula simulation in one transaction", async () => {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -890,6 +891,9 @@ class _AdminChaptersScreenState extends State<AdminChaptersScreen> {
                                   TextFormField(
                                     controller: order,
                                     keyboardType: TextInputType.number,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                    ],
                                     decoration: InputDecoration(
                                       filled: true,
                                       fillColor: const Color(0xFFF8FAFC),

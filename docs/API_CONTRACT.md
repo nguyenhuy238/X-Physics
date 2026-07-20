@@ -571,6 +571,62 @@ Recommended user-facing messages:
 - Invalid `type`: `Loai thong bao khong hop le.`
 - Unknown user: `Khong tim thay hoc sinh.`
 
+### POST/PUT /api/admin/chapters
+
+Request fields:
+
+- `id`: trimmed slug, required, length `3..50`, pattern `^[a-z0-9-]+$`.
+- `title`: trimmed, required, length `3..100`.
+- `description`: trimmed, required, length `5..500`.
+- `orderIndex`: integer `>= 0`.
+- `isPublished`: optional boolean.
+
+Business validation:
+
+- Chapter titles are compared after trim, whitespace collapse, and Vietnamese
+  lowercase normalization. Duplicate titles return `400`.
+- Chapter ordering is server-owned. `orderIndex` is zero-based for existing
+  Chapter/Lesson compatibility. Create/update at position `N` shifts later
+  chapters and compacts the list.
+- Delete is blocked while the chapter still has lessons. Successful delete
+  compacts remaining chapter order.
+
+Recommended user-facing messages:
+
+- Duplicate title: `Ten chuong hoc da ton tai.`
+- Unknown chapter: `Chuong hoc khong ton tai hoac da bi xoa.`
+- Chapter with lessons: `Khong the xoa chuong vi van con bai hoc.`
+
+### POST/PUT /api/admin/lessons
+
+Request fields:
+
+- `id`: trimmed slug, required, length `3..50`, pattern `^[a-z0-9-]+$`.
+- `chapterId`: trimmed, required.
+- `title`: trimmed, required, length `3..100`.
+- `contentMarkdown`: trimmed, required, length `10..10000`.
+- `formulaLatex`: optional string, max `500`.
+- `estimatedMinutes`: integer `1..180`.
+- `orderIndex`: integer `>= 0`.
+- `isPublished`: optional boolean.
+- `simulation`: optional formula simulation object.
+
+Business validation:
+
+- `chapterId` must reference an existing chapter; unknown chapter returns `404`.
+- Lesson titles are unique inside the same chapter after trim, whitespace
+  collapse, and Vietnamese lowercase normalization.
+- Lesson ordering is server-owned and zero-based inside each chapter. Create,
+  update, move between chapters, and delete shift/compact order in a transaction.
+- Deleting a lesson hard-deletes related questions, quiz attempts, progress,
+  downloaded lessons, and simulations through database foreign keys.
+
+Recommended user-facing messages:
+
+- Unknown chapter: `Chuong hoc khong ton tai hoac da bi xoa.`
+- Duplicate title in chapter: `Ten bai hoc da ton tai trong chuong nay.`
+- Unknown lesson: `Bai hoc khong ton tai hoac da bi xoa.`
+
 ### GET /api/admin/questions
 
 Query params:

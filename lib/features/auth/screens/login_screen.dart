@@ -403,9 +403,11 @@ class _LoginScreenState extends State<LoginScreen> {
       errors['email'] = 'Email không đúng định dạng.';
     }
     if (password.text.isEmpty) {
-      errors['password'] = 'Vui lòng nhập mật khẩu.';
+      errors['password'] = 'Mật khẩu không được để trống.';
     } else if (password.text.length < 6) {
       errors['password'] = 'Mật khẩu phải có ít nhất 6 ký tự.';
+    } else if (password.text.length > 72) {
+      errors['password'] = 'Mật khẩu không được vượt quá 72 ký tự.';
     }
     return errors;
   }

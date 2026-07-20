@@ -86,7 +86,6 @@ export class AdminService {
     );
   }
 
-
   chapters() {
     return this.database.adminListChapters();
   }
@@ -111,27 +110,97 @@ export class AdminService {
   }
 
   async createChapter(dto: AdminChapterDto) {
-    const chapter = await this.database.createChapter(dto);
-    await this.notificationsService.notifyAllStudents(
-      "SYSTEM",
-      "Chương học mới!",
-      `Chương học "${chapter.title}" vừa được thêm vào. Bắt đầu học ngay nhé!`,
-      { chapterId: chapter.id },
-    );
-    return chapter;
+    return this.database.withTransaction(async (client) => {
+      const input = await this.validateChapterInput(dto, undefined, client);
+      const existing = await this.database.listAdminChaptersOrdered(client);
+      const chapter = await this.database.createChapter(
+        {
+          ...input,
+          orderIndex: this.temporaryZeroBasedOrderIndex(existing),
+        },
+        client,
+      );
+      const ids = existing.map((item) => item.id);
+      ids.splice(
+        this.clampZeroBasedInsertPosition(input.orderIndex, existing.length),
+        0,
+        chapter.id,
+      );
+      await this.database.setChapterOrder(ids, client);
+      await this.notificationsService.notifyAllStudents(
+        "SYSTEM",
+        "Chương học mới!",
+        `Chương học "${chapter.title}" vừa được thêm vào. Bắt đầu học ngay nhé!`,
+        { chapterId: chapter.id },
+      );
+      return this.database.findAdminChapter(chapter.id, client);
+    });
   }
 
   updateChapter(id: string, dto: AdminChapterDto) {
-    return this.database.updateChapter(id, dto);
+    return this.database.withTransaction(async (client) => {
+      const current = await this.database.findAdminChapter(id, client);
+      if (!current) {
+        throw new NotFoundException("Chương học không tồn tại hoặc đã bị xóa.");
+      }
+      const input = await this.validateChapterInput(dto, id, client);
+      const existing = (
+        await this.database.listAdminChaptersOrdered(client)
+      ).filter((item) => item.id !== id);
+      await this.database.updateChapter(
+        id,
+        {
+          ...input,
+          orderIndex: this.temporaryZeroBasedOrderIndex(existing),
+        },
+        client,
+      );
+      const ids = existing.map((item) => item.id);
+      ids.splice(
+        this.clampZeroBasedInsertPosition(input.orderIndex, existing.length),
+        0,
+        id,
+      );
+      await this.database.setChapterOrder(ids, client);
+      return this.database.findAdminChapter(id, client);
+    });
   }
 
   removeChapter(id: string) {
-    return this.database.removeChapterWithLessonCheck(id);
+    return this.database.withTransaction(async (client) => {
+      const result = await this.database.removeChapterWithLessonCheck(
+        id,
+        client,
+      );
+      const ids = (await this.database.listAdminChaptersOrdered(client)).map(
+        (item) => item.id,
+      );
+      await this.database.setChapterOrder(ids, client);
+      return result;
+    });
   }
 
   createLesson(dto: AdminLessonDto) {
     return this.database.withTransaction(async (client) => {
-      const lesson = await this.database.createLesson(dto, client);
+      const input = await this.validateLessonInput(dto, undefined, client);
+      const existing = await this.database.listAdminLessonsByChapter(
+        input.chapterId,
+        client,
+      );
+      const lesson = await this.database.createLesson(
+        {
+          ...input,
+          orderIndex: this.temporaryZeroBasedOrderIndex(existing),
+        },
+        client,
+      );
+      const ids = existing.map((item) => item.id);
+      ids.splice(
+        this.clampZeroBasedInsertPosition(input.orderIndex, existing.length),
+        0,
+        lesson.id,
+      );
+      await this.database.setLessonOrder(ids, client);
       if (dto.simulation) {
         await this.saveLessonSimulation(lesson.id, dto.simulation, client);
       }
@@ -153,7 +222,42 @@ export class AdminService {
 
   updateLesson(id: string, dto: AdminLessonDto) {
     return this.database.withTransaction(async (client) => {
-      const lesson = await this.database.updateLesson(id, dto, client);
+      const current = await this.database.findAdminLesson(id, client);
+      if (!current) {
+        throw new NotFoundException("Bài học không tồn tại hoặc đã bị xóa.");
+      }
+      const input = await this.validateLessonInput(dto, id, client);
+      const oldChapterId = current.chapterId;
+      const newChapterId = input.chapterId;
+      const targetLessons = (
+        await this.database.listAdminLessonsByChapter(newChapterId, client)
+      ).filter((item) => item.id !== id);
+      const lesson = await this.database.updateLesson(
+        id,
+        {
+          ...input,
+          orderIndex: this.temporaryZeroBasedOrderIndex(targetLessons),
+        },
+        client,
+      );
+      if (oldChapterId !== newChapterId) {
+        const oldIds = (
+          await this.database.listAdminLessonsByChapter(oldChapterId, client)
+        )
+          .filter((item) => item.id !== id)
+          .map((item) => item.id);
+        await this.database.setLessonOrder(oldIds, client);
+      }
+      const ids = targetLessons.map((item) => item.id);
+      ids.splice(
+        this.clampZeroBasedInsertPosition(
+          input.orderIndex,
+          targetLessons.length,
+        ),
+        0,
+        id,
+      );
+      await this.database.setLessonOrder(ids, client);
       if (Object.prototype.hasOwnProperty.call(dto, "simulation")) {
         if (dto.simulation) {
           await this.saveLessonSimulation(id, dto.simulation, client);
@@ -170,7 +274,18 @@ export class AdminService {
   }
 
   removeLesson(id: string) {
-    return this.database.softDeleteLesson(id);
+    return this.database.withTransaction(async (client) => {
+      const current = await this.database.findAdminLesson(id, client);
+      if (!current) {
+        throw new NotFoundException("Bài học không tồn tại hoặc đã bị xóa.");
+      }
+      const result = await this.database.softDeleteLesson(id, client);
+      const ids = (
+        await this.database.listAdminLessonsByChapter(current.chapterId, client)
+      ).map((item) => item.id);
+      await this.database.setLessonOrder(ids, client);
+      return result;
+    });
   }
 
   async createQuestion(dto: CreateAdminQuestionDto) {
@@ -196,8 +311,11 @@ export class AdminService {
       const ids = existing.map((question) => question.id);
       ids.splice(insertAt - 1, 0, id);
       await this.database.setQuestionOrder(input.lessonId, ids, client);
-      
-      const lesson = await this.database.findAdminLesson(input.lessonId, client);
+
+      const lesson = await this.database.findAdminLesson(
+        input.lessonId,
+        client,
+      );
       if (lesson) {
         await this.notificationsService.notifyAllStudents(
           "SYSTEM",
@@ -309,7 +427,7 @@ export class AdminService {
   ) {
     const lesson = await this.database.findAdminLesson(dto.lessonId, db);
     if (!lesson) {
-      throw new NotFoundException("Lesson not found");
+      throw new NotFoundException("Bài học không tồn tại hoặc đã bị xóa.");
     }
 
     const questionText = dto.questionText.trim();
@@ -353,9 +471,88 @@ export class AdminService {
     };
   }
 
+  private async validateChapterInput(
+    dto: AdminChapterDto,
+    chapterId?: string,
+    db?: Parameters<Parameters<DatabaseRepository["withTransaction"]>[0]>[0],
+  ) {
+    const title = dto.title.trim();
+    const description = dto.description.trim();
+    const normalizedTitle = this.normalizeForUniqueness(title);
+    const chapters = await this.database.listAdminChaptersOrdered(db);
+    const duplicate = chapters.find(
+      (chapter) =>
+        chapter.id !== chapterId &&
+        this.normalizeForUniqueness(chapter.title) === normalizedTitle,
+    );
+    if (duplicate) {
+      throw new BadRequestException("Tên chương học đã tồn tại.");
+    }
+    return {
+      id: dto.id.trim(),
+      title,
+      description,
+      orderIndex: dto.orderIndex,
+      isPublished: dto.isPublished,
+    };
+  }
+
+  private async validateLessonInput(
+    dto: AdminLessonDto,
+    lessonId?: string,
+    db?: Parameters<Parameters<DatabaseRepository["withTransaction"]>[0]>[0],
+  ) {
+    const chapter = await this.database.findAdminChapter(dto.chapterId, db);
+    if (!chapter) {
+      throw new NotFoundException("Chương học không tồn tại hoặc đã bị xóa.");
+    }
+    const title = dto.title.trim();
+    const normalizedTitle = this.normalizeForUniqueness(title);
+    const lessons = await this.database.listAdminLessonsByChapter(
+      dto.chapterId,
+      db,
+    );
+    const duplicate = lessons.find(
+      (lesson) =>
+        lesson.id !== lessonId &&
+        this.normalizeForUniqueness(lesson.title) === normalizedTitle,
+    );
+    if (duplicate) {
+      throw new BadRequestException("Tên bài học đã tồn tại trong chương này.");
+    }
+    return {
+      id: dto.id.trim(),
+      chapterId: dto.chapterId.trim(),
+      title,
+      contentMarkdown: dto.contentMarkdown.trim(),
+      formulaLatex: dto.formulaLatex?.trim(),
+      estimatedMinutes: dto.estimatedMinutes,
+      orderIndex: dto.orderIndex,
+      isPublished: dto.isPublished,
+    };
+  }
+
   private clampInsertPosition(orderIndex: number, existingLength: number) {
     if (orderIndex < 1) return 1;
     return Math.min(orderIndex, existingLength + 1);
+  }
+
+  private clampZeroBasedInsertPosition(
+    orderIndex: number,
+    existingLength: number,
+  ) {
+    if (orderIndex < 0) return 0;
+    return Math.min(orderIndex, existingLength);
+  }
+
+  private temporaryZeroBasedOrderIndex(items: Array<{ orderIndex: number }>) {
+    return (
+      items.reduce((max, item) => Math.max(max, item.orderIndex), -1) + 1000
+    );
+  }
+
+  private normalizeForUniqueness(value: string) {
+    return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("vi-VN");
   }
 
   private temporaryOrderIndex(questions: Array<{ orderIndex: number }>) {
