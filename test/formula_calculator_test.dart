@@ -47,22 +47,16 @@ void main() {
         FormulaCalculator.calculate('0.5 * m * v^2', {'m': 2, 'v': 4}),
         16,
       );
-      expect(
-        FormulaCalculator.calculate('(a + b)^2', {'a': 3, 'b': 2}),
-        25,
-      );
+      expect(FormulaCalculator.calculate('(a + b)^2', {'a': 3, 'b': 2}), 25);
     });
 
     test('supports square root sqrt and √', () {
       expect(FormulaCalculator.calculate('sqrt(16)', {}), 4);
       expect(
         FormulaCalculator.calculate('sqrt(2 * g * h)', {'g': 9.8, 'h': 5}),
-        9.8,
+        closeTo(9.89949, 0.00001),
       );
-      expect(
-        FormulaCalculator.calculate('√(a^2 + b^2)', {'a': 3, 'b': 4}),
-        5,
-      );
+      expect(FormulaCalculator.calculate('√(a^2 + b^2)', {'a': 3, 'b': 4}), 5);
     });
 
     test('supports cube root cbrt and abs', () {
@@ -99,7 +93,9 @@ void main() {
       expect(FormulaCalculator.isSupported('sqrt(2 * g * h)'), isTrue);
       expect(FormulaCalculator.isSupported('2 * pi * sqrt(l / g)'), isTrue);
       expect(
-        FormulaCalculator.isSupported('sqrt(F1^2 + F2^2 + 2*F1*F2*cos_deg(alpha))'),
+        FormulaCalculator.isSupported(
+          'sqrt(F1^2 + F2^2 + 2*F1*F2*cos_deg(alpha))',
+        ),
         isTrue,
       );
     });

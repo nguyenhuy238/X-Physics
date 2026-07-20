@@ -68,7 +68,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         ),
                         const SizedBox(height: 16),
                         ElevatedButton(
-                          onPressed: () => provider.fetchNotifications(refresh: true),
+                          onPressed: () =>
+                              provider.fetchNotifications(refresh: true),
                           child: const Text('Thử lại'),
                         ),
                       ],
@@ -91,22 +92,31 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               Expanded(
                 child: ListView.separated(
                   itemCount: notifications.length,
-                  separatorBuilder: (context, index) => const Divider(height: 1),
+                  separatorBuilder: (context, index) =>
+                      const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final item = notifications[index];
                     return ListTile(
-                      tileColor: item.isRead ? Colors.white : Colors.blue.withOpacity(0.05),
+                      tileColor: item.isRead
+                          ? Colors.white
+                          : Colors.blue.withValues(alpha: 0.05),
                       leading: CircleAvatar(
-                        backgroundColor: item.type == 'ACHIEVEMENT' ? Colors.orange : Colors.blue,
+                        backgroundColor: item.type == 'ACHIEVEMENT'
+                            ? Colors.orange
+                            : Colors.blue,
                         child: Icon(
-                          item.type == 'ACHIEVEMENT' ? Icons.emoji_events : Icons.info_outline,
+                          item.type == 'ACHIEVEMENT'
+                              ? Icons.emoji_events
+                              : Icons.info_outline,
                           color: Colors.white,
                         ),
                       ),
                       title: Text(
                         item.title,
                         style: TextStyle(
-                          fontWeight: item.isRead ? FontWeight.normal : FontWeight.bold,
+                          fontWeight: item.isRead
+                              ? FontWeight.normal
+                              : FontWeight.bold,
                         ),
                       ),
                       subtitle: Column(
@@ -117,7 +127,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           const SizedBox(height: 4),
                           Text(
                             _formatDateTime(item.createdAt),
-                            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey[600],
+                            ),
                           ),
                         ],
                       ),

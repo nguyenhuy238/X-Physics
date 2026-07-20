@@ -28,6 +28,12 @@ export enum QuestionDifficulty {
   HARD = "HARD",
 }
 
+export enum NotificationType {
+  INFO = "INFO",
+  SYSTEM = "SYSTEM",
+  ACHIEVEMENT = "ACHIEVEMENT",
+}
+
 export class AdminFormulaVariableDto {
   @IsString()
   @IsNotEmpty()
@@ -312,6 +318,36 @@ export class AdminUsersQueryDto {
   @Max(100)
   @Type(() => Number)
   limit?: number;
+}
+
+export class SendNotificationDto {
+  @IsString({ message: "Tiêu đề thông báo không hợp lệ." })
+  @IsNotEmpty({ message: "Tiêu đề thông báo không được để trống." })
+  @MinLength(3, {
+    message: "Tiêu đề thông báo phải có ít nhất 3 ký tự.",
+  })
+  @MaxLength(150, {
+    message: "Tiêu đề thông báo không được vượt quá 150 ký tự.",
+  })
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
+  title!: string;
+
+  @IsString({ message: "Nội dung thông báo không hợp lệ." })
+  @IsNotEmpty({ message: "Nội dung thông báo không được để trống." })
+  @MinLength(3, {
+    message: "Nội dung thông báo phải có ít nhất 3 ký tự.",
+  })
+  @MaxLength(2000, {
+    message: "Nội dung thông báo không được vượt quá 2000 ký tự.",
+  })
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
+  message!: string;
+
+  @IsOptional()
+  @IsEnum(NotificationType, {
+    message: "Loại thông báo không hợp lệ.",
+  })
+  type?: NotificationType = NotificationType.INFO;
 }
 
 export class ReorderAdminQuestionsDto {

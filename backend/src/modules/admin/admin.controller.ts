@@ -16,6 +16,7 @@ import {
   AdminUsersQueryDto,
   AdminQuestionQueryDto,
   CreateAdminQuestionDto,
+  SendNotificationDto,
   ReorderAdminQuestionsDto,
   UpdateAdminQuestionDto,
   AdminQuizAttemptQueryDto,
@@ -83,7 +84,7 @@ export class AdminController {
   @ApiParam({ name: 'id', description: 'User ID' })
   async sendUserNotification(
     @Param('id') id: string,
-    @Body() dto: { title: string; message: string; type?: string },
+    @Body() dto: SendNotificationDto,
   ) {
     return ApiResponseDto.ok(
       await this.adminService.sendNotificationToUser(id, dto.title, dto.message, dto.type),

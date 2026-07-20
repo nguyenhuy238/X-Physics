@@ -22,14 +22,15 @@ class _NotificationIconState extends State<NotificationIcon> {
     });
   }
 
-
   void _handleTap(BuildContext context) {
     context.push('/notifications');
   }
 
   @override
   Widget build(BuildContext context) {
-    final unreadCount = context.select<NotificationProvider, int>((p) => p.unreadCount);
+    final unreadCount = context.select<NotificationProvider, int>(
+      (p) => p.unreadCount,
+    );
 
     return InkWell(
       customBorder: const CircleBorder(),
@@ -42,9 +43,13 @@ class _NotificationIconState extends State<NotificationIcon> {
             height: 40,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.grey.withOpacity(0.3)),
+              border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
             ),
-            child: Icon(Icons.notifications_none_rounded, size: 20, color: widget.color ?? Colors.black87),
+            child: Icon(
+              Icons.notifications_none_rounded,
+              size: 20,
+              color: widget.color ?? Colors.black87,
+            ),
           ),
           if (unreadCount > 0)
             Positioned(
@@ -71,4 +76,3 @@ class _NotificationIconState extends State<NotificationIcon> {
     );
   }
 }
-

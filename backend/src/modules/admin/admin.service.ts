@@ -13,6 +13,7 @@ import {
   AdminLessonDto,
   AdminQuestionQueryDto,
   CreateAdminQuestionDto,
+  NotificationType,
   QuestionDifficulty,
   ReorderAdminQuestionsDto,
   UpdateAdminQuestionDto,
@@ -67,7 +68,16 @@ export class AdminService {
     return this.database.adminUserProgress(userId);
   }
 
-  async sendNotificationToUser(userId: string, title: string, message: string, type: string = 'INFO') {
+  async sendNotificationToUser(
+    userId: string,
+    title: string,
+    message: string,
+    type: NotificationType = NotificationType.INFO,
+  ) {
+    const user = await this.database.findUserById(userId);
+    if (!user) {
+      throw new NotFoundException("Không tìm thấy học sinh.");
+    }
     return this.notificationsService.createNotification(
       userId,
       type,

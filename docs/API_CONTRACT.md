@@ -504,6 +504,7 @@ Admin content-management endpoints require an authenticated `ADMIN` or
 `403`.
 
 - `GET /api/admin/users`
+- `POST /api/admin/users/{id}/notify`
 - `GET /api/admin/statistics`
 - `POST /api/admin/chapters`
 - `PUT /api/admin/chapters/{id}`
@@ -517,6 +518,58 @@ Admin content-management endpoints require an authenticated `ADMIN` or
 - `PUT /api/admin/questions/{id}`
 - `PUT /api/admin/questions/reorder`
 - `DELETE /api/admin/questions/{id}`
+
+### POST /api/admin/users/{id}/notify
+
+Auth: required.
+Role: `ADMIN` or `TEACHER`.
+
+Sends one notification to a user selected from the Admin Students screen.
+
+Request:
+
+```json
+{
+  "title": "Nhac hoc bai",
+  "message": "Hay hoan thanh bai hoc hom nay.",
+  "type": "INFO"
+}
+```
+
+Validation:
+
+- `title` is trimmed, required, length `3..150`.
+- `message` is trimmed, required, length `3..2000`.
+- `type` is optional and defaults to `INFO`.
+- Allowed `type` values: `INFO`, `SYSTEM`, `ACHIEVEMENT`.
+- Unknown request fields are rejected by the global `ValidationPipe`.
+- Unknown target user returns `404` with message `Khong tim thay hoc sinh.`
+- `ADMIN` and `TEACHER` callers are allowed; `STUDENT` callers return `403`.
+- Missing token returns `401`.
+
+Validation error examples:
+
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "errors": [
+    {
+      "field": "title",
+      "message": "Tieu de thong bao khong duoc de trong."
+    }
+  ]
+}
+```
+
+Recommended user-facing messages:
+
+- Empty `title`: `Tieu de thong bao khong duoc de trong.`
+- Too-long `title`: `Tieu de thong bao khong duoc vuot qua 150 ky tu.`
+- Empty `message`: `Noi dung thong bao khong duoc de trong.`
+- Too-long `message`: `Noi dung thong bao khong duoc vuot qua 2000 ky tu.`
+- Invalid `type`: `Loai thong bao khong hop le.`
+- Unknown user: `Khong tim thay hoc sinh.`
 
 ### GET /api/admin/questions
 
