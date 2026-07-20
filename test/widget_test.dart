@@ -19,6 +19,8 @@ import 'package:x_physics/features/lessons/screens/lesson_screen.dart';
 import 'package:x_physics/features/admin/screens/admin_questions_screen.dart';
 import 'package:x_physics/features/auth/screens/login_screen.dart';
 import 'package:x_physics/features/auth/screens/register_screen.dart';
+import 'package:x_physics/features/notifications/providers/notification_provider.dart';
+import 'package:x_physics/features/notifications/repositories/notification_repository.dart';
 import 'package:x_physics/features/progress/application/app_state.dart';
 import 'package:x_physics/features/progress/screens/progress_screen.dart';
 import 'package:x_physics/features/profile/screens/profile_screen.dart';
@@ -587,6 +589,24 @@ class FakeAppState extends AppState {
   }
 }
 
+class FakeNotificationProvider extends NotificationProvider {
+  FakeNotificationProvider()
+    : super(
+        repository: NotificationRepository(
+          apiClient: ApiClient('', tokenStorage: FakeTokenStorage()),
+        ),
+      );
+
+  @override
+  Future<void> fetchNotifications({bool refresh = false}) async {}
+
+  @override
+  void startPolling() {}
+
+  @override
+  void stopPolling() {}
+}
+
 GoRouter _buildTestRouter({
   required FakeAppState state,
   String initialLocation = '/quiz/lesson-1',
@@ -628,8 +648,13 @@ Future<GoRouter> _pumpRouter(
   GoRouter router,
 ) async {
   await tester.pumpWidget(
-    ChangeNotifierProvider<AppState>.value(
-      value: state,
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AppState>.value(value: state),
+        ChangeNotifierProvider<NotificationProvider>(
+          create: (_) => FakeNotificationProvider(),
+        ),
+      ],
       child: MaterialApp.router(routerConfig: router),
     ),
   );
@@ -741,8 +766,13 @@ Future<void> _pumpAdminChapters(WidgetTester tester, FakeAppState state) async {
     role: 'ADMIN',
   );
   await tester.pumpWidget(
-    ChangeNotifierProvider<AppState>.value(
-      value: state,
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AppState>.value(value: state),
+        ChangeNotifierProvider<NotificationProvider>(
+          create: (_) => FakeNotificationProvider(),
+        ),
+      ],
       child: const MaterialApp(home: AdminChaptersScreen()),
     ),
   );
@@ -872,6 +902,7 @@ Future<void> _loadQuiz(WidgetTester tester, FakeAppState state) async {
 Future<void> _selectOnlyQuestionAndOpenConfirm(WidgetTester tester) async {
   await tester.tap(find.text('A1'));
   await tester.pump();
+  await tester.ensureVisible(find.widgetWithText(FilledButton, 'Nộp bài'));
   await tester.tap(find.text('Nộp bài'));
   await tester.pumpAndSettle();
 }
@@ -1181,10 +1212,12 @@ void main() {
 
     await tester.tap(find.text('A1'));
     await tester.pump();
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Tiếp tục'));
     await tester.tap(find.text('Tiếp tục'));
     await tester.pump();
     expect(find.text('Question 2'), findsOneWidget);
 
+    await tester.ensureVisible(find.widgetWithText(OutlinedButton, 'Trước'));
     await tester.tap(find.text('Trước'));
     await tester.pump();
 
@@ -1192,16 +1225,95 @@ void main() {
     expect(find.byIcon(Icons.radio_button_checked_rounded), findsOneWidget);
   });
 
-  testWidgets('next is disabled until current question has an answer', (
-    tester,
-  ) async {
+  testWidgets('next allows moving without selecting an answer', (tester) async {
     final state = FakeAppState();
     await _loadQuiz(tester, state);
 
     final next = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Tiếp tục'),
     );
-    expect(next.onPressed, isNull);
+    expect(next.onPressed, isNotNull);
+
+    await tester.ensureVisible(find.text('Tiếp tục'));
+    await tester.tap(find.text('Tiếp tục'));
+    await tester.pump();
+
+    expect(find.text('Question 2'), findsOneWidget);
+    expect(state.lastAnswers, isNull);
+  });
+
+  testWidgets('question navigator shows all questions and jumps directly', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    await _loadQuiz(tester, state);
+
+    expect(find.text('Danh sách câu hỏi'), findsOneWidget);
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('2'));
+    await tester.tap(find.text('2'));
+    await tester.pump();
+
+    expect(find.text('Question 2'), findsOneWidget);
+    expect(find.text('Question 1'), findsNothing);
+  });
+
+  testWidgets('star marking is independent and survives navigation', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    await _loadQuiz(tester, state);
+
+    await tester.tap(find.byIcon(Icons.star_border_rounded));
+    await tester.pump();
+    expect(find.byIcon(Icons.star_rounded), findsWidgets);
+
+    await tester.ensureVisible(find.text('Tiếp tục'));
+    await tester.tap(find.text('Tiếp tục'));
+    await tester.pump();
+    expect(find.text('Question 2'), findsOneWidget);
+    expect(find.byIcon(Icons.star_border_rounded), findsOneWidget);
+
+    await tester.ensureVisible(find.text('1'));
+    await tester.tap(find.text('1'));
+    await tester.pump();
+    expect(find.text('Question 1'), findsOneWidget);
+    expect(find.byIcon(Icons.star_rounded), findsWidgets);
+
+    await tester.ensureVisible(find.byTooltip('Bỏ đánh dấu'));
+    await tester.tap(find.byTooltip('Bỏ đánh dấu'));
+    await tester.pump();
+    expect(find.byIcon(Icons.star_border_rounded), findsOneWidget);
+  });
+
+  testWidgets('submit summary counts answered unanswered and starred', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    await _loadQuiz(tester, state);
+
+    await tester.tap(find.text('A1'));
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.star_border_rounded));
+    await tester.pump();
+    await tester.ensureVisible(find.text('Tiếp tục'));
+    await tester.tap(find.text('Tiếp tục'));
+    await tester.pump();
+    await tester.ensureVisible(find.text('Nộp bài'));
+    await tester.tap(find.text('Nộp bài'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Đã trả lời: 1/2'), findsOneWidget);
+    expect(find.text('Chưa trả lời: 1'), findsOneWidget);
+    expect(find.text('Đã đánh dấu: 1'), findsOneWidget);
+
+    await tester.tap(find.text('Nộp bài').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Question 2'), findsOneWidget);
+    expect(state.submitCount, 0);
   });
 
   testWidgets('double tapping submit confirmation sends one request', (
@@ -1273,7 +1385,9 @@ void main() {
     expect(find.byIcon(Icons.radio_button_checked_rounded), findsOneWidget);
 
     state.failSubmit = false;
-    await tester.tap(find.text('Thử lại'));
+    tester
+        .widget<TextButton>(find.widgetWithText(TextButton, 'Thử lại'))
+        .onPressed!();
     await tester.pumpAndSettle();
 
     expect(find.text('Kết quả'), findsOneWidget);
@@ -2209,6 +2323,7 @@ void main() {
 
     await tester.tap(find.text('A1'));
     await tester.pump();
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Nộp bài'));
     await tester.tap(find.text('Nộp bài'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Nộp bài').last);
@@ -2224,7 +2339,7 @@ void main() {
     final submitButton = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Nộp bài'),
     );
-    expect(submitButton.onPressed, isNull);
+    expect(submitButton.onPressed, isNotNull);
   });
 
   testWidgets('student cannot access admin questions route', (tester) async {

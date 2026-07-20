@@ -27,6 +27,7 @@ class QuizDraft {
     required this.secondsLeft,
     required this.answers,
     required this.totalQuestions,
+    this.starredQuestionIds = const <String>{},
   });
 
   final String lessonId;
@@ -34,6 +35,7 @@ class QuizDraft {
   final int secondsLeft;
   final Map<String, int> answers;
   final int totalQuestions;
+  final Set<String> starredQuestionIds;
 }
 
 class AppState extends ChangeNotifier {
@@ -1405,11 +1407,7 @@ class AppState extends ChangeNotifier {
     try {
       final response = await _apiClient.dio.post<Map<String, dynamic>>(
         ApiEndpoints.adminUserNotify(userId),
-        data: {
-          'title': title,
-          'message': message,
-          'type': 'INFO',
-        },
+        data: {'title': title, 'message': message, 'type': 'INFO'},
       );
       final body = response.data;
       if (body == null || body['success'] != true) {
@@ -1424,7 +1422,6 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     }
   }
-
 
   Future<bool> _authenticate(
     Future<Map<String, dynamic>> Function() request,
@@ -1474,6 +1471,7 @@ class AppState extends ChangeNotifier {
     required int secondsLeft,
     required Map<String, int> answers,
     required int totalQuestions,
+    Set<String> starredQuestionIds = const <String>{},
   }) {
     final normalizedLessonId = lessonId.trim();
     if (normalizedLessonId.isEmpty || totalQuestions <= 0) {
@@ -1485,6 +1483,7 @@ class AppState extends ChangeNotifier {
       secondsLeft: secondsLeft,
       answers: Map<String, int>.from(answers),
       totalQuestions: totalQuestions,
+      starredQuestionIds: Set<String>.from(starredQuestionIds),
     );
   }
 
