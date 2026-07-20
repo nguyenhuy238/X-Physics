@@ -898,7 +898,7 @@ class _AdminLessonsScreenState extends State<AdminLessonsScreen> {
             ),
             title: const Text('Xóa bài học?'),
             content: Text(
-              'Bạn sắp xóa "${lesson.title}". Bài học và toàn bộ tài nguyên liên quan sẽ bị xóa hoặc ẩn.',
+              'Bạn sắp xóa "${lesson.title}". Các câu hỏi, tiến độ học, lượt làm quiz, bài tải offline và mô phỏng liên quan cũng sẽ bị xóa.',
             ),
             actions: [
               TextButton(

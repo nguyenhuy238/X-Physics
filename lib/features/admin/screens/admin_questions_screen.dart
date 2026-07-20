@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -512,7 +513,7 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
 
   Future<void> _openForm({Question? question, Question? draft}) async {
     final isUpdate = question != null;
-    final result = await showDialog<Question>(
+    await showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (_) => _QuestionFormDialog(
@@ -521,41 +522,37 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
         saving: _saving,
         defaultChapterId: _chapterId,
         defaultLessonId: _lessonId,
+        onSave: (value) async {
+          setState(() => _saving = true);
+          try {
+            await context.read<AppState>().writeAdminQuestion(
+              value,
+              isUpdate: isUpdate,
+            );
+            if (!mounted) return 'Không thể lưu câu hỏi.';
+            await _loadQuestions(
+              refresh: _questions.isNotEmpty,
+              initial: _questions.isEmpty,
+            );
+            if (!mounted) return null;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  question == null ? 'Đã thêm câu hỏi.' : 'Đã lưu câu hỏi.',
+                ),
+              ),
+            );
+            return null;
+          } catch (error) {
+            return _friendlyError(
+              context.read<AppState>().readableError(error),
+            );
+          } finally {
+            if (mounted) setState(() => _saving = false);
+          }
+        },
       ),
     );
-    if (result == null || !mounted) return;
-    setState(() => _saving = true);
-    try {
-      await context.read<AppState>().writeAdminQuestion(
-        result,
-        isUpdate: isUpdate,
-      );
-      if (!mounted) return;
-      await _loadQuestions(
-        refresh: _questions.isNotEmpty,
-        initial: _questions.isEmpty,
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            question == null ? 'Đã thêm câu hỏi.' : 'Đã lưu câu hỏi.',
-          ),
-        ),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _friendlyError(context.read<AppState>().readableError(error)),
-          ),
-        ),
-      );
-      await _openForm(question: question, draft: result);
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
   }
 
   Future<void> _confirmDelete(Question question) async {
@@ -996,6 +993,7 @@ class _QuestionFormDialog extends StatefulWidget {
     required this.saving,
     this.defaultChapterId,
     this.defaultLessonId,
+    required this.onSave,
   });
 
   final Question? question;
@@ -1003,6 +1001,7 @@ class _QuestionFormDialog extends StatefulWidget {
   final bool saving;
   final String? defaultChapterId;
   final String? defaultLessonId;
+  final Future<String?> Function(Question question) onSave;
 
   @override
   State<_QuestionFormDialog> createState() => _QuestionFormDialogState();
@@ -1021,6 +1020,8 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
   var _initialFingerprint = '';
   var _baselineCaptured = false;
   var _saving = false;
+  String? _formError;
+  Map<String, String> _fieldErrors = const {};
 
   @override
   void initState() {
@@ -1151,12 +1152,17 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
                             child: Text(lesson.title),
                           ),
                       ],
-                      validator: (value) => value == null || value.isEmpty
-                          ? 'Phải chọn bài học'
-                          : null,
+                      validator: (value) =>
+                          _fieldErrors['lessonId'] ??
+                          (value == null || value.isEmpty
+                              ? 'Phải chọn bài học.'
+                              : null),
                       onChanged: widget.defaultLessonId != null
                           ? null
-                          : (value) => setState(() => _lessonId = value),
+                          : (value) => setState(() {
+                              _lessonId = value;
+                              _clearFieldError('lessonId');
+                            }),
                       decoration: const InputDecoration(labelText: 'Bài học'),
                     ),
                     const SizedBox(height: 12),
@@ -1168,7 +1174,8 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
                     decoration: const InputDecoration(
                       labelText: 'Nội dung câu hỏi',
                     ),
-                    validator: _required,
+                    onChanged: (_) => _clearFieldError('questionText'),
+                    validator: _questionValidator,
                   ),
                   const SizedBox(height: 12),
                   for (var i = 0; i < 4; i++) ...[
@@ -1177,7 +1184,8 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
                       decoration: InputDecoration(
                         labelText: 'Đáp án ${_letter(i)}',
                       ),
-                      validator: _required,
+                      onChanged: (_) => _clearFieldError('option$i'),
+                      validator: (value) => _optionValidator(i, value),
                     ),
                     const SizedBox(height: 12),
                   ],
@@ -1190,9 +1198,12 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
                       DropdownMenuItem(value: 2, child: Text('C')),
                       DropdownMenuItem(value: 3, child: Text('D')),
                     ],
-                    onChanged: (value) =>
-                        setState(() => _correctOption = value ?? 0),
+                    onChanged: (value) => setState(() {
+                      _correctOption = value ?? 0;
+                      _clearFieldError('correctOption');
+                    }),
                     decoration: const InputDecoration(labelText: 'Đáp án đúng'),
+                    validator: (_) => _fieldErrors['correctOption'],
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
@@ -1202,7 +1213,8 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
                     decoration: const InputDecoration(
                       labelText: 'Lời giải chi tiết',
                     ),
-                    validator: _required,
+                    onChanged: (_) => _clearFieldError('explanation'),
+                    validator: _explanationValidator,
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
@@ -1216,25 +1228,36 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
                       ),
                       DropdownMenuItem(value: 'HARD', child: Text('Khó')),
                     ],
-                    onChanged: (value) =>
-                        setState(() => _difficulty = value ?? 'MEDIUM'),
+                    onChanged: (value) => setState(() {
+                      _difficulty = value ?? 'MEDIUM';
+                      _clearFieldError('difficulty');
+                    }),
                     decoration: const InputDecoration(labelText: 'Độ khó'),
+                    validator: (_) => _fieldErrors['difficulty'],
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _order,
                     keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     decoration: const InputDecoration(
                       labelText: 'Thứ tự hiển thị',
                     ),
-                    validator: (value) {
-                      final parsed = int.tryParse(value ?? '');
-                      if (parsed == null || parsed < 1) {
-                        return 'Thứ tự hiển thị phải >= 1';
-                      }
-                      return null;
-                    },
+                    onChanged: (_) => _clearFieldError('orderIndex'),
+                    validator: _orderValidator,
                   ),
+                  if (_formError != null) ...[
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        _formError!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1264,24 +1287,63 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
     );
   }
 
-  String? _required(String? value) {
-    if (value == null || value.trim().isEmpty) return 'Bắt buộc';
+  String? _questionValidator(String? value) {
+    final backendError = _fieldErrors['questionText'];
+    if (backendError != null) return backendError;
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return 'Nội dung câu hỏi không được để trống.';
+    if (text.length < 3) return 'Nội dung câu hỏi phải có ít nhất 3 ký tự.';
+    if (text.length > 1000) {
+      return 'Nội dung câu hỏi không được vượt quá 1000 ký tự.';
+    }
     return null;
   }
 
-  void _submit() {
-    if (_saving || _formKey.currentState?.validate() != true) return;
-    final options = _options.map((item) => item.text.trim()).toList();
-    final normalized = options.map((item) => item.toLowerCase()).toSet();
-    if (normalized.length != options.length) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Các option không được trùng nhau.')),
-      );
+  String? _explanationValidator(String? value) {
+    final backendError = _fieldErrors['explanation'];
+    if (backendError != null) return backendError;
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return 'Lời giải không được để trống.';
+    if (text.length < 3) return 'Lời giải phải có ít nhất 3 ký tự.';
+    if (text.length > 2000) return 'Lời giải không được vượt quá 2000 ký tự.';
+    return null;
+  }
+
+  String? _optionValidator(int index, String? value) {
+    final backendError = _fieldErrors['option$index'];
+    if (backendError != null) return backendError;
+    if ((value?.trim() ?? '').isEmpty) {
+      return 'Đáp án ${_letter(index)} không được để trống.';
+    }
+    return null;
+  }
+
+  String? _orderValidator(String? value) {
+    final backendError = _fieldErrors['orderIndex'];
+    if (backendError != null) return backendError;
+    final parsed = int.tryParse(value ?? '');
+    if (parsed == null) return 'Thứ tự hiển thị phải là số nguyên.';
+    if (parsed < 1) return 'Thứ tự hiển thị phải lớn hơn hoặc bằng 1.';
+    return null;
+  }
+
+  Future<void> _submit() async {
+    if (_saving) return;
+    setState(() {
+      _fieldErrors = const {};
+      _formError = null;
+    });
+    final localFieldErrors = _validateCrossFields();
+    if (localFieldErrors.isNotEmpty) {
+      setState(() => _fieldErrors = localFieldErrors);
+    }
+    if (_formKey.currentState?.validate() != true ||
+        localFieldErrors.isNotEmpty) {
       return;
     }
+    final options = _options.map((item) => item.text.trim()).toList();
     setState(() => _saving = true);
-    Navigator.pop(
-      context,
+    final error = await widget.onSave(
       Question(
         id: widget.question?.id ?? '',
         lessonId: _lessonId ?? '',
@@ -1294,6 +1356,73 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
         orderIndex: int.tryParse(_order.text) ?? 1,
       ),
     );
+    if (!mounted) return;
+    if (error == null) {
+      Navigator.pop(context);
+      return;
+    }
+    setState(() {
+      _saving = false;
+      _fieldErrors = _fieldErrorsFromBackend(error);
+      _formError = _fieldErrors.isEmpty ? error : null;
+    });
+    _formKey.currentState?.validate();
+  }
+
+  Map<String, String> _validateCrossFields() {
+    final errors = <String, String>{};
+    final options = _options.map((item) => item.text.trim()).toList();
+    final seen = <String, int>{};
+    for (var i = 0; i < options.length; i++) {
+      final normalized = options[i].toLowerCase();
+      if (normalized.isEmpty) continue;
+      final firstIndex = seen[normalized];
+      if (firstIndex != null) {
+        const message = 'Các đáp án không được trùng nhau.';
+        errors['option$firstIndex'] = message;
+        errors['option$i'] = message;
+      } else {
+        seen[normalized] = i;
+      }
+    }
+    if (_correctOption < 0 || _correctOption >= options.length) {
+      errors['correctOption'] = 'Đáp án đúng không hợp lệ.';
+    } else if (options[_correctOption].isEmpty) {
+      errors['correctOption'] = 'Đáp án đúng đang trống.';
+    }
+    if ((_lessonId ?? '').trim().isEmpty) {
+      errors['lessonId'] = 'Phải chọn bài học.';
+    }
+    return errors;
+  }
+
+  Map<String, String> _fieldErrorsFromBackend(String message) {
+    final lower = message.toLowerCase();
+    if (lower.contains('option')) {
+      return {
+        for (var i = 0; i < 4; i++)
+          'option$i': 'Các đáp án không được trùng nhau.',
+      };
+    }
+    if (lower.contains('question') || message.contains('Nội dung câu hỏi')) {
+      return {'questionText': message};
+    }
+    if (lower.contains('explanation') || message.contains('Lời giải')) {
+      return {'explanation': message};
+    }
+    if (lower.contains('lesson') || message.contains('Bài học')) {
+      return {'lessonId': message};
+    }
+    if (lower.contains('order')) return {'orderIndex': message};
+    if (lower.contains('correct')) return {'correctOption': message};
+    if (lower.contains('difficulty')) return {'difficulty': message};
+    return const {};
+  }
+
+  void _clearFieldError(String key) {
+    if (_fieldErrors.isEmpty && _formError == null) return;
+    _fieldErrors = Map<String, String>.from(_fieldErrors)..remove(key);
+    _formError = null;
   }
 
   bool get _hasChanges => _fingerprint() != _initialFingerprint;

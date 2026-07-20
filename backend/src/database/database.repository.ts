@@ -605,8 +605,9 @@ export class DatabaseRepository {
   async updateChapter(
     id: string,
     input: Omit<Parameters<DatabaseRepository["upsertChapter"]>[0], "id">,
+    db: Db = this.pool,
   ) {
-    const result = await this.pool.query<ChapterRow>(
+    const result = await db.query<ChapterRow>(
       `update chapters
        set title = $2,
            description = $3,
@@ -642,8 +643,8 @@ export class DatabaseRepository {
     return { id, deleted: true, mode: "hard" };
   }
 
-  async removeChapterWithLessonCheck(id: string) {
-    const lessonCountResult = await this.pool.query<{ count: string }>(
+  async removeChapterWithLessonCheck(id: string, db: Db = this.pool) {
+    const lessonCountResult = await db.query<{ count: string }>(
       `select count(*) as count from lessons where chapter_id = $1`,
       [id],
     );
@@ -654,7 +655,7 @@ export class DatabaseRepository {
       );
     }
 
-    const result = await this.pool.query<ChapterRow>(
+    const result = await db.query<ChapterRow>(
       `delete from chapters where id = $1 returning *`,
       [id],
     );
@@ -662,6 +663,39 @@ export class DatabaseRepository {
       throw new NotFoundException("Chapter not found");
     }
     return { id, deleted: true, mode: "hard" };
+  }
+
+  async listAdminChaptersOrdered(db: Db = this.pool) {
+    const result = await db.query<ChapterRow>(
+      "select * from chapters order by order_index asc, id asc",
+    );
+    return result.rows.map((row) => this.mapChapter(row));
+  }
+
+  async findAdminChapter(id: string, db: Db = this.pool) {
+    const result = await db.query<ChapterRow>(
+      "select * from chapters where id = $1",
+      [id],
+    );
+    return result.rows[0] ? this.mapChapter(result.rows[0]) : null;
+  }
+
+  async setChapterOrder(chapterIds: string[], db: Db = this.pool) {
+    if (chapterIds.length === 0) return [];
+    const result = await db.query<ChapterRow>(
+      `with ordered as (
+         select id, ordinality - 1 as order_index
+         from unnest($1::varchar[]) with ordinality as t(id, ordinality)
+       )
+       update chapters c
+       set order_index = ordered.order_index,
+           updated_at = now()
+       from ordered
+       where c.id = ordered.id
+       returning c.*`,
+      [chapterIds],
+    );
+    return result.rows.map((row) => this.mapChapter(row));
   }
 
   async upsertLesson(input: {
@@ -736,8 +770,8 @@ export class DatabaseRepository {
     return this.mapLesson(result.rows[0]);
   }
 
-  async softDeleteLesson(id: string) {
-    const result = await this.pool.query<LessonRow>(
+  async softDeleteLesson(id: string, db: Db = this.pool) {
+    const result = await db.query<LessonRow>(
       `delete from lessons
        where id = $1
        returning *`,
@@ -747,6 +781,34 @@ export class DatabaseRepository {
       throw new NotFoundException("Lesson not found");
     }
     return { id, deleted: true, mode: "hard" };
+  }
+
+  async listAdminLessonsByChapter(chapterId: string, db: Db = this.pool) {
+    const result = await db.query<LessonRow>(
+      `select * from lessons
+       where chapter_id = $1
+       order by order_index asc, id asc`,
+      [chapterId],
+    );
+    return result.rows.map((row) => this.mapLesson(row));
+  }
+
+  async setLessonOrder(lessonIds: string[], db: Db = this.pool) {
+    if (lessonIds.length === 0) return [];
+    const result = await db.query<LessonRow>(
+      `with ordered as (
+         select id, ordinality - 1 as order_index
+         from unnest($1::varchar[]) with ordinality as t(id, ordinality)
+       )
+       update lessons l
+       set order_index = ordered.order_index,
+           updated_at = now()
+       from ordered
+       where l.id = ordered.id
+       returning l.*`,
+      [lessonIds],
+    );
+    return result.rows.map((row) => this.mapLesson(row));
   }
 
   async upsertQuestion(
@@ -1647,14 +1709,17 @@ export class DatabaseRepository {
     }));
   }
 
-  async createChapter(input: {
-    id: string;
-    title: string;
-    description: string;
-    orderIndex: number;
-    isPublished?: boolean;
-  }) {
-    const result = await this.pool.query<ChapterRow>(
+  async createChapter(
+    input: {
+      id: string;
+      title: string;
+      description: string;
+      orderIndex: number;
+      isPublished?: boolean;
+    },
+    db: Db = this.pool,
+  ) {
+    const result = await db.query<ChapterRow>(
       `insert into chapters (id, title, description, order_index, is_published)
        values ($1, $2, $3, $4, $5)
        on conflict (id) do update set
@@ -2552,16 +2617,15 @@ export class DatabaseRepository {
 
   async listAllStudentIds(db: Db = this.pool): Promise<string[]> {
     const result = await db.query<{ id: string }>(
-      "select id from users where role = 'STUDENT'"
+      "select id from users where role = 'STUDENT'",
     );
     return result.rows.map((row) => row.id);
   }
 
   async listAllAdminAndTeacherIds(db: Db = this.pool): Promise<string[]> {
     const result = await db.query<{ id: string }>(
-      "select id from users where role in ('ADMIN', 'TEACHER')"
+      "select id from users where role in ('ADMIN', 'TEACHER')",
     );
     return result.rows.map((row) => row.id);
   }
 }
-

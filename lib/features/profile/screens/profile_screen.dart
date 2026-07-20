@@ -1318,8 +1318,9 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                 maxLength: 120,
                 textInputAction: TextInputAction.done,
                 decoration: const InputDecoration(labelText: 'Họ tên'),
-                validator: (value) =>
-                    value == null || value.trim().isEmpty ? 'Không được để trống!' : null,
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Không được để trống!'
+                    : null,
                 onFieldSubmitted: (_) => _submit(),
               ),
               if (_errorMessage != null) ...[
@@ -1384,6 +1385,9 @@ String? _passwordValidator(String? value) {
   }
   if (value.length < 6) {
     return 'Tối thiểu 6 ký tự';
+  }
+  if (value.length > 72) {
+    return 'Mật khẩu không được vượt quá 72 ký tự.';
   }
   return null;
 }
@@ -1535,7 +1539,13 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
                   labelText: 'Mật khẩu mới',
                   errorText: fieldErrors['newPassword'],
                 ),
-                validator: _passwordValidator,
+                validator: (value) {
+                  final passwordError = _passwordValidator(value);
+                  if (passwordError != null) return passwordError;
+                  return value == _currentPassword.text
+                      ? 'Mật khẩu mới phải khác mật khẩu hiện tại.'
+                      : null;
+                },
               ),
               const SizedBox(height: 12),
               TextFormField(

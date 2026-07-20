@@ -29,6 +29,11 @@ Index: unique `email`.
 | created_at   | timestamptz  | not null         |
 | updated_at   | timestamptz  | not null         |
 
+Ordering convention: chapter order is zero-based for compatibility with
+existing admin data and is compacted by Admin create/update/delete transactions.
+Title uniqueness is currently enforced in Admin service logic after trim,
+whitespace collapse, and Vietnamese lowercase normalization.
+
 ## lessons
 
 | Column            | Type         | Constraint     |
@@ -46,6 +51,11 @@ Index: unique `email`.
 
 Index: `(chapter_id, order_index)`.
 
+Ordering convention: lesson order is zero-based inside each chapter and is
+compacted by Admin create/update/delete transactions. Lesson title uniqueness
+inside a chapter is currently enforced in Admin service logic after trim,
+whitespace collapse, and Vietnamese lowercase normalization.
+
 ## simulations
 
 | Column         | Type         | Constraint    |
@@ -62,16 +72,16 @@ Index: `lesson_id`.
 
 ## questions
 
-| Column         | Type         | Constraint    |
-| -------------- | ------------ | ------------- |
-| id             | varchar(100) | primary key   |
-| lesson_id      | varchar(80)  | fk lessons.id |
-| question_text  | text         | not null      |
-| options_json   | jsonb        | not null      |
-| correct_option | integer      | not null      |
-| explanation    | text         | not null      |
+| Column         | Type         | Constraint                       |
+| -------------- | ------------ | -------------------------------- |
+| id             | varchar(100) | primary key                      |
+| lesson_id      | varchar(80)  | fk lessons.id                    |
+| question_text  | text         | not null                         |
+| options_json   | jsonb        | not null                         |
+| correct_option | integer      | not null                         |
+| explanation    | text         | not null                         |
 | difficulty     | varchar(20)  | EASY/MEDIUM/HARD, default MEDIUM |
-| order_index    | integer      | not null      |
+| order_index    | integer      | not null                         |
 
 Index: `(lesson_id, order_index)`.
 Unique: `(lesson_id, order_index)`.
