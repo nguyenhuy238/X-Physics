@@ -40,15 +40,18 @@ class NotificationListenerWrapper extends StatefulWidget {
       _NotificationListenerWrapperState();
 }
 
-class _NotificationListenerWrapperState extends State<NotificationListenerWrapper> {
+class _NotificationListenerWrapperState
+    extends State<NotificationListenerWrapper> {
   StreamSubscription? _subscription;
+  NotificationProvider? _provider;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<NotificationProvider>();
-      
+      _provider = provider;
+
       // Initialize local notifications for mobile (Android/iOS)
       LocalNotificationService.initialize((payload) {
         if (mounted) {
@@ -56,11 +59,14 @@ class _NotificationListenerWrapperState extends State<NotificationListenerWrappe
         }
       });
 
-      
       _subscription = provider.onNewNotification.listen((notification) {
-        final isMobile = defaultTargetPlatform == TargetPlatform.android ||
+        if (!mounted) {
+          return;
+        }
+        final isMobile =
+            defaultTargetPlatform == TargetPlatform.android ||
             defaultTargetPlatform == TargetPlatform.iOS;
-            
+
         if (isMobile && !kIsWeb) {
           // Show native system notification in tray
           LocalNotificationService.showNotification(
@@ -70,10 +76,7 @@ class _NotificationListenerWrapperState extends State<NotificationListenerWrappe
           );
         } else {
           // Show premium in-app sliding top banner for Web/Desktop
-          InAppNotification.show(
-            context: context,
-            notification: notification,
-          );
+          InAppNotification.show(context: context, notification: notification);
         }
       });
     });
@@ -82,7 +85,7 @@ class _NotificationListenerWrapperState extends State<NotificationListenerWrappe
   @override
   void dispose() {
     _subscription?.cancel();
-    context.read<NotificationProvider>().stopPolling();
+    _provider?.stopPolling();
     super.dispose();
   }
 

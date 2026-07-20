@@ -12,10 +12,34 @@ import { AdminService } from "./admin.service";
 import {
   AdminQuestionQueryDto,
   CreateAdminQuestionDto,
+  SendNotificationDto,
 } from "./dto/admin-content.dto";
 import { LessonsService } from "../lessons/lessons.service";
 
 class FakeAdminDatabase {
+  users = new Map([
+    [
+      "student-1",
+      {
+        id: "student-1",
+        name: "Student One",
+        email: "student@example.com",
+        role: "STUDENT",
+        coins: 0,
+      },
+    ],
+    [
+      "teacher-1",
+      {
+        id: "teacher-1",
+        name: "Teacher One",
+        email: "teacher@example.com",
+        role: "TEACHER",
+        coins: 0,
+      },
+    ],
+  ]);
+
   lessons = new Map([
     [
       "lesson-1",
@@ -243,6 +267,10 @@ class FakeAdminDatabase {
       }
     });
     return questionIds.map((id, index) => ({ id, orderIndex: index + 1 }));
+  }
+
+  async findUserById(id: string) {
+    return this.users.get(id) ?? null;
   }
 
   async findLesson(id: string) {
@@ -689,6 +717,117 @@ describe("AdminQuestionDto validation", () => {
       const errors = await validate(dto);
       expect(errors.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("SendNotificationDto validation", () => {
+  async function validateNotification(input: Record<string, unknown>) {
+    const dto = plainToInstance(SendNotificationDto, input);
+    return validate(dto, {
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    });
+  }
+
+  it("accepts valid notification input and default type", async () => {
+    const dto = plainToInstance(SendNotificationDto, {
+      title: "  Nhắc học bài  ",
+      message: "  Hãy hoàn thành bài hôm nay.  ",
+    });
+
+    const errors = await validate(dto);
+
+    expect(errors).toHaveLength(0);
+    expect(dto.title).toBe("Nhắc học bài");
+    expect(dto.message).toBe("Hãy hoàn thành bài hôm nay.");
+    expect(dto.type).toBe("INFO");
+  });
+
+  it("rejects invalid title, message, type, and extra fields", async () => {
+    const invalidInputs = [
+      { title: "", message: "Valid message" },
+      { title: "   ", message: "Valid message" },
+      { title: "ab", message: "Valid message" },
+      { title: "a".repeat(151), message: "Valid message" },
+      { title: "Valid title", message: "" },
+      { title: "Valid title", message: "   " },
+      { title: "Valid title", message: "a".repeat(2001) },
+      { title: "Valid title", message: "Valid message", type: "BAD" },
+      {
+        title: "Valid title",
+        message: "Valid message",
+        unexpected: "field",
+      },
+    ];
+
+    for (const input of invalidInputs) {
+      const errors = await validateNotification(input);
+      expect(errors.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("AdminService notifications", () => {
+  let database: FakeAdminDatabase;
+  let service: AdminService;
+  let notificationsService: { createNotification: jest.Mock };
+
+  beforeEach(() => {
+    database = new FakeAdminDatabase();
+    notificationsService = { createNotification: jest.fn() };
+    service = new AdminService(database as any, notificationsService as any);
+  });
+
+  it("sends a valid notification to an existing user", async () => {
+    notificationsService.createNotification.mockResolvedValue({
+      id: "notification-1",
+    });
+
+    await expect(
+      service.sendNotificationToUser(
+        "student-1",
+        "Nhắc học bài",
+        "Hãy hoàn thành bài hôm nay.",
+      ),
+    ).resolves.toEqual({ id: "notification-1" });
+    expect(notificationsService.createNotification).toHaveBeenCalledWith(
+      "student-1",
+      "INFO",
+      "Nhắc học bài",
+      "Hãy hoàn thành bài hôm nay.",
+    );
+  });
+
+  it("supports explicit notification types used by the app", async () => {
+    notificationsService.createNotification.mockResolvedValue({
+      id: "notification-2",
+    });
+
+    await expect(
+      service.sendNotificationToUser(
+        "teacher-1",
+        "Thông báo hệ thống",
+        "Nội dung thông báo.",
+        "SYSTEM" as any,
+      ),
+    ).resolves.toEqual({ id: "notification-2" });
+    expect(notificationsService.createNotification).toHaveBeenCalledWith(
+      "teacher-1",
+      "SYSTEM",
+      "Thông báo hệ thống",
+      "Nội dung thông báo.",
+    );
+  });
+
+  it("returns a friendly 404 when the target user does not exist", async () => {
+    await expect(
+      service.sendNotificationToUser(
+        "missing-user",
+        "Nhắc học bài",
+        "Hãy hoàn thành bài hôm nay.",
+      ),
+    ).rejects.toThrow("Không tìm thấy học sinh.");
+    expect(notificationsService.createNotification).not.toHaveBeenCalled();
   });
 });
 

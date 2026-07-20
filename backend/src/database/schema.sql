@@ -13,6 +13,17 @@ create table if not exists users (
   updated_at timestamptz not null default now()
 );
 
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'users_coins_non_negative'
+  ) then
+    alter table users
+      add constraint users_coins_non_negative
+      check (coins >= 0) not valid;
+  end if;
+end $$;
+
 alter table users
   add column if not exists refresh_token_hash text,
   add column if not exists refresh_token_expires_at timestamptz;
@@ -75,6 +86,31 @@ create table if not exists questions (
   order_index integer not null
 );
 
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'questions_correct_option_range'
+  ) then
+    alter table questions
+      add constraint questions_correct_option_range
+      check (correct_option between 0 and 3) not valid;
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'questions_options_json_four_items'
+  ) then
+    alter table questions
+      add constraint questions_options_json_four_items
+      check (
+        jsonb_typeof(options_json) = 'array'
+        and jsonb_array_length(options_json) = 4
+      ) not valid;
+  end if;
+end $$;
+
 alter table questions
   add column if not exists difficulty varchar(20) not null default 'MEDIUM';
 
@@ -124,6 +160,54 @@ create table if not exists quiz_attempts (
   coins_earned integer not null default 0,
   created_at timestamptz not null default now()
 );
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'quiz_attempts_score_range'
+  ) then
+    alter table quiz_attempts
+      add constraint quiz_attempts_score_range
+      check (score between 0 and 10) not valid;
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'quiz_attempts_counts_valid'
+  ) then
+    alter table quiz_attempts
+      add constraint quiz_attempts_counts_valid
+      check (
+        correct_count >= 0
+        and total_questions > 0
+        and correct_count <= total_questions
+      ) not valid;
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'quiz_attempts_duration_non_negative'
+  ) then
+    alter table quiz_attempts
+      add constraint quiz_attempts_duration_non_negative
+      check (duration_seconds >= 0) not valid;
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'quiz_attempts_coins_non_negative'
+  ) then
+    alter table quiz_attempts
+      add constraint quiz_attempts_coins_non_negative
+      check (coins_earned >= 0) not valid;
+  end if;
+end $$;
 
 alter table quiz_attempts
   add column if not exists duration_seconds integer not null default 0;

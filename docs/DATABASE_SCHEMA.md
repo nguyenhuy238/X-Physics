@@ -11,7 +11,7 @@ Suggested database: PostgreSQL.
 | email         | varchar(180) | unique, not null        |
 | password_hash | text         | not null                |
 | role          | varchar(30)  | STUDENT, TEACHER, ADMIN |
-| coins         | integer      | default 0               |
+| coins         | integer      | default 0, >= 0         |
 | created_at    | timestamptz  | not null                |
 | updated_at    | timestamptz  | not null                |
 
@@ -75,6 +75,11 @@ Index: `lesson_id`.
 
 Index: `(lesson_id, order_index)`.
 Unique: `(lesson_id, order_index)`.
+Checks:
+
+- `questions_correct_option_range`: `correct_option between 0 and 3`.
+- `questions_options_json_four_items`: `options_json` must be a JSON array with
+  exactly 4 items.
 
 Ordering convention: question order starts at `1` inside each lesson and is kept
 compact by Admin create/update/delete/reorder transactions.
@@ -91,6 +96,19 @@ alter table questions
 ```
 
 If `questions_difficulty_check` already exists, skip the second statement.
+
+Existing-data compatibility checks before enabling V1 constraints:
+
+```sql
+select id, correct_option
+from questions
+where correct_option < 0 or correct_option > 3;
+
+select id, options_json
+from questions
+where jsonb_typeof(options_json) <> 'array'
+   or jsonb_array_length(options_json) <> 4;
+```
 
 Existing databases with duplicate or sparse order can compact safely with:
 
@@ -122,6 +140,35 @@ where q.id = ordered_questions.id;
 | created_at       | timestamptz  | not null      |
 
 Index: `(user_id, lesson_id)`.
+Checks:
+
+- `quiz_attempts_score_range`: score is `0..10`.
+- `quiz_attempts_counts_valid`: `correct_count >= 0`,
+  `total_questions > 0`, and `correct_count <= total_questions`.
+- `quiz_attempts_duration_non_negative`: `duration_seconds >= 0`.
+- `quiz_attempts_coins_non_negative`: `coins_earned >= 0`.
+
+Existing-data compatibility checks:
+
+```sql
+select id, score
+from quiz_attempts
+where score < 0 or score > 10;
+
+select id, correct_count, total_questions
+from quiz_attempts
+where correct_count < 0
+   or total_questions <= 0
+   or correct_count > total_questions;
+
+select id, duration_seconds
+from quiz_attempts
+where duration_seconds < 0;
+
+select id, coins_earned
+from quiz_attempts
+where coins_earned < 0;
+```
 
 ## progress
 
@@ -212,3 +259,60 @@ Server-side metadata is optional, but useful for analytics.
 | client_device_id | varchar(120) | nullable      |
 
 Unique: `(user_id, lesson_id, client_device_id)`.
+
+## V1 ALTER TABLE SQL for existing databases
+
+The project schema adds the new checks with `NOT VALID` so existing databases
+can adopt the constraints without silently changing or deleting old rows. New
+and updated rows are still protected. Run the compatibility queries above,
+clean any reported rows manually, then run `VALIDATE CONSTRAINT`.
+
+```sql
+alter table users
+  add constraint users_coins_non_negative
+  check (coins >= 0) not valid;
+
+alter table questions
+  add constraint questions_correct_option_range
+  check (correct_option between 0 and 3) not valid;
+
+alter table questions
+  add constraint questions_options_json_four_items
+  check (
+    jsonb_typeof(options_json) = 'array'
+    and jsonb_array_length(options_json) = 4
+  ) not valid;
+
+alter table quiz_attempts
+  add constraint quiz_attempts_score_range
+  check (score between 0 and 10) not valid;
+
+alter table quiz_attempts
+  add constraint quiz_attempts_counts_valid
+  check (
+    correct_count >= 0
+    and total_questions > 0
+    and correct_count <= total_questions
+  ) not valid;
+
+alter table quiz_attempts
+  add constraint quiz_attempts_duration_non_negative
+  check (duration_seconds >= 0) not valid;
+
+alter table quiz_attempts
+  add constraint quiz_attempts_coins_non_negative
+  check (coins_earned >= 0) not valid;
+```
+
+If a constraint already exists, skip its `alter table add constraint` statement.
+After cleanup:
+
+```sql
+alter table users validate constraint users_coins_non_negative;
+alter table questions validate constraint questions_correct_option_range;
+alter table questions validate constraint questions_options_json_four_items;
+alter table quiz_attempts validate constraint quiz_attempts_score_range;
+alter table quiz_attempts validate constraint quiz_attempts_counts_valid;
+alter table quiz_attempts validate constraint quiz_attempts_duration_non_negative;
+alter table quiz_attempts validate constraint quiz_attempts_coins_non_negative;
+```
