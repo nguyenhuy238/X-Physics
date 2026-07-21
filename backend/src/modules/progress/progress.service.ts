@@ -125,6 +125,7 @@ export class ProgressService {
         description: badge.description,
         iconUrl: badge.iconUrl,
         ruleKey: badge.ruleKey,
+        conditionValue: badge.conditionValue,
         achievedAt: badge.achievedAt,
       })),
       lockedBadges: allBadges
@@ -144,6 +145,7 @@ export class ProgressService {
             description: badge.description,
             iconUrl: badge.iconUrl,
             ruleKey: badge.ruleKey,
+            conditionValue: badge.conditionValue,
             progressCurrent: progress.current,
             progressTarget: progress.target,
           };
@@ -183,15 +185,21 @@ export class ProgressService {
 
   async update(user: AuthenticatedUser, dto: UpdateProgressDto) {
     return this.database.withTransaction(async (client) => {
-      const progress = await this.database.upsertProgress({
-        userId: user.id,
-        lessonId: dto.lessonId,
-        status: dto.status,
-        progressPercent: dto.progressPercent,
-      }, client);
+      const progress = await this.database.upsertProgress(
+        {
+          userId: user.id,
+          lessonId: dto.lessonId,
+          status: dto.status,
+          progressPercent: dto.progressPercent,
+        },
+        client,
+      );
 
-      if (dto.status === 'COMPLETED') {
-        const lesson = await this.database.findAdminLesson(dto.lessonId, client);
+      if (dto.status === "COMPLETED") {
+        const lesson = await this.database.findAdminLesson(
+          dto.lessonId,
+          client,
+        );
         if (lesson) {
           await this.notificationsService.awardBadgesAndNotify(
             user.id,
