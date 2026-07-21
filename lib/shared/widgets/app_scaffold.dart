@@ -7,7 +7,6 @@ import '../../core/theme/app_colors.dart';
 import '../../features/progress/application/app_state.dart';
 import '../../features/notifications/widgets/notification_icon.dart';
 
-
 class XScaffold extends StatelessWidget {
   const XScaffold({
     super.key,
@@ -19,6 +18,7 @@ class XScaffold extends StatelessWidget {
     this.handleSystemBack = true,
     this.showThemeModeAction = true,
     this.showOfflineSimulationAction = true,
+    this.showAppBar = true,
   });
   final String title;
   final Widget child;
@@ -28,6 +28,7 @@ class XScaffold extends StatelessWidget {
   final bool handleSystemBack;
   final bool showThemeModeAction;
   final bool showOfflineSimulationAction;
+  final bool showAppBar;
 
   static final Expando<PageStorageBucket> _pageStorageBuckets = Expando();
   static const double bottomNavigationHeight = 72;
@@ -39,66 +40,74 @@ class XScaffold extends StatelessWidget {
     final bottomNavIndex = _bottomNavIndex(path);
     final shouldShowBack = showBackButton ?? _isDetailRoute(path);
     final scaffold = Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        leading: shouldShowBack
-            ? IconButton(
-                tooltip: 'Quay lại',
-                onPressed: () => _goBack(context, path),
-                icon: const Icon(Icons.arrow_back_rounded),
-              )
-            : null,
-        title: Text(title),
-        actions: [
-          NotificationIcon(color: Theme.of(context).colorScheme.onSurface),
-          const SizedBox(width: 8),
-          if (bottomNavIndex == null) ...[
-            IconButton(
-              tooltip: 'Bài học offline',
-              onPressed: () => context.go('/offline'),
-              icon: const Icon(Icons.download_done_rounded),
-            ),
-            IconButton(
-              tooltip: 'Hồ sơ',
-              onPressed: () => context.go('/profile'),
-              icon: const Icon(Icons.person_rounded),
-            ),
-          ],
-          if (kDebugMode && showOfflineSimulationAction)
-            Semantics(
-              label: state.effectiveOffline
-                  ? 'Đang giả lập ngoại tuyến'
-                  : 'Đang dùng kết nối mạng',
-              button: true,
-              child: Tooltip(
-                message: state.simulateOffline
-                    ? 'Tắt giả lập ngoại tuyến'
-                    : 'Bật giả lập ngoại tuyến để kiểm tra và trình diễn',
-                child: Switch(
-                  value: state.simulateOffline,
-                  onChanged: state.setOfflineMode,
-                  thumbIcon: WidgetStateProperty.resolveWith<Icon?>((states) {
-                    if (states.contains(WidgetState.selected)) {
-                      return const Icon(Icons.cloud_off_rounded);
-                    }
-                    return const Icon(Icons.cloud_done_rounded);
-                  }),
+      appBar: showAppBar
+          ? AppBar(
+              automaticallyImplyLeading: false,
+              leading: shouldShowBack
+                  ? IconButton(
+                      tooltip: 'Quay lại',
+                      onPressed: () => _goBack(context, path),
+                      icon: const Icon(Icons.arrow_back_rounded),
+                    )
+                  : null,
+              title: Text(title),
+              actions: [
+                NotificationIcon(
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
-              ),
-            ),
-          if (showThemeModeAction)
-            Semantics(
-              label: 'Chế độ giao diện: ${_themeModeLabel(state.themeMode)}',
-              button: true,
-              child: IconButton(
-                tooltip: 'Đổi giao diện: ${_themeModeLabel(state.themeMode)}',
-                onPressed: () => state.cycleThemeMode(),
-                icon: Icon(_themeModeIcon(state.themeMode)),
-              ),
-            ),
-          ...?actions,
-        ],
-      ),
+                const SizedBox(width: 8),
+                if (bottomNavIndex == null) ...[
+                  IconButton(
+                    tooltip: 'Bài học offline',
+                    onPressed: () => context.go('/offline'),
+                    icon: const Icon(Icons.download_done_rounded),
+                  ),
+                  IconButton(
+                    tooltip: 'Hồ sơ',
+                    onPressed: () => context.go('/profile'),
+                    icon: const Icon(Icons.person_rounded),
+                  ),
+                ],
+                if (kDebugMode && showOfflineSimulationAction)
+                  Semantics(
+                    label: state.effectiveOffline
+                        ? 'Đang giả lập ngoại tuyến'
+                        : 'Đang dùng kết nối mạng',
+                    button: true,
+                    child: Tooltip(
+                      message: state.simulateOffline
+                          ? 'Tắt giả lập ngoại tuyến'
+                          : 'Bật giả lập ngoại tuyến để kiểm tra và trình diễn',
+                      child: Switch(
+                        value: state.simulateOffline,
+                        onChanged: state.setOfflineMode,
+                        thumbIcon: WidgetStateProperty.resolveWith<Icon?>((
+                          states,
+                        ) {
+                          if (states.contains(WidgetState.selected)) {
+                            return const Icon(Icons.cloud_off_rounded);
+                          }
+                          return const Icon(Icons.cloud_done_rounded);
+                        }),
+                      ),
+                    ),
+                  ),
+                if (showThemeModeAction)
+                  Semantics(
+                    label:
+                        'Chế độ giao diện: ${_themeModeLabel(state.themeMode)}',
+                    button: true,
+                    child: IconButton(
+                      tooltip:
+                          'Đổi giao diện: ${_themeModeLabel(state.themeMode)}',
+                      onPressed: () => state.cycleThemeMode(),
+                      icon: Icon(_themeModeIcon(state.themeMode)),
+                    ),
+                  ),
+                ...?actions,
+              ],
+            )
+          : null,
       body: SafeArea(
         child: PageStorage(
           bucket: _pageStorageBuckets[state] ??= PageStorageBucket(),
