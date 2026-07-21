@@ -1190,6 +1190,8 @@ void _showBadgeDetail(BuildContext context, AchievementBadge badge) {
   final visual = _BadgeVisualStyle.forBadge(badge);
   final colorScheme = Theme.of(context).colorScheme;
   final progressText = _badgeProgressText(badge);
+  final state = context.read<AppState>();
+  final unlockTarget = badge.isEarned ? null : _badgeUnlockTarget(badge, state);
   showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
@@ -1268,6 +1270,23 @@ void _showBadgeDetail(BuildContext context, AchievementBadge badge) {
                 ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
               )
             else ...[
+              if (unlockTarget?.hint != null) ...[
+                Text(
+                  unlockTarget!.hint!,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 12),
+              ] else if (unlockTarget == null) ...[
+                Text(
+                  'Chưa xác định được nội dung cần thực hiện.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               Text(
                 'Tiến độ: $progressText',
                 textAlign: TextAlign.center,
@@ -1289,15 +1308,195 @@ void _showBadgeDetail(BuildContext context, AchievementBadge badge) {
               ],
             ],
             const SizedBox(height: 20),
-            FilledButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Đóng'),
-            ),
+            if (badge.isEarned)
+              FilledButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Đóng'),
+              )
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Đóng'),
+                    ),
+                  ),
+                  if (unlockTarget != null) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          context.go(unlockTarget.route);
+                        },
+                        icon: const Icon(Icons.arrow_forward_rounded),
+                        label: const Text('Mở khóa ngay'),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
           ],
         ),
       ),
     ),
   );
+}
+
+class _BadgeUnlockTarget {
+  const _BadgeUnlockTarget({required this.route, this.hint});
+
+  final String route;
+  final String? hint;
+}
+
+_BadgeUnlockTarget? _badgeUnlockTarget(AchievementBadge badge, AppState state) {
+  final key = '${badge.id} ${badge.ruleKey}'.toLowerCase();
+  if (key.contains('first') || key.contains('starter')) {
+    return _firstIncompleteLessonTarget(
+      state,
+      hintPrefix: 'Hoàn thành bài học đầu tiên để mở huy hiệu này.',
+    );
+  }
+  if (key.contains('perfect') || key.contains('quiz_score_10')) {
+    return _perfectScoreTarget(state);
+  }
+  if (key.contains('complete_chapter')) {
+    return _chapterCompletionTarget(badge, state);
+  }
+  if (key.contains('streak')) {
+    return _streakTarget(state);
+  }
+  if (key.contains('all') ||
+      key.contains('scientist') ||
+      key.contains('complete_all_lessons')) {
+    return _firstIncompleteLessonTarget(
+      state,
+      hintPrefix: 'Bạn cần hoàn thành các bài học còn lại.',
+    );
+  }
+  return null;
+}
+
+_BadgeUnlockTarget? _firstIncompleteLessonTarget(
+  AppState state, {
+  required String hintPrefix,
+}) {
+  final lesson = _allLessons(
+    state,
+  ).where((lesson) => !state.completedLessons.contains(lesson.id)).firstOrNull;
+  if (lesson == null) return null;
+  final remaining = _allLessons(
+    state,
+  ).where((item) => !state.completedLessons.contains(item.id)).length;
+  return _BadgeUnlockTarget(
+    route: '/lessons/${lesson.id}',
+    hint: remaining > 0
+        ? 'Bạn cần hoàn thành $remaining bài học còn lại.'
+        : hintPrefix,
+  );
+}
+
+_BadgeUnlockTarget? _perfectScoreTarget(AppState state) {
+  final candidates =
+      _allLessons(state)
+          .where(
+            (lesson) =>
+                (state.lessonProgressById[lesson.id]?.bestQuizScore ?? 0) < 10,
+          )
+          .toList()
+        ..sort((left, right) {
+          final leftScore =
+              state.lessonProgressById[left.id]?.bestQuizScore ?? 0;
+          final rightScore =
+              state.lessonProgressById[right.id]?.bestQuizScore ?? 0;
+          final byScore = rightScore.compareTo(leftScore);
+          return byScore != 0
+              ? byScore
+              : left.orderIndex.compareTo(right.orderIndex);
+        });
+  final lesson = candidates.firstOrNull;
+  if (lesson == null) return null;
+  final bestScore = state.lessonProgressById[lesson.id]?.bestQuizScore ?? 0;
+  return _BadgeUnlockTarget(
+    route: '/quiz/${lesson.id}',
+    hint:
+        'Hãy đạt 10 điểm ở một bài quiz. Bài gần nhất để cải thiện đang có ${bestScore.toStringAsFixed(1)} điểm.',
+  );
+}
+
+_BadgeUnlockTarget? _chapterCompletionTarget(
+  AchievementBadge badge,
+  AppState state,
+) {
+  final chapterId = badge.conditionValue;
+  if (chapterId == null || chapterId.isEmpty) return null;
+  final lessons = _lessonsForChapter(state, chapterId);
+  if (lessons.isEmpty) {
+    return _BadgeUnlockTarget(
+      route: '/chapters/$chapterId',
+      hint: 'Mở chương để xem các bài học cần hoàn thành.',
+    );
+  }
+  final incomplete = lessons
+      .where((lesson) => !state.completedLessons.contains(lesson.id))
+      .toList();
+  if (incomplete.isNotEmpty) {
+    final lesson = incomplete.first;
+    return _BadgeUnlockTarget(
+      route: '/lessons/${lesson.id}',
+      hint:
+          'Bạn cần hoàn thành ${incomplete.length} bài học còn lại trong chương này.',
+    );
+  }
+  final lowest = lessons.toList()
+    ..sort((left, right) {
+      final leftScore = state.lessonProgressById[left.id]?.bestQuizScore ?? 0;
+      final rightScore = state.lessonProgressById[right.id]?.bestQuizScore ?? 0;
+      final byScore = leftScore.compareTo(rightScore);
+      return byScore != 0
+          ? byScore
+          : left.orderIndex.compareTo(right.orderIndex);
+    });
+  final lesson = lowest.firstOrNull;
+  if (lesson == null) return null;
+  return _BadgeUnlockTarget(
+    route: '/quiz/${lesson.id}',
+    hint:
+        'Bạn đã hoàn thành đủ bài. Hãy cải thiện điểm trung bình chương lên trên 5.',
+  );
+}
+
+_BadgeUnlockTarget? _streakTarget(AppState state) {
+  final lesson = _allLessons(
+    state,
+  ).where((item) => !state.completedLessons.contains(item.id)).firstOrNull;
+  return _BadgeUnlockTarget(
+    route: lesson == null ? '/' : '/lessons/${lesson.id}',
+    hint: 'Học thêm hôm nay để duy trì chuỗi hoạt động.',
+  );
+}
+
+List<Lesson> _allLessons(AppState state) {
+  final lessons = state.lessonsById.values.toList()
+    ..sort((left, right) {
+      final byChapter = left.chapterId.compareTo(right.chapterId);
+      return byChapter != 0
+          ? byChapter
+          : left.orderIndex.compareTo(right.orderIndex);
+    });
+  return lessons;
+}
+
+List<Lesson> _lessonsForChapter(AppState state, String chapterId) {
+  final lessons =
+      state.lessonsByChapter[chapterId] ??
+      state.lessonsById.values
+          .where((lesson) => lesson.chapterId == chapterId)
+          .toList();
+  return lessons.toList()
+    ..sort((left, right) => left.orderIndex.compareTo(right.orderIndex));
 }
 
 class _SettingsSection extends StatelessWidget {

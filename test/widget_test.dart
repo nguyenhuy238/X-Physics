@@ -832,6 +832,21 @@ Future<GoRouter> _pumpProfile(
         path: '/',
         builder: (_, _) => const Scaffold(body: Text('Home route')),
       ),
+      GoRoute(
+        path: '/lessons/:id',
+        builder: (_, routeState) =>
+            Scaffold(body: Text('Lesson ${routeState.pathParameters['id']}')),
+      ),
+      GoRoute(
+        path: '/quiz/:id',
+        builder: (_, routeState) =>
+            Scaffold(body: Text('Quiz ${routeState.pathParameters['id']}')),
+      ),
+      GoRoute(
+        path: '/chapters/:id',
+        builder: (_, routeState) =>
+            Scaffold(body: Text('Chapter ${routeState.pathParameters['id']}')),
+      ),
       GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
       GoRoute(
         path: '/offline',
@@ -1092,6 +1107,71 @@ void main() {
     progressCurrent: index == 1 ? 0 : 1,
     progressTarget: index == 1 ? 0 : 3,
   );
+
+  void seedProfileLessons(
+    FakeAppState state, {
+    List<Lesson>? lessons,
+    Map<String, LessonProgressSnapshot> progress = const {},
+  }) {
+    final seededLessons =
+        lessons ??
+        [
+          Lesson(
+            id: 'lesson-1',
+            chapterId: 'chapter-1',
+            title: 'Bài 1',
+            content: 'content',
+            formulaLatex: '',
+            estimatedMinutes: 10,
+            simulation: FormulaSimulationConfig.empty(),
+            questions: const [],
+            orderIndex: 1,
+          ),
+          Lesson(
+            id: 'lesson-2',
+            chapterId: 'chapter-1',
+            title: 'Bài 2',
+            content: 'content',
+            formulaLatex: '',
+            estimatedMinutes: 10,
+            simulation: FormulaSimulationConfig.empty(),
+            questions: const [],
+            orderIndex: 2,
+          ),
+          Lesson(
+            id: 'lesson-3',
+            chapterId: 'chapter-2',
+            title: 'Bài 3',
+            content: 'content',
+            formulaLatex: '',
+            estimatedMinutes: 10,
+            simulation: FormulaSimulationConfig.empty(),
+            questions: const [],
+            orderIndex: 3,
+          ),
+        ];
+    state.lessonsById
+      ..clear()
+      ..addEntries(seededLessons.map((lesson) => MapEntry(lesson.id, lesson)));
+    state.lessonsByChapter
+      ..clear()
+      ..addEntries(
+        seededLessons.fold<Map<String, List<Lesson>>>({}, (map, lesson) {
+          map.putIfAbsent(lesson.chapterId, () => []).add(lesson);
+          return map;
+        }).entries,
+      );
+    state.lessonProgressById
+      ..clear()
+      ..addAll(progress);
+    state.completedLessons
+      ..clear()
+      ..addAll(
+        progress.values
+            .where((item) => item.isCompleted)
+            .map((item) => item.lessonId),
+      );
+  }
 
   testWidgets('home root does not show a back button and has bottom padding', (
     tester,
@@ -1953,6 +2033,267 @@ void main() {
 
     expect(find.text('Tiến độ: 1/3 bài'), findsOneWidget);
   });
+
+  testWidgets(
+    'locked all lessons badge unlock button opens first incomplete lesson',
+    (tester) async {
+      final state = FakeAppState();
+      seedProfileLessons(
+        state,
+        progress: const {
+          'lesson-1': LessonProgressSnapshot(
+            lessonId: 'lesson-1',
+            status: 'COMPLETED',
+            progressPercent: 100,
+            bestQuizScore: 8,
+          ),
+        },
+      );
+      state.profileQueue.add(
+        () => Future.value(
+          makeProfile(
+            locked: const [
+              AchievementBadge(
+                id: 'scientist',
+                name: 'Nha bac hoc',
+                description: 'Hoan thanh tat ca bai',
+                iconUrl: '',
+                ruleKey: 'complete_all_lessons',
+                isEarned: false,
+                progressCurrent: 4,
+                progressTarget: 6,
+              ),
+            ],
+          ),
+        ),
+      );
+
+      final router = await _pumpProfile(tester, state);
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Nha bac hoc'), 500);
+      await tester.tap(find.text('Nha bac hoc'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Mở khóa ngay'));
+      await tester.pumpAndSettle();
+
+      expect(
+        router.routerDelegate.currentConfiguration.uri.path,
+        '/lessons/lesson-2',
+      );
+    },
+  );
+
+  testWidgets('locked chapter badge opens first incomplete lesson', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    seedProfileLessons(
+      state,
+      progress: const {
+        'lesson-1': LessonProgressSnapshot(
+          lessonId: 'lesson-1',
+          status: 'COMPLETED',
+          progressPercent: 100,
+          bestQuizScore: 7,
+        ),
+      },
+    );
+    state.profileQueue.add(
+      () => Future.value(
+        makeProfile(
+          locked: const [
+            AchievementBadge(
+              id: 'force-master',
+              name: 'Bac thay luc',
+              description: 'Hoan thanh chuong',
+              iconUrl: '',
+              ruleKey: 'complete_chapter',
+              conditionValue: 'chapter-1',
+              isEarned: false,
+              progressCurrent: 1,
+              progressTarget: 2,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final router = await _pumpProfile(tester, state);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Bac thay luc'), 500);
+    await tester.tap(find.text('Bac thay luc'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mở khóa ngay'));
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      '/lessons/lesson-2',
+    );
+  });
+
+  testWidgets(
+    'completed chapter badge with low average opens lowest score quiz',
+    (tester) async {
+      final state = FakeAppState();
+      seedProfileLessons(
+        state,
+        progress: const {
+          'lesson-1': LessonProgressSnapshot(
+            lessonId: 'lesson-1',
+            status: 'COMPLETED',
+            progressPercent: 100,
+            bestQuizScore: 4,
+          ),
+          'lesson-2': LessonProgressSnapshot(
+            lessonId: 'lesson-2',
+            status: 'COMPLETED',
+            progressPercent: 100,
+            bestQuizScore: 6,
+          ),
+        },
+      );
+      state.profileQueue.add(
+        () => Future.value(
+          makeProfile(
+            locked: const [
+              AchievementBadge(
+                id: 'force-master',
+                name: 'Bac thay luc',
+                description: 'Hoan thanh chuong',
+                iconUrl: '',
+                ruleKey: 'complete_chapter',
+                conditionValue: 'chapter-1',
+                isEarned: false,
+                progressCurrent: 2,
+                progressTarget: 2,
+              ),
+            ],
+          ),
+        ),
+      );
+
+      final router = await _pumpProfile(tester, state);
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Bac thay luc'), 500);
+      await tester.tap(find.text('Bac thay luc'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('cải thiện điểm trung bình'), findsOneWidget);
+      await tester.tap(find.text('Mở khóa ngay'));
+      await tester.pumpAndSettle();
+
+      expect(
+        router.routerDelegate.currentConfiguration.uri.path,
+        '/quiz/lesson-1',
+      );
+    },
+  );
+
+  testWidgets('perfect score badge opens quiz not yet scored 10', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    seedProfileLessons(
+      state,
+      progress: const {
+        'lesson-1': LessonProgressSnapshot(
+          lessonId: 'lesson-1',
+          status: 'COMPLETED',
+          progressPercent: 100,
+          bestQuizScore: 9,
+        ),
+        'lesson-2': LessonProgressSnapshot(
+          lessonId: 'lesson-2',
+          status: 'COMPLETED',
+          progressPercent: 100,
+          bestQuizScore: 6,
+        ),
+      },
+    );
+    state.profileQueue.add(
+      () => Future.value(
+        makeProfile(
+          locked: const [
+            AchievementBadge(
+              id: 'perfect-score',
+              name: 'Diem tuyet doi',
+              description: 'Dat diem 10',
+              iconUrl: '',
+              ruleKey: 'quiz_score_10',
+              isEarned: false,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final router = await _pumpProfile(tester, state);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Diem tuyet doi'), 500);
+    await tester.tap(find.text('Diem tuyet doi'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mở khóa ngay'));
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      '/quiz/lesson-1',
+    );
+  });
+
+  testWidgets('earned badge detail does not show unlock button', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    state.profileQueue.add(
+      () => Future.value(makeProfile(earned: const [earnedBadge])),
+    );
+
+    await _pumpProfile(tester, state);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Khoi dau'), 500);
+    await tester.tap(find.text('Khoi dau'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mở khóa ngay'), findsNothing);
+    expect(find.text('Đóng'), findsOneWidget);
+  });
+
+  testWidgets(
+    'locked badge without target does not crash or show unlock button',
+    (tester) async {
+      final state = FakeAppState();
+      state.profileQueue.add(
+        () => Future.value(
+          makeProfile(
+            locked: const [
+              AchievementBadge(
+                id: 'mystery',
+                name: 'Bi an',
+                description: 'Unknown',
+                iconUrl: '',
+                ruleKey: 'unknown_rule',
+                isEarned: false,
+              ),
+            ],
+          ),
+        ),
+      );
+
+      await _pumpProfile(tester, state);
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Bi an'), 500);
+      await tester.tap(find.text('Bi an'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Chưa xác định được nội dung cần thực hiện.'),
+        findsOneWidget,
+      );
+      expect(find.text('Mở khóa ngay'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('profile shows empty chart and empty badges safely', (
     tester,

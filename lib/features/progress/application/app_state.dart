@@ -39,6 +39,42 @@ class QuizDraft {
   final Set<String> starredQuestionIds;
 }
 
+class LessonProgressSnapshot {
+  const LessonProgressSnapshot({
+    required this.lessonId,
+    required this.status,
+    required this.progressPercent,
+    this.latestQuizScore,
+    this.bestQuizScore,
+  });
+
+  final String lessonId;
+  final String status;
+  final int progressPercent;
+  final double? latestQuizScore;
+  final double? bestQuizScore;
+
+  bool get isCompleted => status == 'COMPLETED';
+
+  factory LessonProgressSnapshot.fromJson(
+    Map<dynamic, dynamic> json,
+  ) => LessonProgressSnapshot(
+    lessonId: json['lessonId'] as String? ?? json['lesson_id'] as String? ?? '',
+    status: json['status'] as String? ?? '',
+    progressPercent:
+        (json['progressPercent'] as num? ??
+                json['progress_percent'] as num? ??
+                0)
+            .toInt(),
+    latestQuizScore:
+        (json['latestQuizScore'] as num? ?? json['latest_quiz_score'] as num?)
+            ?.toDouble(),
+    bestQuizScore:
+        (json['bestQuizScore'] as num? ?? json['best_quiz_score'] as num?)
+            ?.toDouble(),
+  );
+}
+
 class AppState extends ChangeNotifier {
   AppState() : _tokenStorage = TokenStorage() {
     _apiClient = ApiClient(
@@ -114,6 +150,7 @@ class AppState extends ChangeNotifier {
   final questionsByLesson = <String, List<Question>>{};
   final practiceQuestionsByLesson = <String, List<Question>>{};
   final completedLessons = <String>{};
+  final lessonProgressById = <String, LessonProgressSnapshot>{};
   final downloadedLessons = <String>{};
   final offlineUpdateAvailableLessons = <String>{};
   final _offlineUpdateChecksInFlight =
@@ -1123,12 +1160,19 @@ class AppState extends ChangeNotifier {
   Future<void> loadProgress() async {
     try {
       final data = await _getData<List<dynamic>>(ApiEndpoints.progressMe);
+      final snapshots = data
+          .map((item) => LessonProgressSnapshot.fromJson(item as Map))
+          .where((item) => item.lessonId.isNotEmpty)
+          .toList();
+      lessonProgressById
+        ..clear()
+        ..addEntries(snapshots.map((item) => MapEntry(item.lessonId, item)));
       completedLessons
         ..clear()
         ..addAll(
-          data
-              .where((item) => (item as Map)['status'] == 'COMPLETED')
-              .map((item) => (item as Map)['lessonId'] as String),
+          snapshots
+              .where((item) => item.isCompleted)
+              .map((item) => item.lessonId),
         );
     } catch (error) {
       errorMessage = _readableError(error);
@@ -1831,6 +1875,7 @@ class AppState extends ChangeNotifier {
     coins = 0;
     badges.clear();
     completedLessons.clear();
+    lessonProgressById.clear();
     lastAttempt = null;
     quizLoadError = null;
     quizSubmitError = null;

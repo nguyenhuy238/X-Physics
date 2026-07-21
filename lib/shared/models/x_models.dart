@@ -701,6 +701,7 @@ class AchievementBadge {
     required this.iconUrl,
     required this.ruleKey,
     required this.isEarned,
+    this.conditionValue,
     this.achievedAt,
     this.progressCurrent = 0,
     this.progressTarget = 0,
@@ -712,6 +713,7 @@ class AchievementBadge {
   final String iconUrl;
   final String ruleKey;
   final bool isEarned;
+  final String? conditionValue;
   final DateTime? achievedAt;
   final int progressCurrent;
   final int progressTarget;
@@ -733,6 +735,10 @@ class AchievementBadge {
         : _jsonString(json, 'icon'),
     ruleKey: _jsonString(json, 'ruleKey', 'rule_key'),
     isEarned: earned,
+    conditionValue:
+        _jsonString(json, 'conditionValue', 'condition_value').isEmpty
+        ? null
+        : _jsonString(json, 'conditionValue', 'condition_value'),
     achievedAt: DateTime.tryParse(
       _jsonString(json, 'achievedAt', 'achieved_at'),
     ),
