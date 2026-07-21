@@ -15,9 +15,11 @@ import {
   AdminLessonDto,
   AdminUsersQueryDto,
   AdminQuestionQueryDto,
+  CreateAdminPracticeQuestionDto,
   CreateAdminQuestionDto,
   SendNotificationDto,
   ReorderAdminQuestionsDto,
+  UpdateAdminPracticeQuestionDto,
   UpdateAdminQuestionDto,
   AdminQuizAttemptQueryDto,
   CreateAdminQuizAttemptDto,
@@ -112,6 +114,11 @@ export class AdminController {
     return ApiResponseDto.ok(await this.adminService.statistics());
   }
 
+  @Get('statistics/practice')
+  async practiceStatistics() {
+    return ApiResponseDto.ok(await this.adminService.practiceStatistics());
+  }
+
   @Get('chapters')
   @ApiOkResponse({
     description: 'Admin chapter list with aggregate lesson counts.',
@@ -176,6 +183,23 @@ export class AdminController {
   })
   async questions(@Query() query: AdminQuestionQueryDto) {
     return ApiResponseDto.ok(await this.adminService.questions(query));
+  }
+
+  @Get('practice-questions')
+  async practiceQuestions(@Query() query: AdminQuestionQueryDto) {
+    return ApiResponseDto.ok(await this.adminService.practiceQuestions(query));
+  }
+
+  @Get('practice-questions/:id')
+  async practiceQuestion(@Param('id') id: string) {
+    return ApiResponseDto.ok(await this.adminService.practiceQuestion(id));
+  }
+
+  @Put('practice-questions/reorder')
+  async reorderPracticeQuestions(@Body() dto: ReorderAdminQuestionsDto) {
+    return ApiResponseDto.ok(
+      await this.adminService.reorderPracticeQuestions(dto),
+    );
   }
 
   @Get('questions/:id')
@@ -300,6 +324,35 @@ export class AdminController {
   @ApiParam({ name: 'id', description: 'Question ID' })
   async removeQuestion(@Param('id') id: string) {
     return ApiResponseDto.ok(await this.adminService.removeQuestion(id));
+  }
+
+  @Post('practice-questions')
+  @ApiBody({ type: CreateAdminPracticeQuestionDto })
+  async createPracticeQuestion(@Body() dto: CreateAdminPracticeQuestionDto) {
+    return ApiResponseDto.ok(
+      await this.adminService.createPracticeQuestion(dto),
+      'Created',
+    );
+  }
+
+  @Put('practice-questions/:id')
+  @ApiParam({ name: 'id', description: 'Practice question ID' })
+  @ApiBody({ type: UpdateAdminPracticeQuestionDto })
+  async updatePracticeQuestion(
+    @Param('id') id: string,
+    @Body() dto: UpdateAdminPracticeQuestionDto,
+  ) {
+    return ApiResponseDto.ok(
+      await this.adminService.updatePracticeQuestion(id, dto),
+    );
+  }
+
+  @Delete('practice-questions/:id')
+  @ApiParam({ name: 'id', description: 'Practice question ID' })
+  async removePracticeQuestion(@Param('id') id: string) {
+    return ApiResponseDto.ok(
+      await this.adminService.removePracticeQuestion(id),
+    );
   }
 
   @Get('quiz-attempts')

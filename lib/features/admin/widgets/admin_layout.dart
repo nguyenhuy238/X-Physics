@@ -41,7 +41,8 @@ class AdminLayout extends StatelessWidget {
     final contentActive =
         activeRoute.startsWith('/admin/chapters') ||
         activeRoute.startsWith('/admin/lessons') ||
-        activeRoute.startsWith('/admin/questions');
+        activeRoute.startsWith('/admin/questions') ||
+        activeRoute.startsWith('/admin/practice-questions');
 
     return Container(
       width: 260,
@@ -492,6 +493,15 @@ class _ContentNavGroup extends StatelessWidget {
             icon: Icons.quiz_rounded,
             route: '/admin/questions',
             isActive: activeRoute.startsWith('/admin/questions'),
+            dense: true,
+            onBackRequested: onBackRequested,
+          ),
+          const SizedBox(height: 6),
+          _SidebarLink(
+            label: 'Câu hỏi luyện tập',
+            icon: Icons.school_rounded,
+            route: '/admin/practice-questions',
+            isActive: activeRoute.startsWith('/admin/practice-questions'),
             dense: true,
             onBackRequested: onBackRequested,
           ),

@@ -220,6 +220,81 @@ alter table quiz_attempts
 
 create index if not exists quiz_attempts_user_lesson_idx on quiz_attempts(user_id, lesson_id);
 
+create table if not exists practice_questions (
+  id varchar(100) primary key,
+  lesson_id varchar(80) not null references lessons(id) on delete cascade,
+  question_text text not null,
+  options_json jsonb not null,
+  correct_option integer not null,
+  explanation text not null,
+  hint text,
+  is_offline_enabled boolean not null default false,
+  difficulty varchar(30) not null default 'MEDIUM' check (difficulty in ('EASY', 'MEDIUM', 'HARD')),
+  order_index integer not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'practice_questions_correct_option_range'
+  ) then
+    alter table practice_questions
+      add constraint practice_questions_correct_option_range
+      check (correct_option between 0 and 3) not valid;
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'practice_questions_options_json_four_items'
+  ) then
+    alter table practice_questions
+      add constraint practice_questions_options_json_four_items
+      check (
+        jsonb_typeof(options_json) = 'array'
+        and jsonb_array_length(options_json) = 4
+      ) not valid;
+  end if;
+end $$;
+
+create index if not exists practice_questions_lesson_order_idx
+  on practice_questions(lesson_id, order_index);
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'practice_questions_lesson_order_unique'
+  ) then
+    alter table practice_questions
+      add constraint practice_questions_lesson_order_unique
+      unique (lesson_id, order_index);
+  end if;
+end $$;
+
+create table if not exists practice_sessions (
+  id varchar(120) primary key,
+  user_id uuid not null references users(id) on delete cascade,
+  lesson_id varchar(80) not null references lessons(id) on delete cascade,
+  questions_attempted integer not null,
+  correct_count integer not null,
+  answers_json jsonb not null default '[]'::jsonb,
+  started_at timestamptz not null,
+  completed_at timestamptz not null,
+  synced_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  check (questions_attempted > 0),
+  check (correct_count >= 0 and correct_count <= questions_attempted)
+);
+
+create index if not exists practice_sessions_user_completed_idx
+  on practice_sessions(user_id, completed_at desc);
+
+create index if not exists practice_sessions_lesson_idx
+  on practice_sessions(lesson_id, completed_at desc);
+
 create table if not exists progress (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references users(id) on delete cascade,

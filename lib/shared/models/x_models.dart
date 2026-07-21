@@ -348,6 +348,8 @@ class Question {
     this.lessonTitle = '',
     this.chapterId = '',
     this.chapterTitle = '',
+    this.hint = '',
+    this.isOfflineEnabled = false,
     this.createdAt,
     this.orderIndex = 0,
   });
@@ -361,6 +363,8 @@ class Question {
   final String lessonTitle;
   final String chapterId;
   final String chapterTitle;
+  final String hint;
+  final bool isOfflineEnabled;
   final DateTime? createdAt;
   final int orderIndex;
 
@@ -375,6 +379,8 @@ class Question {
     if (lessonTitle.isNotEmpty) 'lessonTitle': lessonTitle,
     if (chapterId.isNotEmpty) 'chapterId': chapterId,
     if (chapterTitle.isNotEmpty) 'chapterTitle': chapterTitle,
+    if (hint.isNotEmpty) 'hint': hint,
+    'isOfflineEnabled': isOfflineEnabled,
     if (createdAt != null) 'createdAt': createdAt!.toIso8601String(),
     'orderIndex': orderIndex,
   };
@@ -394,6 +400,11 @@ class Question {
     chapterId:
         json['chapterId'] as String? ?? json['chapter_id'] as String? ?? '',
     chapterTitle: json['chapterTitle'] as String? ?? '',
+    hint: json['hint'] as String? ?? '',
+    isOfflineEnabled:
+        json['isOfflineEnabled'] as bool? ??
+        json['is_offline_enabled'] as bool? ??
+        false,
     createdAt: _jsonDate(json, 'createdAt', 'created_at'),
     orderIndex: _jsonInt(json, 'orderIndex', 'order_index'),
   );

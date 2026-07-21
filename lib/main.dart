@@ -19,6 +19,8 @@ Future<void> main() async {
   }
   await Hive.openBox<Map>('offline_lessons');
   await Hive.openBox<Map>('pending_progress');
+  await Hive.openBox<Map>('practice_questions');
+  await Hive.openBox<Map>('pending_practice_sync');
   runApp(
     MultiProvider(
       providers: [

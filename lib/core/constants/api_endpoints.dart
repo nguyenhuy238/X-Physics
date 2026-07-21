@@ -38,6 +38,10 @@ class ApiEndpoints {
   static const adminLessons = '/api/admin/lessons';
   static const adminQuestions = '/api/admin/questions';
   static const adminQuestionsReorder = '/api/admin/questions/reorder';
+  static const adminPracticeQuestions = '/api/admin/practice-questions';
+  static const adminPracticeQuestionsReorder =
+      '/api/admin/practice-questions/reorder';
+  static const adminPracticeStatistics = '/api/admin/statistics/practice';
   static const adminQuizAttempts = '/api/admin/quiz-attempts';
   
   static const notifications = '/api/notifications';
@@ -48,9 +52,17 @@ class ApiEndpoints {
   static String lesson(String id) => '/api/lessons/$id';
   static String lessonSimulations(String id) => '/api/lessons/$id/simulations';
   static String lessonQuestions(String id) => '/api/lessons/$id/questions';
+  static String lessonPracticeQuestions(String id, {bool offlineOnly = false}) =>
+      offlineOnly
+      ? '/api/lessons/$id/practice-questions?offlineOnly=true'
+      : '/api/lessons/$id/practice-questions';
+  static String lessonPracticeSync(String id) =>
+      '/api/lessons/$id/practice-sessions/sync';
   static String adminChapter(String id) => '/api/admin/chapters/$id';
   static String adminLesson(String id) => '/api/admin/lessons/$id';
   static String adminQuestion(String id) => '/api/admin/questions/$id';
+  static String adminPracticeQuestion(String id) =>
+      '/api/admin/practice-questions/$id';
   static String adminQuizAttempt(String id) => '/api/admin/quiz-attempts/$id';
   static String adminUserProgress(String userId) =>
       '/api/admin/users/$userId/progress';

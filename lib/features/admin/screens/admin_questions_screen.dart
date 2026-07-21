@@ -23,6 +23,7 @@ class AdminQuestionsScreen extends StatefulWidget {
     this.search,
     this.page,
     this.action,
+    this.practiceMode = false,
   });
 
   final String? chapterId;
@@ -31,6 +32,7 @@ class AdminQuestionsScreen extends StatefulWidget {
   final String? search;
   final int? page;
   final String? action;
+  final bool practiceMode;
 
   @override
   State<AdminQuestionsScreen> createState() => _AdminQuestionsScreenState();
@@ -192,7 +194,16 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
     });
     try {
       final state = context.read<AppState>();
-      final result = await state.fetchAdminQuestions(
+      final result = widget.practiceMode
+          ? await state.fetchAdminPracticeQuestions(
+              lessonId: _lessonId,
+              chapterId: _chapterId,
+              search: _search.text,
+              difficulty: _difficulty,
+              page: _page,
+              limit: _limit,
+            )
+          : await state.fetchAdminQuestions(
         lessonId: _lessonId,
         chapterId: _chapterId,
         search: _search.text,
@@ -274,10 +285,18 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
     );
 
     return AdminLayout(
-      activeRoute: '/admin/questions',
-      title: _lessonId != null ? 'Câu hỏi: $lessonTitle' : 'Quản lý Câu hỏi',
+      activeRoute: widget.practiceMode
+          ? '/admin/practice-questions'
+          : '/admin/questions',
+      title: _lessonId != null
+          ? '${widget.practiceMode ? 'Luyện tập' : 'Câu hỏi'}: $lessonTitle'
+          : widget.practiceMode
+          ? 'Câu hỏi luyện tập'
+          : 'Quản lý Câu hỏi',
       subtitle: _lessonId != null
-          ? 'Danh sách câu hỏi trắc nghiệm thuộc ${chapter?.title ?? lesson.chapterId}'
+          ? 'Danh sách câu hỏi ${widget.practiceMode ? 'luyện tập' : 'trắc nghiệm'} thuộc ${chapter?.title ?? lesson.chapterId}'
+          : widget.practiceMode
+          ? 'Ngân hàng câu hỏi luyện tập'
           : 'Ngân hàng câu hỏi trắc nghiệm',
       backFallbackRoute: _lessonId != null
           ? _lessonBackRoute(lesson)
@@ -297,7 +316,9 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
             label: lessonTitle,
             route: _lessonDetailRoute(lesson),
           ),
-        const AdminBreadcrumbItem(label: 'Câu hỏi Quiz'),
+        AdminBreadcrumbItem(
+          label: widget.practiceMode ? 'Câu hỏi luyện tập' : 'Câu hỏi Quiz',
+        ),
       ],
       searchController: _search,
       onSearchChanged: _onSearchChanged,
@@ -349,6 +370,7 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
                 children: [
                   _QuestionTableCard(
                     questions: _questions,
+                    practiceMode: widget.practiceMode,
                     page: _page,
                     limit: _limit,
                     total: _total,
@@ -447,9 +469,12 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
       if (_page > 1) 'page': '$_page',
     };
     context.go(
-      Uri(path: '/admin/questions', queryParameters: query).toString(),
+      Uri(path: _questionsPath, queryParameters: query).toString(),
     );
   }
+
+  String get _questionsPath =>
+      widget.practiceMode ? '/admin/practice-questions' : '/admin/questions';
 
   String _lessonBackRoute(Lesson lesson) {
     if (lesson.id.isNotEmpty) {
@@ -471,7 +496,7 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
       return Uri(path: '/admin/lessons', queryParameters: query).toString();
     }
     final query = <String, String>{
-      'from': 'questions',
+      'from': widget.practiceMode ? 'practice-questions' : 'questions',
       if (_chapterId != null && _chapterId!.isNotEmpty)
         'chapterId': _chapterId!,
     };
@@ -490,9 +515,13 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
   Future<void> _openDetail(Question question) async {
     Question detail = question;
     try {
-      detail = await context.read<AppState>().fetchAdminQuestionDetail(
-        question.id,
-      );
+      detail = widget.practiceMode
+          ? await context.read<AppState>().fetchAdminPracticeQuestionDetail(
+              question.id,
+            )
+          : await context.read<AppState>().fetchAdminQuestionDetail(
+              question.id,
+            );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -519,16 +548,24 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
       builder: (_) => _QuestionFormDialog(
         question: draft ?? question,
         isUpdate: isUpdate,
+        practiceMode: widget.practiceMode,
         saving: _saving,
         defaultChapterId: _chapterId,
         defaultLessonId: _lessonId,
         onSave: (value) async {
           setState(() => _saving = true);
           try {
-            await context.read<AppState>().writeAdminQuestion(
-              value,
-              isUpdate: isUpdate,
-            );
+            if (widget.practiceMode) {
+              await context.read<AppState>().writeAdminPracticeQuestion(
+                value,
+                isUpdate: isUpdate,
+              );
+            } else {
+              await context.read<AppState>().writeAdminQuestion(
+                value,
+                isUpdate: isUpdate,
+              );
+            }
             if (!mounted) return 'Không thể lưu câu hỏi.';
             await _loadQuestions(
               refresh: _questions.isNotEmpty,
@@ -566,7 +603,11 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
     if (!ok || !mounted) return;
     setState(() => _deletingQuestionId = question.id);
     try {
-      await context.read<AppState>().removeAdminQuestion(question.id);
+      if (widget.practiceMode) {
+        await context.read<AppState>().removeAdminPracticeQuestion(question.id);
+      } else {
+        await context.read<AppState>().removeAdminQuestion(question.id);
+      }
       if (!mounted) return;
       final nextTotal = _total - 1;
       if (_questions.length == 1 &&
@@ -605,10 +646,17 @@ class _AdminQuestionsScreenState extends State<AdminQuestionsScreen> {
     );
     if (result == null || !mounted) return;
     try {
-      await context.read<AppState>().reorderAdminQuestions(
-        lessonId: lessonId,
-        questionIds: result,
-      );
+      if (widget.practiceMode) {
+        await context.read<AppState>().reorderAdminPracticeQuestions(
+          lessonId: lessonId,
+          questionIds: result,
+        );
+      } else {
+        await context.read<AppState>().reorderAdminQuestions(
+          lessonId: lessonId,
+          questionIds: result,
+        );
+      }
       if (!mounted) return;
       await _loadQuestions(refresh: true);
       if (!mounted) return;
@@ -799,6 +847,7 @@ class _Toolbar extends StatelessWidget {
 class _QuestionTableCard extends StatelessWidget {
   const _QuestionTableCard({
     required this.questions,
+    required this.practiceMode,
     required this.page,
     required this.limit,
     required this.total,
@@ -812,6 +861,7 @@ class _QuestionTableCard extends StatelessWidget {
   });
 
   final List<Question> questions;
+  final bool practiceMode;
   final int page;
   final int limit;
   final int total;
@@ -846,14 +896,18 @@ class _QuestionTableCard extends StatelessWidget {
                 columnSpacing: 28,
                 horizontalMargin: 22,
                 dividerThickness: .6,
-                columns: const [
-                  DataColumn(label: Text('#')),
-                  DataColumn(label: Text('CÂU HỎI')),
-                  DataColumn(label: Text('BÀI HỌC')),
-                  DataColumn(label: Text('ĐÁP ÁN ĐÚNG')),
-                  DataColumn(label: Text('ĐỘ KHÓ')),
-                  DataColumn(label: Text('NGÀY TẠO')),
-                  DataColumn(label: Text('THAO TÁC')),
+                columns: [
+                  const DataColumn(label: Text('#')),
+                  const DataColumn(label: Text('CÂU HỎI')),
+                  const DataColumn(label: Text('BÀI HỌC')),
+                  const DataColumn(label: Text('ĐÁP ÁN ĐÚNG')),
+                  if (practiceMode)
+                    const DataColumn(label: Text('OFFLINE')),
+                  if (practiceMode)
+                    const DataColumn(label: Text('GỢI Ý')),
+                  const DataColumn(label: Text('ĐỘ KHÓ')),
+                  const DataColumn(label: Text('NGÀY TẠO')),
+                  const DataColumn(label: Text('THAO TÁC')),
                 ],
                 rows: [
                   for (var i = 0; i < questions.length; i++)
@@ -917,6 +971,28 @@ class _QuestionTableCard extends StatelessWidget {
           ),
         ),
         DataCell(_CorrectAnswerText(question: question)),
+        if (practiceMode)
+          DataCell(
+            Icon(
+              question.isOfflineEnabled
+                  ? Icons.toggle_on_rounded
+                  : Icons.toggle_off_rounded,
+              color: question.isOfflineEnabled
+                  ? AdminDesign.success
+                  : AdminDesign.mutedText,
+            ),
+          ),
+        if (practiceMode)
+          DataCell(
+            Icon(
+              question.hint.isNotEmpty
+                  ? Icons.lightbulb_rounded
+                  : Icons.lightbulb_outline_rounded,
+              color: question.hint.isNotEmpty
+                  ? const Color(0xFFB8860B)
+                  : AdminDesign.mutedText,
+            ),
+          ),
         DataCell(_DifficultyChip(difficulty: question.difficulty)),
         DataCell(Text(_formatDate(question.createdAt))),
         DataCell(
@@ -990,6 +1066,7 @@ class _QuestionFormDialog extends StatefulWidget {
   const _QuestionFormDialog({
     this.question,
     required this.isUpdate,
+    required this.practiceMode,
     required this.saving,
     this.defaultChapterId,
     this.defaultLessonId,
@@ -998,6 +1075,7 @@ class _QuestionFormDialog extends StatefulWidget {
 
   final Question? question;
   final bool isUpdate;
+  final bool practiceMode;
   final bool saving;
   final String? defaultChapterId;
   final String? defaultLessonId;
@@ -1011,12 +1089,14 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _question;
   late final TextEditingController _explanation;
+  late final TextEditingController _hint;
   late final TextEditingController _order;
   late final List<TextEditingController> _options;
   late String? _chapterId;
   late String? _lessonId;
   late int _correctOption;
   late String _difficulty;
+  late bool _isOfflineEnabled;
   var _initialFingerprint = '';
   var _baselineCaptured = false;
   var _saving = false;
@@ -1029,6 +1109,7 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
     final question = widget.question;
     _question = TextEditingController(text: question?.question ?? '');
     _explanation = TextEditingController(text: question?.explanation ?? '');
+    _hint = TextEditingController(text: question?.hint ?? '');
     _order = TextEditingController(text: '${question?.orderIndex ?? 1}');
     _options = List.generate(
       4,
@@ -1042,12 +1123,14 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
     _lessonId = question?.lessonId ?? widget.defaultLessonId;
     _correctOption = question?.correctOption ?? 0;
     _difficulty = question?.difficulty ?? 'MEDIUM';
+    _isOfflineEnabled = question?.isOfflineEnabled ?? false;
   }
 
   @override
   void dispose() {
     _question.dispose();
     _explanation.dispose();
+    _hint.dispose();
     _order.dispose();
     for (final controller in _options) {
       controller.dispose();
@@ -1217,6 +1300,27 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
                     validator: _explanationValidator,
                   ),
                   const SizedBox(height: 12),
+                  if (widget.practiceMode) ...[
+                    TextFormField(
+                      controller: _hint,
+                      minLines: 1,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Gợi ý (hint)',
+                      ),
+                      onChanged: (_) => _clearFieldError('hint'),
+                      validator: _hintValidator,
+                    ),
+                    const SizedBox(height: 12),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Cho phép tải offline'),
+                      value: _isOfflineEnabled,
+                      onChanged: (value) =>
+                          setState(() => _isOfflineEnabled = value),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   DropdownButtonFormField<String>(
                     initialValue: _difficulty,
                     isExpanded: true,
@@ -1309,6 +1413,14 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
     return null;
   }
 
+  String? _hintValidator(String? value) {
+    final backendError = _fieldErrors['hint'];
+    if (backendError != null) return backendError;
+    final text = value?.trim() ?? '';
+    if (text.length > 1000) return 'Gợi ý không được vượt quá 1000 ký tự.';
+    return null;
+  }
+
   String? _optionValidator(int index, String? value) {
     final backendError = _fieldErrors['option$index'];
     if (backendError != null) return backendError;
@@ -1351,6 +1463,8 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
         options: options,
         correctOption: _correctOption,
         explanation: _explanation.text.trim(),
+        hint: _hint.text.trim(),
+        isOfflineEnabled: _isOfflineEnabled,
         difficulty: _difficulty,
         chapterId: _chapterId ?? '',
         orderIndex: int.tryParse(_order.text) ?? 1,
@@ -1434,6 +1548,8 @@ class _QuestionFormDialogState extends State<_QuestionFormDialog> {
     ..._options.map((controller) => controller.text.trim()),
     '$_correctOption',
     _explanation.text.trim(),
+    _hint.text.trim(),
+    '$_isOfflineEnabled',
     _difficulty,
     _order.text.trim(),
   ].join('\n');
@@ -1477,6 +1593,12 @@ class _QuestionDetailDialog extends StatelessWidget {
                 child: _DifficultyChip(difficulty: question.difficulty),
               ),
               _MetaLine(label: 'Order index', value: '${question.orderIndex}'),
+              if (question.hint.isNotEmpty || question.isOfflineEnabled)
+                _MetaLine(
+                  label: 'Practice',
+                  value:
+                      '${question.isOfflineEnabled ? 'Cho phép offline' : 'Không offline'}${question.hint.isNotEmpty ? ' • Có gợi ý' : ''}',
+                ),
               const SizedBox(height: 12),
               Text(
                 question.question,
@@ -1515,6 +1637,15 @@ class _QuestionDetailDialog extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(question.explanation),
+              if (question.hint.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                const Text(
+                  'Hint',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 6),
+                Text(question.hint),
+              ],
             ],
           ),
         ),

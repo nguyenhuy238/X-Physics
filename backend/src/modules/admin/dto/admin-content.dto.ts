@@ -289,6 +289,62 @@ export class UpdateAdminQuestionDto {
   orderIndex!: number;
 }
 
+export class CreateAdminPracticeQuestionDto {
+  @IsString()
+  @IsNotEmpty()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
+  lessonId!: string;
+
+  @IsNotEmpty()
+  @Length(3, 1000)
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
+  questionText!: string;
+
+  @IsArray()
+  @ArrayMinSize(4)
+  @ArrayMaxSize(4)
+  @IsString({ each: true })
+  @Transform(({ value }) =>
+    Array.isArray(value)
+      ? value.map((item) => (typeof item === "string" ? item.trim() : item))
+      : value,
+  )
+  options!: string[];
+
+  @IsInt()
+  @Min(0)
+  @Max(3)
+  @Type(() => Number)
+  correctOption!: number;
+
+  @IsString()
+  @IsNotEmpty()
+  @Length(3, 2000)
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
+  explanation!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
+  hint?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isOfflineEnabled?: boolean;
+
+  @IsEnum(QuestionDifficulty)
+  @IsOptional()
+  difficulty?: QuestionDifficulty;
+
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  orderIndex!: number;
+}
+
+export class UpdateAdminPracticeQuestionDto extends CreateAdminPracticeQuestionDto {}
+
 export class AdminUsersQueryDto {
   @IsOptional()
   @IsString()
