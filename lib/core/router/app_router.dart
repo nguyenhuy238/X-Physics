@@ -14,6 +14,7 @@ import '../../features/chapters/screens/chapter_detail_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/lessons/screens/lesson_screen.dart';
 import '../../features/offline/screens/offline_downloads_screen.dart';
+import '../../features/practice/screens/practice_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/progress/application/app_state.dart';
@@ -72,6 +73,11 @@ GoRouter buildRouter(AppState appState) {
         path: '/quiz/:id',
         builder: (_, state) =>
             QuizScreen(lessonId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/practice/:id',
+        builder: (_, state) =>
+            PracticeScreen(lessonId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/quiz/:id/result',
@@ -165,6 +171,26 @@ GoRouter buildRouter(AppState appState) {
         },
       ),
       GoRoute(
+        path: '/admin/practice-questions',
+        builder: (_, state) {
+          final lessonId = state.uri.queryParameters['lessonId'];
+          final chapterId = state.uri.queryParameters['chapterId'];
+          final difficulty = state.uri.queryParameters['difficulty'];
+          final search = state.uri.queryParameters['search'];
+          final action = state.uri.queryParameters['action'];
+          final page = int.tryParse(state.uri.queryParameters['page'] ?? '');
+          return AdminQuestionsScreen(
+            chapterId: chapterId,
+            lessonId: lessonId,
+            difficulty: difficulty,
+            search: search,
+            page: page,
+            action: action,
+            practiceMode: true,
+          );
+        },
+      ),
+      GoRoute(
         path: '/admin/lessons/:lessonId/questions',
         redirect: (_, state) {
           final lessonId = state.pathParameters['lessonId']!;
@@ -172,6 +198,18 @@ GoRouter buildRouter(AppState appState) {
           query['lessonId'] = lessonId;
           return Uri(
             path: '/admin/questions',
+            queryParameters: query,
+          ).toString();
+        },
+      ),
+      GoRoute(
+        path: '/admin/lessons/:lessonId/practice-questions',
+        redirect: (_, state) {
+          final lessonId = state.pathParameters['lessonId']!;
+          final query = Map<String, String>.from(state.uri.queryParameters);
+          query['lessonId'] = lessonId;
+          return Uri(
+            path: '/admin/practice-questions',
             queryParameters: query,
           ).toString();
         },

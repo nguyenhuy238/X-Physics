@@ -12,10 +12,12 @@ import {
   AdminFormulaSimulationDto,
   AdminLessonDto,
   AdminQuestionQueryDto,
+  CreateAdminPracticeQuestionDto,
   CreateAdminQuestionDto,
   NotificationType,
   QuestionDifficulty,
   ReorderAdminQuestionsDto,
+  UpdateAdminPracticeQuestionDto,
   UpdateAdminQuestionDto,
   AdminQuizAttemptQueryDto,
   CreateAdminQuizAttemptDto,
@@ -105,8 +107,27 @@ export class AdminService {
     });
   }
 
+  practiceQuestions(query: AdminQuestionQueryDto = {}) {
+    return this.database.adminListPracticeQuestions({
+      lessonId: query.lessonId,
+      chapterId: query.chapterId,
+      search: query.search,
+      difficulty: query.difficulty,
+      page: query.page,
+      limit: query.limit,
+    });
+  }
+
+  practiceStatistics() {
+    return this.database.practiceStatistics();
+  }
+
   question(id: string) {
     return this.database.findAdminQuestion(id);
+  }
+
+  practiceQuestion(id: string) {
+    return this.database.findAdminPracticeQuestion(id);
   }
 
   async createChapter(dto: AdminChapterDto) {
@@ -379,6 +400,144 @@ export class AdminService {
     });
   }
 
+  async createPracticeQuestion(dto: CreateAdminPracticeQuestionDto) {
+    return this.database.withTransaction(async (client) => {
+      const input = await this.validatePracticeQuestionInput(
+        dto,
+        undefined,
+        client,
+      );
+      const existing = await this.database.listAdminPracticeQuestionsByLesson(
+        input.lessonId,
+        client,
+      );
+      const id = randomUUID();
+      const insertAt = this.clampInsertPosition(
+        input.orderIndex,
+        existing.length,
+      );
+      await this.database.upsertPracticeQuestion(
+        {
+          id,
+          ...input,
+          orderIndex: this.temporaryOrderIndex(existing),
+        },
+        client,
+      );
+      const ids = existing.map((question) => question.id);
+      ids.splice(insertAt - 1, 0, id);
+      await this.database.setPracticeQuestionOrder(input.lessonId, ids, client);
+      return this.database.findAdminPracticeQuestion(id, client);
+    });
+  }
+
+  async updatePracticeQuestion(
+    id: string,
+    dto: UpdateAdminPracticeQuestionDto,
+  ) {
+    return this.database.withTransaction(async (client) => {
+      const current = await this.database.findAdminPracticeQuestion(id, client);
+      const input = await this.validatePracticeQuestionInput(dto, id, client);
+      const oldLessonId = current.lessonId;
+      const newLessonId = input.lessonId;
+      const targetQuestions = (
+        await this.database.listAdminPracticeQuestionsByLesson(
+          newLessonId,
+          client,
+        )
+      ).filter((question) => question.id !== id);
+      await this.database.updatePracticeQuestion(
+        id,
+        {
+          ...input,
+          orderIndex: this.temporaryOrderIndex(targetQuestions),
+        },
+        client,
+      );
+
+      if (oldLessonId !== newLessonId) {
+        const oldIds = (
+          await this.database.listAdminPracticeQuestionsByLesson(
+            oldLessonId,
+            client,
+          )
+        )
+          .filter((question) => question.id !== id)
+          .map((question) => question.id);
+        await this.database.setPracticeQuestionOrder(oldLessonId, oldIds, client);
+      }
+
+      const moveTo = this.clampInsertPosition(
+        input.orderIndex,
+        targetQuestions.length,
+      );
+      const newIds = targetQuestions.map((question) => question.id);
+      newIds.splice(moveTo - 1, 0, id);
+      await this.database.setPracticeQuestionOrder(newLessonId, newIds, client);
+      return this.database.findAdminPracticeQuestion(id, client);
+    });
+  }
+
+  async removePracticeQuestion(id: string) {
+    return this.database.withTransaction(async (client) => {
+      const current = await this.database.findAdminPracticeQuestion(id, client);
+      const result = await this.database.deletePracticeQuestion(id, client);
+      const ids = (
+        await this.database.listAdminPracticeQuestionsByLesson(
+          current.lessonId,
+          client,
+        )
+      ).map((question) => question.id);
+      await this.database.setPracticeQuestionOrder(
+        current.lessonId,
+        ids,
+        client,
+      );
+      return result;
+    });
+  }
+
+  async reorderPracticeQuestions(dto: ReorderAdminQuestionsDto) {
+    return this.database.withTransaction(async (client) => {
+      const lesson = await this.database.findAdminLesson(dto.lessonId, client);
+      if (!lesson) {
+        throw new NotFoundException("Lesson not found");
+      }
+      const ids = dto.questionIds.map((id) => id.trim()).filter(Boolean);
+      if (ids.length === 0) {
+        throw new BadRequestException("questionIds must not be empty");
+      }
+      if (new Set(ids).size !== ids.length) {
+        throw new BadRequestException("questionIds must be unique");
+      }
+      const existing = await this.database.listAdminPracticeQuestionsByLesson(
+        dto.lessonId,
+        client,
+      );
+      const existingIds = existing.map((question) => question.id);
+      const existingSet = new Set(existingIds);
+      const submittedSet = new Set(ids);
+      const missing = existingIds.filter((id) => !submittedSet.has(id));
+      const extra = ids.filter((id) => !existingSet.has(id));
+      if (missing.length > 0) {
+        throw new BadRequestException(
+          "questionIds is missing lesson practice questions",
+        );
+      }
+      if (extra.length > 0) {
+        throw new BadRequestException(
+          "questionIds contains unknown or foreign practice questions",
+        );
+      }
+      const items = await this.database.setPracticeQuestionOrder(
+        dto.lessonId,
+        ids,
+        client,
+      );
+      return { lessonId: dto.lessonId, items };
+    });
+  }
+
   async reorderQuestions(dto: ReorderAdminQuestionsDto) {
     return this.database.withTransaction(async (client) => {
       const lesson = await this.database.findAdminLesson(dto.lessonId, client);
@@ -466,6 +625,59 @@ export class AdminService {
       options,
       correctOption: dto.correctOption,
       explanation,
+      difficulty: dto.difficulty ?? QuestionDifficulty.MEDIUM,
+      orderIndex: dto.orderIndex,
+    };
+  }
+
+  private async validatePracticeQuestionInput(
+    dto: CreateAdminPracticeQuestionDto | UpdateAdminPracticeQuestionDto,
+    questionId?: string,
+    db?: Parameters<Parameters<DatabaseRepository["withTransaction"]>[0]>[0],
+  ) {
+    const lesson = await this.database.findAdminLesson(dto.lessonId, db);
+    if (!lesson) {
+      throw new NotFoundException("Bài học không tồn tại hoặc đã bị xóa.");
+    }
+
+    const questionText = dto.questionText.trim();
+    const explanation = dto.explanation.trim();
+    const options = dto.options.map((option) => option.trim());
+    if (!questionText) {
+      throw new BadRequestException("Question text is required");
+    }
+    if (!explanation) {
+      throw new BadRequestException("Explanation is required");
+    }
+    if (options.length !== 4) {
+      throw new BadRequestException("Question must have exactly 4 options");
+    }
+    if (options.some((option) => option.length === 0)) {
+      throw new BadRequestException("Options must not be empty");
+    }
+    const normalizedOptions = new Set(
+      options.map((option) => option.toLocaleLowerCase("vi-VN")),
+    );
+    if (normalizedOptions.size !== options.length) {
+      throw new BadRequestException("Options must be unique");
+    }
+    if (dto.correctOption < 0 || dto.correctOption >= options.length) {
+      throw new BadRequestException("Correct option is out of range");
+    }
+    if (dto.orderIndex < 1) {
+      throw new BadRequestException(
+        "Order index must be greater than or equal to 1",
+      );
+    }
+
+    return {
+      lessonId: dto.lessonId,
+      questionText,
+      options,
+      correctOption: dto.correctOption,
+      explanation,
+      hint: dto.hint?.trim() ?? "",
+      isOfflineEnabled: dto.isOfflineEnabled ?? false,
       difficulty: dto.difficulty ?? QuestionDifficulty.MEDIUM,
       orderIndex: dto.orderIndex,
     };

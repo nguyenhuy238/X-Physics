@@ -234,24 +234,44 @@ class _LessonScreenState extends State<LessonScreen> {
             ),
             child: SafeArea(
               top: false,
-              child: currentLesson.questions.isEmpty
-                  ? OutlinedButton.icon(
-                      onPressed: null,
-                      icon: const Icon(Icons.quiz_outlined),
-                      label: const Text('Bài học này chưa có quiz'),
-                    )
-                  : state.effectiveOffline
-                  ? OutlinedButton.icon(
-                      onPressed: null,
-                      icon: const Icon(Icons.wifi_off_rounded),
-                      label: const Text('Quiz cần kết nối mạng'),
-                    )
-                  : FilledButton.icon(
-                      onPressed: () =>
-                          context.push('/quiz/${currentLesson.id}'),
-                      icon: const Icon(Icons.quiz_rounded),
-                      label: const Text('Làm bài tập'),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed:
+                          !state.effectiveOffline ||
+                              state.downloadedLessons.contains(
+                                currentLesson.id,
+                              )
+                          ? () => context.push('/practice/${currentLesson.id}')
+                          : null,
+                      icon: const Icon(Icons.school_rounded),
+                      label: const Text('Luyện tập'),
                     ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: currentLesson.questions.isEmpty
+                        ? OutlinedButton.icon(
+                            onPressed: null,
+                            icon: const Icon(Icons.quiz_outlined),
+                            label: const Text('Chưa có quiz'),
+                          )
+                        : state.effectiveOffline
+                        ? OutlinedButton.icon(
+                            onPressed: null,
+                            icon: const Icon(Icons.wifi_off_rounded),
+                            label: const Text('Quiz cần mạng'),
+                          )
+                        : OutlinedButton.icon(
+                            onPressed: () =>
+                                context.push('/quiz/${currentLesson.id}'),
+                            icon: const Icon(Icons.quiz_rounded),
+                            label: const Text('Làm bài tập'),
+                          ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],

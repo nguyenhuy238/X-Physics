@@ -183,8 +183,10 @@ class _OfflineLessonTileState extends State<_OfflineLessonTile> {
     final bytes = state.estimatedOfflineSizeBytes(widget.lesson.id);
     final snapshot = state.loadOfflineLessonSnapshot(widget.lesson.id);
     final metadata = snapshot?.metadata;
+    final hasPractice = state.hasOfflinePracticeQuestions(widget.lesson.id);
     final subtitleParts = <String>[
       if (bytes != null) _formatSize(bytes),
+      if (hasPractice) 'Có luyện tập offline',
       if (metadata != null) 'Tải ngày ${_formatDate(metadata.downloadedAt)}',
       if (metadata?.serverVersion != null) 'v${metadata!.serverVersion}',
       if (updateAvailable) 'Có bản cập nhật',

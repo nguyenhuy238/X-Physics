@@ -71,10 +71,36 @@ interface QuestionRow {
   order_index: number;
 }
 
+interface PracticeQuestionRow extends QuestionRow {
+  hint: string | null;
+  is_offline_enabled: boolean;
+  created_at: Date;
+  updated_at: Date;
+}
+
 interface AdminQuestionRow extends QuestionRow {
   lesson_title: string;
   chapter_id: string;
   chapter_title: string;
+}
+
+interface AdminPracticeQuestionRow extends PracticeQuestionRow {
+  lesson_title: string;
+  chapter_id: string;
+  chapter_title: string;
+}
+
+interface PracticeSessionRow {
+  id: string;
+  user_id: string;
+  lesson_id: string;
+  questions_attempted: number;
+  correct_count: number;
+  answers_json: unknown;
+  started_at: Date;
+  completed_at: Date;
+  synced_at: Date;
+  created_at: Date;
 }
 
 interface BadgeRow {
@@ -151,6 +177,7 @@ export class DatabaseRepository {
   private learningActivitySchemaReady = false;
   private questionsSchemaReady = false;
   private quizAttemptsSchemaReady = false;
+  private practiceSchemaReady = false;
   private rewardEventsSchemaReady = false;
 
   constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
@@ -948,6 +975,413 @@ export class DatabaseRepository {
       .sort((a, b) => a.orderIndex - b.orderIndex);
   }
 
+  async listPracticeQuestionsByLesson(
+    lessonId: string,
+    options: { offlineOnly?: boolean } = {},
+    db: Db = this.pool,
+  ) {
+    await this.ensurePracticeSchema(db);
+    const result = await db.query<PracticeQuestionRow>(
+      `select * from practice_questions
+       where lesson_id = $1
+         and ($2::boolean = false or is_offline_enabled = true)
+       order by order_index asc, id asc`,
+      [lessonId, options.offlineOnly === true],
+    );
+    return result.rows.map((row) => this.mapPracticeQuestion(row));
+  }
+
+  async listAdminPracticeQuestionsByLesson(
+    lessonId: string,
+    db: Db = this.pool,
+  ) {
+    await this.ensurePracticeSchema(db);
+    const result = await db.query<PracticeQuestionRow>(
+      "select * from practice_questions where lesson_id = $1 order by order_index asc, id asc",
+      [lessonId],
+    );
+    return result.rows.map((row) => this.mapPracticeQuestion(row));
+  }
+
+  async adminListPracticeQuestions(query: {
+    lessonId?: string;
+    chapterId?: string;
+    search?: string;
+    difficulty?: "EASY" | "MEDIUM" | "HARD";
+    page?: number;
+    limit?: number;
+  }) {
+    await this.ensurePracticeSchema();
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const offset = (page - 1) * limit;
+    const where: string[] = [];
+    const values: unknown[] = [];
+    const addValue = (value: unknown) => {
+      values.push(value);
+      return `$${values.length}`;
+    };
+
+    if (query.lessonId) {
+      where.push(`q.lesson_id = ${addValue(query.lessonId)}`);
+    }
+    if (query.chapterId) {
+      where.push(`l.chapter_id = ${addValue(query.chapterId)}`);
+    }
+    if (query.search) {
+      where.push(`q.question_text ilike ${addValue(`%${query.search}%`)}`);
+    }
+    if (query.difficulty) {
+      where.push(`q.difficulty = ${addValue(query.difficulty)}`);
+    }
+
+    const whereClause = where.length > 0 ? `where ${where.join(" and ")}` : "";
+    const countResult = await this.pool.query<{ total: string }>(
+      `select count(*) as total
+       from practice_questions q
+       join lessons l on l.id = q.lesson_id
+       join chapters c on c.id = l.chapter_id
+       ${whereClause}`,
+      values,
+    );
+    const total = Number(countResult.rows[0]?.total ?? 0);
+    const result = await this.pool.query<AdminPracticeQuestionRow>(
+      `select q.*,
+              l.title as lesson_title,
+              l.chapter_id,
+              c.title as chapter_title
+       from practice_questions q
+       join lessons l on l.id = q.lesson_id
+       join chapters c on c.id = l.chapter_id
+       ${whereClause}
+       order by c.order_index asc, l.order_index asc, q.order_index asc, q.id asc
+       limit $${values.length + 1} offset $${values.length + 2}`,
+      [...values, limit, offset],
+    );
+    return {
+      items: result.rows.map((row) => this.mapAdminPracticeQuestion(row)),
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async findAdminPracticeQuestion(id: string, db: Db = this.pool) {
+    await this.ensurePracticeSchema(db);
+    const result = await db.query<AdminPracticeQuestionRow>(
+      `select q.*,
+              l.title as lesson_title,
+              l.chapter_id,
+              c.title as chapter_title
+       from practice_questions q
+       join lessons l on l.id = q.lesson_id
+       join chapters c on c.id = l.chapter_id
+       where q.id = $1`,
+      [id],
+    );
+    if (!result.rows[0]) {
+      throw new NotFoundException("Practice question not found");
+    }
+    return this.mapAdminPracticeQuestion(result.rows[0]);
+  }
+
+  async upsertPracticeQuestion(
+    input: {
+      id: string;
+      lessonId: string;
+      questionText: string;
+      options: string[];
+      correctOption: number;
+      explanation: string;
+      hint?: string | null;
+      isOfflineEnabled?: boolean;
+      difficulty: "EASY" | "MEDIUM" | "HARD";
+      orderIndex: number;
+    },
+    db: Db = this.pool,
+  ) {
+    await this.ensurePracticeSchema(db);
+    const result = await db.query<PracticeQuestionRow>(
+      `insert into practice_questions
+        (id, lesson_id, question_text, options_json, correct_option, explanation, hint, is_offline_enabled, difficulty, order_index)
+       values ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10)
+       on conflict (id) do update set
+         lesson_id = excluded.lesson_id,
+         question_text = excluded.question_text,
+         options_json = excluded.options_json,
+         correct_option = excluded.correct_option,
+         explanation = excluded.explanation,
+         hint = excluded.hint,
+         is_offline_enabled = excluded.is_offline_enabled,
+         difficulty = excluded.difficulty,
+         order_index = excluded.order_index,
+         updated_at = now()
+       returning *`,
+      [
+        input.id,
+        input.lessonId,
+        input.questionText,
+        JSON.stringify(input.options),
+        input.correctOption,
+        input.explanation,
+        input.hint ?? null,
+        input.isOfflineEnabled ?? false,
+        input.difficulty,
+        input.orderIndex,
+      ],
+    );
+    return this.mapPracticeQuestion(result.rows[0]);
+  }
+
+  async updatePracticeQuestion(
+    id: string,
+    input: Omit<Parameters<DatabaseRepository["upsertPracticeQuestion"]>[0], "id">,
+    db: Db = this.pool,
+  ) {
+    await this.ensurePracticeSchema(db);
+    const result = await db.query<PracticeQuestionRow>(
+      `update practice_questions
+       set lesson_id = $2,
+           question_text = $3,
+           options_json = $4::jsonb,
+           correct_option = $5,
+           explanation = $6,
+           hint = $7,
+           is_offline_enabled = $8,
+           difficulty = $9,
+           order_index = $10,
+           updated_at = now()
+       where id = $1
+       returning *`,
+      [
+        id,
+        input.lessonId,
+        input.questionText,
+        JSON.stringify(input.options),
+        input.correctOption,
+        input.explanation,
+        input.hint ?? null,
+        input.isOfflineEnabled ?? false,
+        input.difficulty,
+        input.orderIndex,
+      ],
+    );
+    if (!result.rows[0]) {
+      throw new NotFoundException("Practice question not found");
+    }
+    return this.mapPracticeQuestion(result.rows[0]);
+  }
+
+  async deletePracticeQuestion(id: string, db: Db = this.pool) {
+    await this.ensurePracticeSchema(db);
+    const result = await db.query<PracticeQuestionRow>(
+      "delete from practice_questions where id = $1 returning *",
+      [id],
+    );
+    if (!result.rows[0]) {
+      throw new NotFoundException("Practice question not found");
+    }
+    return { id, deleted: true, mode: "hard" };
+  }
+
+  async setPracticeQuestionOrder(
+    lessonId: string,
+    questionIds: string[],
+    db: Db = this.pool,
+  ) {
+    if (questionIds.length === 0) return [];
+    await this.ensurePracticeSchema(db);
+    await db.query(
+      `with numbered as (
+         select
+           id,
+           (
+             coalesce(
+               min(order_index) over (partition by lesson_id),
+               0
+             ) - row_number() over (order by order_index asc, id asc)
+           )::integer as temporary_order
+         from practice_questions
+         where lesson_id = $1
+       )
+       update practice_questions q
+       set order_index = numbered.temporary_order
+       from numbered
+       where q.id = numbered.id`,
+      [lessonId],
+    );
+    const values = questionIds
+      .map(
+        (id, index) =>
+          `($${index * 2 + 2}::varchar, $${index * 2 + 3}::integer)`,
+      )
+      .join(", ");
+    const params: unknown[] = [lessonId];
+    questionIds.forEach((id, index) => {
+      params.push(id, index + 1);
+    });
+    const result = await db.query<{ id: string; order_index: number }>(
+      `update practice_questions q
+       set order_index = v.order_index
+       from (values ${values}) as v(id, order_index)
+       where q.lesson_id = $1 and q.id = v.id
+       returning q.id, q.order_index`,
+      params,
+    );
+    return result.rows
+      .map((row) => ({
+        id: row.id,
+        orderIndex: row.order_index,
+      }))
+      .sort((a, b) => a.orderIndex - b.orderIndex);
+  }
+
+  async createPracticeSessionIfAbsent(
+    input: {
+      id: string;
+      userId: string;
+      lessonId: string;
+      questionsAttempted: number;
+      correctCount: number;
+      answers: Array<{ questionId: string; selectedOption: number; isCorrect?: boolean }>;
+      startedAt: string;
+      completedAt: string;
+    },
+    db: Db = this.pool,
+  ) {
+    await this.ensurePracticeSchema(db);
+    const result = await db.query<PracticeSessionRow>(
+      `insert into practice_sessions
+        (id, user_id, lesson_id, questions_attempted, correct_count, answers_json, started_at, completed_at, synced_at)
+       values ($1, $2, $3, $4, $5, $6::jsonb, $7::timestamptz, $8::timestamptz, now())
+       on conflict (id) do nothing
+       returning *`,
+      [
+        input.id,
+        input.userId,
+        input.lessonId,
+        input.questionsAttempted,
+        input.correctCount,
+        JSON.stringify(input.answers),
+        input.startedAt,
+        input.completedAt,
+      ],
+    );
+    if (result.rows[0]) {
+      return { session: this.mapPracticeSession(result.rows[0]), created: true };
+    }
+    const existing = await db.query<PracticeSessionRow>(
+      "select * from practice_sessions where id = $1 and user_id = $2",
+      [input.id, input.userId],
+    );
+    return existing.rows[0]
+      ? { session: this.mapPracticeSession(existing.rows[0]), created: false }
+      : { session: null, created: false };
+  }
+
+  async countRewardedPracticeSessionsToday(userId: string, db: Db = this.pool) {
+    await this.ensureRewardEventsSchema(db);
+    const result = await db.query<{ count: string }>(
+      `select count(*) as count
+       from reward_events
+       where user_id = $1
+         and reward_type = 'PRACTICE_SESSION'
+         and created_at >= date_trunc('day', now() at time zone 'utc')`,
+      [userId],
+    );
+    return Number(result.rows[0]?.count ?? 0);
+  }
+
+  async countPracticeSessionsByUser(userId: string, db: Db = this.pool) {
+    await this.ensurePracticeSchema(db);
+    const result = await db.query<{ count: string }>(
+      "select count(*) as count from practice_sessions where user_id = $1",
+      [userId],
+    );
+    return Number(result.rows[0]?.count ?? 0);
+  }
+
+  async currentPracticeStreak(userId: string, db: Db = this.pool) {
+    await this.ensurePracticeSchema(db);
+    const result = await db.query<{ day: string }>(
+      `select distinct (completed_at at time zone 'utc')::date::text as day
+       from practice_sessions
+       where user_id = $1
+       order by day desc`,
+      [userId],
+    );
+    let streak = 0;
+    let expected: string | null = null;
+    for (const row of result.rows) {
+      expected ??= row.day;
+      if (row.day !== expected) break;
+      streak++;
+      const previousDate: Date = new Date(`${row.day}T00:00:00.000Z`);
+      previousDate.setUTCDate(previousDate.getUTCDate() - 1);
+      expected = previousDate.toISOString().slice(0, 10);
+    }
+    return streak;
+  }
+
+  async practiceStatistics() {
+    await this.ensurePracticeSchema();
+    const [sessionsTrend, difficultQuestions, totalQuestions, totalSessions] =
+      await Promise.all([
+        this.pool.query<{ date: string; count: number }>(`
+          select to_char(day, 'YYYY-MM-DD') as date, coalesce(stats.sessions_count, 0)::int as count
+          from (
+            select (current_date - val)::date as day
+            from generate_series(0, 6) as val
+          ) days
+          left join (
+            select date_trunc('day', completed_at)::date as day, count(*) as sessions_count
+            from practice_sessions
+            where completed_at >= current_date - interval '7 days'
+            group by 1
+          ) stats using (day)
+          order by date asc
+        `),
+        this.pool.query<{
+          id: string;
+          question_text: string;
+          lesson_title: string;
+          total_attempts: number;
+          wrong_count: number;
+          error_rate: number;
+        }>(`
+          select
+            pq.id,
+            pq.question_text,
+            l.title as lesson_title,
+            count(ans."questionId")::int as total_attempts,
+            sum(case when ans."isCorrect" = false then 1 else 0 end)::int as wrong_count,
+            round(cast(sum(case when ans."isCorrect" = false then 1 else 0 end) as numeric) / count(ans."questionId") * 100, 1)::float as error_rate
+          from practice_sessions ps,
+          lateral jsonb_to_recordset(ps.answers_json) as ans("questionId" text, "selectedOption" int, "isCorrect" boolean)
+          join practice_questions pq on pq.id = ans."questionId"
+          join lessons l on pq.lesson_id = l.id
+          group by pq.id, pq.question_text, l.title
+          having count(ans."questionId") > 0
+          order by error_rate desc, total_attempts desc
+          limit 5
+        `),
+        this.pool.query<{ count: string }>(
+          "select count(*) as count from practice_questions",
+        ),
+        this.pool.query<{ count: string }>(
+          "select count(*) as count from practice_sessions",
+        ),
+      ]);
+
+    return {
+      totalPracticeQuestions: Number(totalQuestions.rows[0]?.count ?? 0),
+      totalPracticeSessions: Number(totalSessions.rows[0]?.count ?? 0),
+      practiceSessionsTrend: sessionsTrend.rows,
+      difficultPracticeQuestions: difficultQuestions.rows,
+    };
+  }
+
   async createQuizAttempt(
     input: {
       userId: string;
@@ -1494,6 +1928,98 @@ export class DatabaseRepository {
     `);
 
     this.questionsSchemaReady = true;
+  }
+
+  private async ensurePracticeSchema(db: Db = this.pool) {
+    if (this.practiceSchemaReady) return;
+
+    await db.query(`
+      create table if not exists practice_questions (
+        id varchar(100) primary key,
+        lesson_id varchar(80) not null references lessons(id) on delete cascade,
+        question_text text not null,
+        options_json jsonb not null,
+        correct_option integer not null,
+        explanation text not null,
+        hint text,
+        is_offline_enabled boolean not null default false,
+        difficulty varchar(30) not null default 'MEDIUM',
+        order_index integer not null,
+        created_at timestamptz not null default now(),
+        updated_at timestamptz not null default now()
+      )
+    `);
+    await db.query(`
+      alter table practice_questions
+        add column if not exists hint text,
+        add column if not exists is_offline_enabled boolean not null default false,
+        add column if not exists difficulty varchar(30) not null default 'MEDIUM',
+        add column if not exists created_at timestamptz not null default now(),
+        add column if not exists updated_at timestamptz not null default now()
+    `);
+    await db.query(`
+      do $$
+      begin
+        if not exists (
+          select 1 from pg_constraint
+          where conname = 'practice_questions_correct_option_range'
+        ) then
+          alter table practice_questions
+            add constraint practice_questions_correct_option_range
+            check (correct_option between 0 and 3) not valid;
+        end if;
+      end $$
+    `);
+    await db.query(`
+      do $$
+      begin
+        if not exists (
+          select 1 from pg_constraint
+          where conname = 'practice_questions_options_json_four_items'
+        ) then
+          alter table practice_questions
+            add constraint practice_questions_options_json_four_items
+            check (
+              jsonb_typeof(options_json) = 'array'
+              and jsonb_array_length(options_json) = 4
+            ) not valid;
+        end if;
+      end $$
+    `);
+    await db.query(`
+      create unique index if not exists practice_questions_lesson_order_unique_idx
+      on practice_questions(lesson_id, order_index)
+    `);
+    await db.query(`
+      create table if not exists practice_sessions (
+        id varchar(120) primary key,
+        user_id uuid not null references users(id) on delete cascade,
+        lesson_id varchar(80) not null references lessons(id) on delete cascade,
+        questions_attempted integer not null,
+        correct_count integer not null,
+        answers_json jsonb not null default '[]'::jsonb,
+        started_at timestamptz not null,
+        completed_at timestamptz not null,
+        synced_at timestamptz not null default now(),
+        created_at timestamptz not null default now()
+      )
+    `);
+    await db.query(`
+      alter table practice_sessions
+        add column if not exists answers_json jsonb not null default '[]'::jsonb,
+        add column if not exists synced_at timestamptz not null default now(),
+        add column if not exists created_at timestamptz not null default now()
+    `);
+    await db.query(`
+      create index if not exists practice_sessions_user_completed_idx
+      on practice_sessions(user_id, completed_at desc)
+    `);
+    await db.query(`
+      create index if not exists practice_sessions_lesson_idx
+      on practice_sessions(lesson_id, completed_at desc)
+    `);
+
+    this.practiceSchemaReady = true;
   }
 
   private async ensureRewardEventsSchema(db: Db = this.pool) {
@@ -2394,9 +2920,29 @@ export class DatabaseRepository {
     };
   }
 
+  private mapPracticeQuestion(row: PracticeQuestionRow) {
+    return {
+      ...this.mapQuestion(row),
+      hint: row.hint ?? "",
+      isOfflineEnabled: row.is_offline_enabled,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
   private mapAdminQuestion(row: AdminQuestionRow) {
     return {
       ...this.mapQuestion(row),
+      questionText: row.question_text,
+      lessonTitle: row.lesson_title,
+      chapterId: row.chapter_id,
+      chapterTitle: row.chapter_title,
+    };
+  }
+
+  private mapAdminPracticeQuestion(row: AdminPracticeQuestionRow) {
+    return {
+      ...this.mapPracticeQuestion(row),
       questionText: row.question_text,
       lessonTitle: row.lesson_title,
       chapterId: row.chapter_id,
@@ -2420,6 +2966,21 @@ export class DatabaseRepository {
       earnedCoins: row.coins_earned,
       coinsEarned: row.coins_earned,
       submittedAt: row.created_at,
+      createdAt: row.created_at,
+    };
+  }
+
+  private mapPracticeSession(row: PracticeSessionRow) {
+    return {
+      id: row.id,
+      userId: row.user_id,
+      lessonId: row.lesson_id,
+      questionsAttempted: row.questions_attempted,
+      correctCount: row.correct_count,
+      answers: row.answers_json,
+      startedAt: row.started_at,
+      completedAt: row.completed_at,
+      syncedAt: row.synced_at,
       createdAt: row.created_at,
     };
   }

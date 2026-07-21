@@ -128,55 +128,27 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         iconColor: const Color(0xFFF59E0B),
         bgColor: const Color(0xFFFFFBEB),
       ),
+      _StatCardItem(
+        label: 'CÂU HỎI LUYỆN TẬP',
+        value: '${stats?['totalPracticeQuestions'] ?? 0}',
+        subtext: '${stats?['totalPracticeSessions'] ?? 0} phiên',
+        icon: Icons.school_rounded,
+        iconColor: const Color(0xFF0F766E),
+        bgColor: const Color(0xFFECFDF5),
+      ),
     ];
 
-    if (columns == 4) {
-      return Row(
-        children: cardData
-            .map(
-              (item) => Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    right: item == cardData.last ? 0 : 16,
-                  ),
-                  child: _buildStatCard(item),
-                ),
-              ),
-            )
-            .toList(),
-      );
-    } else if (columns == 2) {
-      return Column(
-        children: [
-          Row(
-            children: [
-              Expanded(child: _buildStatCard(cardData[0])),
-              const SizedBox(width: 16),
-              Expanded(child: _buildStatCard(cardData[1])),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(child: _buildStatCard(cardData[2])),
-              const SizedBox(width: 16),
-              Expanded(child: _buildStatCard(cardData[3])),
-            ],
-          ),
-        ],
-      );
-    } else {
-      return Column(
-        children: cardData
-            .map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _buildStatCard(item),
-              ),
-            )
-            .toList(),
-      );
-    }
+    final cardWidth = columns == 1
+        ? maxWidth
+        : (maxWidth - (columns - 1) * 16) / columns;
+    return Wrap(
+      spacing: 16,
+      runSpacing: 16,
+      children: [
+        for (final item in cardData)
+          SizedBox(width: cardWidth, child: _buildStatCard(item)),
+      ],
+    );
   }
 
   Widget _buildStatCard(_StatCardItem item) {

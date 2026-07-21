@@ -9,6 +9,7 @@ import { DatabaseModule } from './database/database.module';
 import { ChaptersModule } from './modules/chapters/chapters.module';
 import { LessonsModule } from './modules/lessons/lessons.module';
 import { OfflineSyncModule } from './modules/offline-sync/offline-sync.module';
+import { PracticeModule } from './modules/practice/practice.module';
 import { ProgressModule } from './modules/progress/progress.module';
 import { QuestionsModule } from './modules/questions/questions.module';
 import { QuizModule } from './modules/quiz/quiz.module';
@@ -29,6 +30,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     SimulationsModule,
     QuestionsModule,
     QuizModule,
+    PracticeModule,
     ProgressModule,
     BadgesModule,
     OfflineSyncModule,

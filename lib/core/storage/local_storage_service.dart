@@ -26,6 +26,10 @@ class LocalStorageService {
 
   Box<Map> pendingProgressBox() => Hive.box<Map>('pending_progress');
 
+  Box<Map> practiceQuestionsBox() => Hive.box<Map>('practice_questions');
+
+  Box<Map> pendingPracticeSyncBox() => Hive.box<Map>('pending_practice_sync');
+
   Future<void> saveOfflineLesson({
     required String userId,
     required Lesson lesson,
@@ -100,7 +104,173 @@ class LocalStorageService {
     required String lessonId,
   }) async {
     await offlineLessonsBox().delete(buildUserLessonKey(userId, lessonId));
+    await practiceQuestionsBox().delete(buildUserLessonKey(userId, lessonId));
   }
+
+  Future<void> savePracticeQuestions({
+    required String userId,
+    required String lessonId,
+    required List<Question> questions,
+  }) async {
+    final normalizedUserId = _validateUserId(userId);
+    final normalizedLessonId = _validateLessonId(lessonId);
+    await practiceQuestionsBox().put(
+      buildUserLessonKey(normalizedUserId, normalizedLessonId),
+      {
+        'userId': normalizedUserId,
+        'lessonId': normalizedLessonId,
+        'questions': questions.map((question) => question.toJson()).toList(),
+        'cachedAt': DateTime.now().toUtc().toIso8601String(),
+      },
+    );
+  }
+
+  List<Question> getPracticeQuestions({
+    required String userId,
+    required String lessonId,
+  }) {
+    final value = practiceQuestionsBox().get(buildUserLessonKey(userId, lessonId));
+    if (value == null) {
+      return const [];
+    }
+    final normalized = _normalizeMap(value);
+    if (normalized['userId'] != userId.trim() ||
+        normalized['lessonId'] != lessonId.trim()) {
+      return const [];
+    }
+    final questions = normalized['questions'];
+    if (questions is! List) {
+      return const [];
+    }
+    return questions
+        .whereType<Map>()
+        .map((item) => Question.fromJson(item))
+        .toList(growable: false);
+  }
+
+  bool hasPracticeQuestions({
+    required String userId,
+    required String lessonId,
+  }) => getPracticeQuestions(userId: userId, lessonId: lessonId).isNotEmpty;
+
+  Future<void> queuePendingPracticeSession(
+    String userId,
+    Map<String, dynamic> item,
+  ) async {
+    final normalizedUserId = _validateUserId(userId);
+    final lessonId = item['lessonId'];
+    if (lessonId is! String || lessonId.trim().isEmpty) {
+      throw ArgumentError.value(
+        lessonId,
+        'lessonId',
+        'Must be a non-empty string',
+      );
+    }
+    final sessionId = item['id'];
+    if (sessionId is! String || sessionId.trim().isEmpty) {
+      throw ArgumentError.value(
+        sessionId,
+        'id',
+        'Must be a non-empty string',
+      );
+    }
+    final normalizedLessonId = lessonId.trim();
+    final normalizedSessionId = sessionId.trim();
+    final key = _practiceSessionKey(
+      normalizedUserId,
+      normalizedLessonId,
+      normalizedSessionId,
+    );
+    final existing = pendingPracticeSyncBox().get(key);
+    final existingMap = existing == null ? null : _normalizeMap(existing);
+    final now = DateTime.now().toUtc().toIso8601String();
+    await pendingPracticeSyncBox().put(key, {
+      ...?existingMap,
+      ...item,
+      'userId': normalizedUserId,
+      'lessonId': normalizedLessonId,
+      'id': normalizedSessionId,
+      'createdAt': _readNonEmptyString(existingMap?['createdAt']) ?? now,
+      'retryCount': _readInt(existingMap?['retryCount']) ?? 0,
+      'lastError': existingMap?['lastError'],
+      'nextRetryAt': existingMap?['nextRetryAt'],
+    });
+  }
+
+  Map<String, Map<String, dynamic>> pendingPracticeSnapshot(String userId) {
+    final normalizedUserId = _validateUserId(userId);
+    final box = pendingPracticeSyncBox();
+    final snapshot = <String, Map<String, dynamic>>{};
+    for (final key in box.keys) {
+      final keyString = key.toString();
+      if (!keyString.startsWith('$normalizedUserId::')) {
+        continue;
+      }
+      final value = box.get(key);
+      if (value == null) {
+        continue;
+      }
+      final normalized = _normalizeMap(value);
+      if (normalized['userId'] != normalizedUserId) {
+        continue;
+      }
+      final lessonId = normalized['lessonId'];
+      final sessionId = normalized['id'];
+      if (lessonId is String &&
+          lessonId.isNotEmpty &&
+          sessionId is String &&
+          sessionId.isNotEmpty) {
+        snapshot[keyString] = normalized;
+      }
+    }
+    return snapshot;
+  }
+
+  Future<void> removePendingPracticeSnapshot(
+    Map<String, Map<String, dynamic>> snapshot,
+  ) async {
+    final box = pendingPracticeSyncBox();
+    for (final entry in snapshot.entries) {
+      final current = box.get(entry.key);
+      if (current == null) {
+        continue;
+      }
+      if (_mapsEqual(_normalizeMap(current), entry.value)) {
+        await box.delete(entry.key);
+      }
+    }
+  }
+
+  Future<void> markPendingPracticeSnapshotFailed(
+    Map<String, Map<String, dynamic>> snapshot,
+    Object error,
+  ) async {
+    final box = pendingPracticeSyncBox();
+    final now = DateTime.now().toUtc();
+    for (final entry in snapshot.entries) {
+      final current = box.get(entry.key);
+      if (current == null) {
+        continue;
+      }
+      final normalized = _normalizeMap(current);
+      if (!_mapsEqual(normalized, entry.value)) {
+        continue;
+      }
+      final retryCount = (_readInt(normalized['retryCount']) ?? 0) + 1;
+      final delaySeconds = (1 << retryCount).clamp(2, 300).toInt();
+      await box.put(entry.key, {
+        ...normalized,
+        'retryCount': retryCount,
+        'lastError': error.toString(),
+        'nextRetryAt': now
+            .add(Duration(seconds: delaySeconds))
+            .toIso8601String(),
+      });
+    }
+  }
+
+  int pendingPracticeCount(String userId) =>
+      pendingPracticeSnapshot(userId).length;
 
   /// Queues (or overwrites) a pending progress update for `item['lessonId']`
   /// so it can be sent to `POST /api/sync/progress` once the app is back
@@ -247,6 +417,18 @@ class LocalStorageService {
     return normalized;
   }
 
+  String _validateLessonId(String lessonId) {
+    final normalized = lessonId.trim();
+    if (normalized.isEmpty) {
+      throw ArgumentError.value(
+        lessonId,
+        'lessonId',
+        'Must be a non-empty string',
+      );
+    }
+    return normalized;
+  }
+
   Map<String, dynamic> _normalizeMap(Map<dynamic, dynamic> source) {
     final normalized = <String, dynamic>{};
     source.forEach((key, value) {
@@ -297,4 +479,7 @@ class LocalStorageService {
     final lessonHash = lessonId.hashCode.toUnsigned(32).toRadixString(16);
     return '$userHash-$lessonHash-$timestamp';
   }
+
+  String _practiceSessionKey(String userId, String lessonId, String sessionId) =>
+      '${buildUserLessonKey(userId, lessonId)}::$sessionId';
 }

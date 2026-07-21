@@ -15,6 +15,7 @@ import '../../offline/data/offline_repository.dart';
 import '../../offline/models/offline_lesson_model.dart';
 import '../../offline/services/connectivity_service.dart';
 import '../../offline/services/offline_service.dart';
+import '../../offline/services/practice_sync_service.dart';
 import '../../offline/services/progress_sync_service.dart';
 import '../../profile/data/profile_repository.dart';
 import '../../../shared/models/x_models.dart';
@@ -51,6 +52,10 @@ class AppState extends ChangeNotifier {
       post: _syncPostForUser,
       isUserActive: _isCurrentUserId,
     );
+    _practiceSyncService = PracticeSyncService(
+      post: _syncPostForUser,
+      isUserActive: _isCurrentUserId,
+    );
     _listenConnectivity();
   }
 
@@ -59,6 +64,7 @@ class AppState extends ChangeNotifier {
   late final ProgressRepository _progressRepository;
   late final ProfileRepository _profileRepository;
   late final ProgressSyncService _progressSyncService;
+  late final PracticeSyncService _practiceSyncService;
   final TokenStorage _tokenStorage;
   final SettingsStorage _settingsStorage = SettingsStorage();
   final ConnectivityService _connectivityService = ConnectivityService();
@@ -83,6 +89,8 @@ class AppState extends ChangeNotifier {
   Map<String, String> authFieldErrors = const {};
   String? quizLoadError;
   String? quizSubmitError;
+  String? practiceLoadError;
+  String? practiceSyncError;
   String? progressDashboardError;
   String? profileError;
   Map<String, String> profileFieldErrors = const {};
@@ -104,6 +112,7 @@ class AppState extends ChangeNotifier {
   final lessonsByChapter = <String, List<Lesson>>{};
   final lessonsById = <String, Lesson>{};
   final questionsByLesson = <String, List<Question>>{};
+  final practiceQuestionsByLesson = <String, List<Question>>{};
   final completedLessons = <String>{};
   final downloadedLessons = <String>{};
   final offlineUpdateAvailableLessons = <String>{};
@@ -146,6 +155,7 @@ class AppState extends ChangeNotifier {
       await loadHomeData();
       if (!isOffline) {
         await _syncPendingForCurrentUser();
+        await _syncPendingPracticeForCurrentUser();
       }
     } catch (error) {
       await _tokenStorage.clear();
@@ -174,6 +184,7 @@ class AppState extends ChangeNotifier {
         notifyListeners();
         if (backOnline) {
           unawaited(_syncPendingForCurrentUser());
+          unawaited(_syncPendingPracticeForCurrentUser());
         }
       }, onError: (Object error, StackTrace stackTrace) {});
     } catch (_) {
@@ -618,6 +629,9 @@ class AppState extends ChangeNotifier {
     if (lesson == null) {
       throw StateError('Không thể tải bài học.');
     }
+    if (!effectiveOffline) {
+      await _cachePracticeQuestionsForOffline(userId, lesson.id);
+    }
     await _offlineRepository.saveLesson(userId, lesson);
     downloadedLessons.add(lesson.id);
     notifyListeners();
@@ -722,6 +736,7 @@ class AppState extends ChangeNotifier {
     await _offlineRepository.saveSnapshot(
       OfflineLessonSnapshot(lesson: lesson, metadata: metadata),
     );
+    await _cachePracticeQuestionsForOffline(userId, lesson.id);
     downloadedLessons.add(lesson.id);
     offlineUpdateAvailableLessons.remove(lesson.id);
     notifyListeners();
@@ -753,6 +768,9 @@ class AppState extends ChangeNotifier {
       throw StateError('Bạn cần đăng nhập để xóa bài học offline.');
     }
     await _offlineRepository.deleteLesson(userId, lessonId);
+    await _localStorage.practiceQuestionsBox().delete(
+      buildUserLessonKey(userId, lessonId),
+    );
     downloadedLessons.remove(lessonId);
     offlineUpdateAvailableLessons.remove(lessonId);
     notifyListeners();
@@ -774,7 +792,10 @@ class AppState extends ChangeNotifier {
   /// Offline Downloads screen.
   int get pendingSyncCount {
     final userId = _currentUserId;
-    return userId == null ? 0 : _localStorage.pendingProgressCount(userId);
+    return userId == null
+        ? 0
+        : _localStorage.pendingProgressCount(userId) +
+              _localStorage.pendingPracticeCount(userId);
   }
 
   /// Manually flushes the pending-progress queue (the "Đồng bộ ngay"
@@ -792,6 +813,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     try {
       await _syncPendingForCurrentUser();
+      await _syncPendingPracticeForCurrentUser();
       if (hadPendingItems && pendingSyncCount > 0) {
         syncError = 'Một số mục chưa đồng bộ được. Hãy thử lại sau.';
       }
@@ -837,6 +859,114 @@ class AppState extends ChangeNotifier {
         isBusy = false;
         notifyListeners();
       }
+    }
+  }
+
+  Future<List<Question>> loadPracticeQuestions(
+    String lessonId, {
+    bool notify = true,
+  }) async {
+    final userId = _currentUserId;
+    if (effectiveOffline) {
+      final cached = userId == null
+          ? const <Question>[]
+          : _localStorage.getPracticeQuestions(
+              userId: userId,
+              lessonId: lessonId,
+            );
+      practiceQuestionsByLesson[lessonId] = cached;
+      practiceLoadError = cached.isEmpty
+          ? 'Bài học này chưa có bộ luyện tập offline.'
+          : null;
+      return cached;
+    }
+
+    if (notify) {
+      isBusy = true;
+      practiceLoadError = null;
+      notifyListeners();
+    }
+    try {
+      final data = await _getData<dynamic>(
+        ApiEndpoints.lessonPracticeQuestions(lessonId),
+      );
+      final questions = _questionItemsFromApiData(
+        data,
+      ).map((item) => Question.fromJson(item as Map)).toList();
+      practiceQuestionsByLesson[lessonId] = questions;
+      if (userId != null && downloadedLessons.contains(lessonId)) {
+        await _localStorage.savePracticeQuestions(
+          userId: userId,
+          lessonId: lessonId,
+          questions: questions.where((q) => q.isOfflineEnabled).toList(),
+        );
+      }
+      practiceLoadError = null;
+      return questions;
+    } catch (error) {
+      practiceLoadError = _readableError(error);
+      rethrow;
+    } finally {
+      if (notify) {
+        isBusy = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  bool hasOfflinePracticeQuestions(String lessonId) {
+    final userId = _currentUserId;
+    return userId != null &&
+        _localStorage.hasPracticeQuestions(
+          userId: userId,
+          lessonId: lessonId,
+        );
+  }
+
+  Future<void> recordPracticeSession({
+    required String lessonId,
+    required String sessionId,
+    required DateTime startedAt,
+    required DateTime completedAt,
+    required List<Map<String, dynamic>> answers,
+    required int correctCount,
+  }) async {
+    final userId = _currentUserId;
+    if (userId == null) {
+      throw StateError('Bạn cần đăng nhập để đồng bộ luyện tập.');
+    }
+    final item = {
+      'id': sessionId,
+      'lessonId': lessonId,
+      'startedAt': startedAt.toUtc().toIso8601String(),
+      'completedAt': completedAt.toUtc().toIso8601String(),
+      'answers': answers,
+      'questionsAttempted': answers.length,
+      'correctCount': correctCount,
+    };
+
+    if (effectiveOffline) {
+      await _localStorage.queuePendingPracticeSession(userId, item);
+      notifyListeners();
+      return;
+    }
+
+    try {
+      final response = await _syncPost(ApiEndpoints.lessonPracticeSync(lessonId), {
+        'items': [item],
+      });
+      final data = response['data'];
+      if (data is Map) {
+        final earnedCoins = data['earnedCoins'];
+        if (earnedCoins is num && earnedCoins > 0) {
+          await refreshCurrentUser();
+          await loadBadges();
+          await loadProfile();
+        }
+      }
+    } catch (_) {
+      await _localStorage.queuePendingPracticeSession(userId, item);
+      notifyListeners();
     }
   }
 
@@ -915,6 +1045,28 @@ class AppState extends ChangeNotifier {
       questionsByLesson[lessonId] = questions;
     }
     return lesson;
+  }
+
+  Future<void> _cachePracticeQuestionsForOffline(
+    String userId,
+    String lessonId,
+  ) async {
+    try {
+      final data = await _getData<dynamic>(
+        ApiEndpoints.lessonPracticeQuestions(lessonId, offlineOnly: true),
+      );
+      final questions = _questionItemsFromApiData(
+        data,
+      ).map((item) => Question.fromJson(item as Map)).toList();
+      await _localStorage.savePracticeQuestions(
+        userId: userId,
+        lessonId: lessonId,
+        questions: questions,
+      );
+      practiceQuestionsByLesson[lessonId] = questions;
+    } catch (_) {
+      practiceQuestionsByLesson[lessonId] = const <Question>[];
+    }
   }
 
   Future<QuizAttempt?> submitQuiz(
@@ -1022,11 +1174,17 @@ class AppState extends ChangeNotifier {
       final stats = await _getData<Map<String, dynamic>>(
         ApiEndpoints.adminStatistics,
       );
+      final practiceStats = await _getData<Map<String, dynamic>>(
+        ApiEndpoints.adminPracticeStatistics,
+      );
       final usersData = await _getData<Map<String, dynamic>>(
         ApiEndpoints.adminUsers,
       );
       final usersList = usersData['items'] as List<dynamic>;
-      adminStatistics = stats;
+      adminStatistics = {
+        ...stats,
+        ...practiceStats,
+      };
       adminUsers
         ..clear()
         ..addAll(usersList.map((item) => XUser.fromJson(item as Map)));
@@ -1136,9 +1294,43 @@ class AppState extends ChangeNotifier {
     return AdminQuestionPage.fromJson(body['data'] as Map);
   }
 
+  Future<AdminQuestionPage> fetchAdminPracticeQuestions({
+    String? lessonId,
+    String? chapterId,
+    String? search,
+    String? difficulty,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final query = <String, dynamic>{
+      'page': page,
+      'limit': limit,
+      if (lessonId != null && lessonId.isNotEmpty) 'lessonId': lessonId,
+      if (chapterId != null && chapterId.isNotEmpty) 'chapterId': chapterId,
+      if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+      if (difficulty != null && difficulty.isNotEmpty) 'difficulty': difficulty,
+    };
+    final response = await _apiClient.dio.get<Map<String, dynamic>>(
+      ApiEndpoints.adminPracticeQuestions,
+      queryParameters: query,
+    );
+    final body = response.data;
+    if (body == null || body['success'] != true) {
+      throw StateError(body?['message'] as String? ?? 'API error');
+    }
+    return AdminQuestionPage.fromJson(body['data'] as Map);
+  }
+
   Future<Question> fetchAdminQuestionDetail(String id) async {
     final data = await _getData<Map<String, dynamic>>(
       ApiEndpoints.adminQuestion(id),
+    );
+    return Question.fromJson(data);
+  }
+
+  Future<Question> fetchAdminPracticeQuestionDetail(String id) async {
+    final data = await _getData<Map<String, dynamic>>(
+      ApiEndpoints.adminPracticeQuestion(id),
     );
     return Question.fromJson(data);
   }
@@ -1164,9 +1356,39 @@ class AppState extends ChangeNotifier {
     return Question.fromJson(body['data'] as Map);
   }
 
+  Future<Question> writeAdminPracticeQuestion(
+    Question question, {
+    required bool isUpdate,
+  }) async {
+    final payload = _adminQuestionPayload(question, includePracticeFields: true);
+    final response = isUpdate
+        ? await _apiClient.dio.put<Map<String, dynamic>>(
+            ApiEndpoints.adminPracticeQuestion(question.id),
+            data: payload,
+          )
+        : await _apiClient.dio.post<Map<String, dynamic>>(
+            ApiEndpoints.adminPracticeQuestions,
+            data: payload,
+          );
+    final body = response.data;
+    if (body == null || body['success'] != true) {
+      throw StateError(body?['message'] as String? ?? 'API error');
+    }
+    return Question.fromJson(body['data'] as Map);
+  }
+
   Future<void> removeAdminQuestion(String id) async {
     final response = await _apiClient.dio.delete<Map<String, dynamic>>(
       ApiEndpoints.adminQuestion(id),
+    );
+    if (response.data?['success'] != true) {
+      throw StateError(response.data?['message'] as String? ?? 'API error');
+    }
+  }
+
+  Future<void> removeAdminPracticeQuestion(String id) async {
+    final response = await _apiClient.dio.delete<Map<String, dynamic>>(
+      ApiEndpoints.adminPracticeQuestion(id),
     );
     if (response.data?['success'] != true) {
       throw StateError(response.data?['message'] as String? ?? 'API error');
@@ -1179,6 +1401,22 @@ class AppState extends ChangeNotifier {
   }) async {
     final response = await _apiClient.dio.put<Map<String, dynamic>>(
       ApiEndpoints.adminQuestionsReorder,
+      data: {'lessonId': lessonId, 'questionIds': questionIds},
+    );
+    final body = response.data;
+    if (body == null || body['success'] != true) {
+      throw StateError(body?['message'] as String? ?? 'API error');
+    }
+    final data = body['data'] as Map;
+    return List<Map<String, dynamic>>.from(data['items'] as List? ?? const []);
+  }
+
+  Future<List<Map<String, dynamic>>> reorderAdminPracticeQuestions({
+    required String lessonId,
+    required List<String> questionIds,
+  }) async {
+    final response = await _apiClient.dio.put<Map<String, dynamic>>(
+      ApiEndpoints.adminPracticeQuestionsReorder,
       data: {'lessonId': lessonId, 'questionIds': questionIds},
     );
     final body = response.data;
@@ -1516,12 +1754,18 @@ class AppState extends ChangeNotifier {
 
   String readableError(Object error) => _readableError(error);
 
-  Map<String, dynamic> _adminQuestionPayload(Question question) => {
+  Map<String, dynamic> _adminQuestionPayload(
+    Question question, {
+    bool includePracticeFields = false,
+  }) => {
     'lessonId': question.lessonId,
     'questionText': question.question,
     'options': question.options,
     'correctOption': question.correctOption ?? 0,
     'explanation': question.explanation,
+    if (includePracticeFields && question.hint.isNotEmpty)
+      'hint': question.hint,
+    if (includePracticeFields) 'isOfflineEnabled': question.isOfflineEnabled,
     'difficulty': question.difficulty,
     'orderIndex': question.orderIndex,
   };
@@ -1585,6 +1829,8 @@ class AppState extends ChangeNotifier {
     lastAttempt = null;
     quizLoadError = null;
     quizSubmitError = null;
+    practiceLoadError = null;
+    practiceSyncError = null;
     progressDashboard = null;
     progressDashboardError = null;
     profileSummary = null;
@@ -1595,6 +1841,7 @@ class AppState extends ChangeNotifier {
     _offlineUpdateChecksInFlight.clear();
     quizResultsByLesson.clear();
     _quizDrafts.clear();
+    practiceQuestionsByLesson.clear();
     router?.go('/login');
     notifyListeners();
   }
@@ -1634,6 +1881,25 @@ class AppState extends ChangeNotifier {
       return 0;
     }
     if (synced > 0 && !_disposed) {
+      notifyListeners();
+    }
+    return synced;
+  }
+
+  Future<int> _syncPendingPracticeForCurrentUser() async {
+    final userId = _currentUserId;
+    if (userId == null) {
+      return 0;
+    }
+    final generation = _authGeneration;
+    final synced = await _practiceSyncService.syncPending(userId);
+    if (generation != _authGeneration || _currentUserId != userId) {
+      return 0;
+    }
+    if (synced > 0 && !_disposed) {
+      await refreshCurrentUser();
+      await loadBadges();
+      await loadProfile();
       notifyListeners();
     }
     return synced;

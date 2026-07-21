@@ -92,6 +92,41 @@ async function main() {
         metadata?: unknown;
       }>
     >("badges.json");
+    const practiceQuestions = [
+      {
+        id: "practice-motion-1-1",
+        lessonId: "motion-1",
+        question:
+          "Một vật đi được 24 m trong 6 s. Tốc độ trung bình của vật là bao nhiêu?",
+        options: ["2 m/s", "4 m/s", "6 m/s", "8 m/s"],
+        correctOption: 1,
+        explanation: "Tốc độ trung bình v = s / t = 24 / 6 = 4 m/s.",
+        hint: "Dùng công thức v = s / t.",
+        isOfflineEnabled: true,
+        difficulty: "EASY" as const,
+        orderIndex: 1,
+      },
+    ];
+    const practiceBadges = [
+      {
+        id: "practice-starter",
+        name: "Chăm luyện tập",
+        description: "Hoàn thành 5 phiên luyện tập.",
+        icon: "fitness_center",
+        ruleKey: "practice_count",
+        conditionValue: "5",
+        metadata: {},
+      },
+      {
+        id: "practice-streak-3",
+        name: "Chuỗi luyện tập 3 ngày",
+        description: "Luyện tập 3 ngày liên tiếp.",
+        icon: "local_fire_department",
+        ruleKey: "practice_streak",
+        conditionValue: "3",
+        metadata: {},
+      },
+    ];
 
     for (const user of users) {
       const passwordHash = await bcrypt.hash(user.password, 10);
@@ -196,7 +231,38 @@ async function main() {
       );
     }
 
-    for (const badge of badges) {
+    for (const question of practiceQuestions) {
+      await client.query(
+        `insert into practice_questions
+          (id, lesson_id, question_text, options_json, correct_option, explanation, hint, is_offline_enabled, difficulty, order_index)
+         values ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10)
+         on conflict (id) do update set
+           lesson_id = excluded.lesson_id,
+           question_text = excluded.question_text,
+           options_json = excluded.options_json,
+           correct_option = excluded.correct_option,
+           explanation = excluded.explanation,
+           hint = excluded.hint,
+           is_offline_enabled = excluded.is_offline_enabled,
+           difficulty = excluded.difficulty,
+           order_index = excluded.order_index,
+           updated_at = now()`,
+        [
+          question.id,
+          question.lessonId,
+          question.question,
+          JSON.stringify(question.options),
+          question.correctOption,
+          question.explanation,
+          question.hint,
+          question.isOfflineEnabled,
+          question.difficulty,
+          question.orderIndex,
+        ],
+      );
+    }
+
+    for (const badge of [...badges, ...practiceBadges]) {
       await client.query(
         `insert into badges (id, name, description, icon, rule_key, condition_value, metadata_json)
          values ($1, $2, $3, $4, $5, $6, $7::jsonb)

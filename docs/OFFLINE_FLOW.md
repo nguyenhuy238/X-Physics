@@ -22,16 +22,27 @@ offline reaches the server once the device is back online.
   `isOffline` (real network status). Both trigger the same offline code
   paths so a real network drop behaves exactly like the demo toggle.
 - `LocalStorageService` (`lib/core/storage/local_storage_service.dart`)
-  owns two Hive boxes:
+  owns four Hive boxes:
   - `offline_lessons` — user-scoped full lesson JSON, written by
     `AppState.downloadLesson`.
   - `pending_progress` — queued progress updates not yet sent to the
     server, keyed by `<userId>::<lessonId>` (only the latest update per
     user/lesson pair is kept).
+  - `practice_questions` — user-scoped Practice question cache, keyed by
+    `<userId>::<lessonId>`, including `correctOption`, `explanation`, `hint`,
+    and `isOfflineEnabled` so Practice can be graded fully offline.
+  - `pending_practice_sync` — queued Practice sessions not yet sent to the
+    server, keyed by `<userId>::<lessonId>::<sessionId>` because students can
+    repeat Practice many times for the same lesson.
 - `ProgressSyncService` (`lib/features/offline/services/progress_sync_service.dart`)
   flushes the authenticated user's `pending_progress` to
   `POST /api/sync/progress` (`backend/src/modules/offline-sync`) and clears
   only the matching snapshot on success.
+- `PracticeSyncService` (`lib/features/offline/services/practice_sync_service.dart`)
+  flushes `pending_practice_sync` grouped by lesson to
+  `POST /api/lessons/{lessonId}/practice-sessions/sync`. The backend is
+  idempotent by client-generated session id, calculates coins/badges there,
+  and does not update Quiz progress fields.
 
 ## Flow
 
@@ -49,9 +60,15 @@ flowchart TD
     G --> I[Cho ket noi lai]
     I --> J[ConnectivityService bao da online]
     J --> K[ProgressSyncService.syncPending]
-    K -- Thanh cong --> L[Xoa pending_progress cua user hien tai]
-    K -- That bai --> I
+K -- Thanh cong --> L[Xoa pending_progress cua user hien tai]
+K -- That bai --> I
 ```
+
+Practice uses the same reconnect trigger. When a downloaded lesson includes
+Practice questions, the student can open `/practice/{lessonId}` offline,
+answer locally, see the correct answer/explanation immediately, and queue a
+completed session in `pending_practice_sync`. On reconnect the app syncs the
+batch to the Practice endpoint and clears only accepted session snapshots.
 
 `AppState` also runs `ProgressSyncService.syncPending()` once at
 `bootstrap()` if the app starts online with a non-empty queue, so items
@@ -70,6 +87,11 @@ connectivity transition.
   `docs/API_CONTRACT.md`). Taking and submitting a quiz still requires a
   live network connection; only *reading progress* is queued while
   offline.
+- Practice is separate from Quiz: `GET /api/lessons/{id}/practice-questions`
+  intentionally returns answers/hints for offline cache, uses
+  `practice_questions` instead of `questions`, and syncing sessions does not
+  write `progress.latest_quiz_score`, `progress.best_quiz_score`, or lesson
+  completion.
 - Sync is best-effort and whole-batch: if the server rejects the batch,
   every item stays queued and is retried on the next reconnect. There is
   no per-item retry or conflict-resolution UI yet — the backend already
