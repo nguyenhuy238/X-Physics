@@ -394,7 +394,12 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> loadHomeData() async {
-    await Future.wait([loadChapters(), loadProgress(), loadBadges()]);
+    await Future.wait([
+      loadChapters(),
+      loadProgress(),
+      loadBadges(),
+      loadProgressDashboard(),
+    ]);
   }
 
   Future<void> loadProgressDashboard() async {
@@ -917,10 +922,7 @@ class AppState extends ChangeNotifier {
   bool hasOfflinePracticeQuestions(String lessonId) {
     final userId = _currentUserId;
     return userId != null &&
-        _localStorage.hasPracticeQuestions(
-          userId: userId,
-          lessonId: lessonId,
-        );
+        _localStorage.hasPracticeQuestions(userId: userId, lessonId: lessonId);
   }
 
   Future<void> recordPracticeSession({
@@ -952,9 +954,12 @@ class AppState extends ChangeNotifier {
     }
 
     try {
-      final response = await _syncPost(ApiEndpoints.lessonPracticeSync(lessonId), {
-        'items': [item],
-      });
+      final response = await _syncPost(
+        ApiEndpoints.lessonPracticeSync(lessonId),
+        {
+          'items': [item],
+        },
+      );
       final data = response['data'];
       if (data is Map) {
         final earnedCoins = data['earnedCoins'];
@@ -1181,10 +1186,7 @@ class AppState extends ChangeNotifier {
         ApiEndpoints.adminUsers,
       );
       final usersList = usersData['items'] as List<dynamic>;
-      adminStatistics = {
-        ...stats,
-        ...practiceStats,
-      };
+      adminStatistics = {...stats, ...practiceStats};
       adminUsers
         ..clear()
         ..addAll(usersList.map((item) => XUser.fromJson(item as Map)));
@@ -1360,7 +1362,10 @@ class AppState extends ChangeNotifier {
     Question question, {
     required bool isUpdate,
   }) async {
-    final payload = _adminQuestionPayload(question, includePracticeFields: true);
+    final payload = _adminQuestionPayload(
+      question,
+      includePracticeFields: true,
+    );
     final response = isUpdate
         ? await _apiClient.dio.put<Map<String, dynamic>>(
             ApiEndpoints.adminPracticeQuestion(question.id),

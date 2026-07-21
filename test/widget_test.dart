@@ -299,6 +299,7 @@ class FakeAppState extends AppState {
           lessonCount: 2,
         ),
       ]);
+    await loadProgressDashboard();
     notifyListeners();
   }
 
@@ -690,6 +691,7 @@ Future<GoRouter> _pumpHomeFlow(
   WidgetTester tester,
   FakeAppState state, {
   String initialLocation = '/',
+  bool loadChapterDetail = true,
 }) async {
   state
     ..loading = false
@@ -700,7 +702,9 @@ Future<GoRouter> _pumpHomeFlow(
       role: 'STUDENT',
     );
   await state.loadHomeData();
-  await state.loadChapterDetail('chapter-1');
+  if (loadChapterDetail) {
+    await state.loadChapterDetail('chapter-1');
+  }
   final router = GoRouter(
     initialLocation: initialLocation,
     routes: [
@@ -992,6 +996,7 @@ void main() {
     int completedLessons = 3,
     int totalLessons = 6,
     List<RecentQuizAttempt>? attempts,
+    List<ChapterProgressSummary>? chapterProgress,
   }) {
     return ProgressDashboard(
       overallProgress: totalLessons == 0
@@ -1001,22 +1006,24 @@ void main() {
       totalLessons: totalLessons,
       averageScore: 8.24,
       totalCoins: 140,
-      chapterProgress: const [
-        ChapterProgressSummary(
-          chapterId: 'motion',
-          title: 'Chuyen dong co hoc',
-          completedLessons: 2,
-          totalLessons: 2,
-          progressPercent: 100,
-        ),
-        ChapterProgressSummary(
-          chapterId: 'electric',
-          title: 'Dien hoc',
-          completedLessons: 1,
-          totalLessons: 4,
-          progressPercent: 25,
-        ),
-      ],
+      chapterProgress:
+          chapterProgress ??
+          const [
+            ChapterProgressSummary(
+              chapterId: 'motion',
+              title: 'Chuyen dong co hoc',
+              completedLessons: 2,
+              totalLessons: 2,
+              progressPercent: 100,
+            ),
+            ChapterProgressSummary(
+              chapterId: 'electric',
+              title: 'Dien hoc',
+              completedLessons: 1,
+              totalLessons: 4,
+              progressPercent: 25,
+            ),
+          ],
       recentAttempts:
           attempts ??
           [
@@ -1096,6 +1103,122 @@ void main() {
     final listView = tester.widget<ListView>(find.byType(ListView).first);
     final padding = listView.padding as EdgeInsets;
     expect(padding.bottom, greaterThanOrEqualTo(96));
+  });
+
+  testWidgets(
+    'home cold start uses dashboard progress without opening chapter',
+    (tester) async {
+      final state = FakeAppState();
+      state.dashboardQueue.add(
+        () => Future.value(
+          makeDashboard(
+            completedLessons: 4,
+            totalLessons: 4,
+            chapterProgress: const [
+              ChapterProgressSummary(
+                chapterId: 'chapter-1',
+                title: 'Chuyển động cơ học',
+                completedLessons: 2,
+                totalLessons: 2,
+                progressPercent: 100,
+              ),
+            ],
+            attempts: [
+              RecentQuizAttempt(
+                attemptId: 'attempt-1',
+                lessonId: 'lesson-1',
+                lessonTitle: 'Chuyển động đều',
+                score: 8,
+                submittedAt: DateTime(2026, 7, 21),
+                durationSeconds: 120,
+              ),
+            ],
+          ),
+        ),
+      );
+
+      await _pumpHomeFlow(tester, state, loadChapterDetail: false);
+
+      expect(find.text('100%'), findsWidgets);
+      expect(find.text('4'), findsWidgets);
+      expect(find.text('Ôn lại bài học'), findsOneWidget);
+      expect(find.text('Chuyển động đều'), findsOneWidget);
+      expect(state.lessonsByChapter, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'home keeps dashboard progress when chapter detail is later opened',
+    (tester) async {
+      final state = FakeAppState();
+      state.dashboardQueue.add(
+        () => Future.value(
+          makeDashboard(
+            completedLessons: 4,
+            totalLessons: 4,
+            chapterProgress: const [
+              ChapterProgressSummary(
+                chapterId: 'chapter-1',
+                title: 'Chuyển động cơ học',
+                completedLessons: 2,
+                totalLessons: 2,
+                progressPercent: 100,
+              ),
+            ],
+          ),
+        ),
+      );
+
+      final router = await _pumpHomeFlow(
+        tester,
+        state,
+        loadChapterDetail: false,
+      );
+      expect(find.text('100%'), findsWidgets);
+
+      router.go('/chapters/chapter-1');
+      await tester.pumpAndSettle();
+      router.go('/');
+      await tester.pumpAndSettle();
+
+      expect(find.text('100%'), findsWidgets);
+    },
+  );
+
+  testWidgets('home handles dashboard before chapters and totalLessons zero', (
+    tester,
+  ) async {
+    final state = FakeAppState()
+      ..progressDashboard = makeDashboard(
+        completedLessons: 0,
+        totalLessons: 0,
+        attempts: [],
+        chapterProgress: const [
+          ChapterProgressSummary(
+            chapterId: 'chapter-1',
+            title: 'Chuyển động cơ học',
+            completedLessons: 0,
+            totalLessons: 0,
+            progressPercent: 0,
+          ),
+        ],
+      );
+
+    await _pumpHomeFlow(tester, state, loadChapterDetail: false);
+
+    expect(find.text('0%'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('logout clears home progress for the next user', (tester) async {
+    final state = FakeAppState()
+      ..progressDashboard = makeDashboard(completedLessons: 4, totalLessons: 4)
+      ..completedLessons.addAll({'lesson-1', 'lesson-2'});
+
+    await state.logout();
+
+    expect(state.progressDashboard, isNull);
+    expect(state.completedLessons, isEmpty);
   });
 
   testWidgets('chapter detail opened directly shows back with fallback', (

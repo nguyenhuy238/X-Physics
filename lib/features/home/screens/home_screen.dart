@@ -111,7 +111,14 @@ class _HomeHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final overallProgress = _overallProgress(state);
+    final dashboard = state.progressDashboard;
+    final progressIsLoading =
+        dashboard == null && state.isProgressDashboardLoading;
+    final overallProgress = ((dashboard?.overallProgress ?? 0) / 100)
+        .clamp(0.0, 1.0)
+        .toDouble();
+    final completedLessons =
+        dashboard?.completedLessons ?? state.completedLessons.length;
     return Container(
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(20),
@@ -208,18 +215,28 @@ class _HomeHero extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Text(
-                      '${(overallProgress * 100).round()}%',
-                      style: const TextStyle(
-                        color: AppColors.secondary,
-                        fontWeight: FontWeight.w900,
+                    if (progressIsLoading)
+                      const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.secondary,
+                        ),
+                      )
+                    else
+                      Text(
+                        '${(overallProgress * 100).round()}%',
+                        style: const TextStyle(
+                          color: AppColors.secondary,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 10),
                 LinearProgressIndicator(
-                  value: overallProgress,
+                  value: progressIsLoading ? null : overallProgress,
                   minHeight: 9,
                   borderRadius: BorderRadius.circular(999),
                   backgroundColor: Colors.white.withValues(alpha: .20),
@@ -232,7 +249,7 @@ class _HomeHero extends StatelessWidget {
                   children: [
                     _HeroMetric(
                       label: 'Bài đã học',
-                      value: '${state.completedLessons.length}',
+                      value: '$completedLessons',
                     ),
                     _HeroMetric(
                       label: 'Chương',
@@ -250,19 +267,6 @@ class _HomeHero extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  double _overallProgress(AppState state) {
-    final loadedLessons = state.lessonsByChapter.values.fold<int>(
-      0,
-      (sum, lessons) => sum + lessons.length,
-    );
-    if (loadedLessons == 0) {
-      return 0;
-    }
-    return (state.completedLessons.length / loadedLessons)
-        .clamp(0.0, 1.0)
-        .toDouble();
   }
 }
 
@@ -307,15 +311,25 @@ class _ContinueLearningCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (state.progressDashboard == null && state.isProgressDashboardLoading) {
+      return const _ContinueLearningSkeleton();
+    }
     final lessons = state.lessonsById.values.toList()
       ..sort((left, right) => left.orderIndex.compareTo(right.orderIndex));
+    final recentAttempt = state.progressDashboard?.recentAttempts.firstOrNull;
+    final recentLesson = recentAttempt == null
+        ? null
+        : state.lessonsById[recentAttempt.lessonId];
     final nextLesson = lessons
         .where((lesson) => !state.completedLessons.contains(lesson.id))
         .firstOrNull;
-    final fallbackLesson = lessons.firstOrNull;
+    final fallbackLesson = recentLesson ?? lessons.firstOrNull;
     final targetLesson = nextLesson ?? fallbackLesson;
 
     if (targetLesson == null) {
+      if (recentAttempt != null) {
+        return _ContinueLearningAttemptCard(attempt: recentAttempt);
+      }
       final firstChapter = state.chapters.firstOrNull;
       if (firstChapter == null || state.completedLessons.isNotEmpty) {
         return const SizedBox.shrink();
@@ -406,6 +420,111 @@ class _ContinueLearningCard extends StatelessWidget {
   }
 }
 
+class _ContinueLearningSkeleton extends StatelessWidget {
+  const _ContinueLearningSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: AppColors.border.withValues(alpha: .45),
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 130,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: AppColors.border.withValues(alpha: .55),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                LinearProgressIndicator(
+                  value: null,
+                  minHeight: 5,
+                  backgroundColor: AppColors.border.withValues(alpha: .5),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ContinueLearningAttemptCard extends StatelessWidget {
+  const _ContinueLearningAttemptCard({required this.attempt});
+
+  final RecentQuizAttempt attempt;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      onTap: () => context.push('/lessons/${attempt.lessonId}'),
+      padding: const EdgeInsets.all(18),
+      child: Semantics(
+        button: true,
+        label: 'Ôn lại bài học ${attempt.lessonTitle}',
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: .10),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(
+                Icons.play_circle_fill_rounded,
+                color: AppColors.primary,
+                size: 30,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Ôn lại bài học',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    attempt.lessonTitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 10),
+                  const LinearProgressIndicator(value: 1),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            FilledButton(
+              onPressed: () => context.push('/lessons/${attempt.lessonId}'),
+              child: const Text('Học tiếp'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({
     required this.title,
@@ -469,7 +588,17 @@ class _ChapterGrid extends StatelessWidget {
           ),
           itemBuilder: (context, index) {
             final chapter = chapters[index];
-            final progress = state.chapterProgress(chapter.id);
+            final progressSummary = state.progressDashboard?.chapterProgress
+                .where((item) => item.chapterId == chapter.id)
+                .firstOrNull;
+            final progressIsLoading =
+                state.progressDashboard == null &&
+                state.isProgressDashboardLoading;
+            final progress = progressSummary == null
+                ? state.chapterProgress(chapter.id)
+                : (progressSummary.progressPercent / 100)
+                      .clamp(0.0, 1.0)
+                      .toDouble();
             final color = Color(chapter.color);
             return Semantics(
               button: true,
@@ -528,7 +657,7 @@ class _ChapterGrid extends StatelessWidget {
                             children: [
                               Expanded(
                                 child: LinearProgressIndicator(
-                                  value: progress,
+                                  value: progressIsLoading ? null : progress,
                                   minHeight: 7,
                                   borderRadius: BorderRadius.circular(999),
                                   valueColor: AlwaysStoppedAnimation<Color>(
@@ -537,13 +666,23 @@ class _ChapterGrid extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 10),
-                              Text(
-                                '${(progress * 100).round()}%',
-                                style: TextStyle(
-                                  color: color,
-                                  fontWeight: FontWeight.w900,
+                              if (progressIsLoading)
+                                SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: color,
+                                  ),
+                                )
+                              else
+                                Text(
+                                  '${(progress * 100).round()}%',
+                                  style: TextStyle(
+                                    color: color,
+                                    fontWeight: FontWeight.w900,
+                                  ),
                                 ),
-                              ),
                             ],
                           ),
                         ],
