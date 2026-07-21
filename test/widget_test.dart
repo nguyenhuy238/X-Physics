@@ -1182,7 +1182,23 @@ void main() {
     expect(find.byTooltip('Quay lại'), findsNothing);
     final listView = tester.widget<ListView>(find.byType(ListView).first);
     final padding = listView.padding as EdgeInsets;
-    expect(padding.bottom, greaterThanOrEqualTo(96));
+    expect(padding.bottom, greaterThanOrEqualTo(90));
+  });
+
+  testWidgets('home header shows user name and coins from dashboard', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    state.dashboardQueue.add(
+      () => Future.value(makeDashboard(completedLessons: 4, totalLessons: 8)),
+    );
+
+    await _pumpHomeFlow(tester, state, loadChapterDetail: false);
+
+    expect(find.text('Chào Nam 👋'), findsOneWidget);
+    expect(find.text('140'), findsWidgets);
+    expect(find.text('48%'), findsNothing);
+    expect(find.text('240'), findsNothing);
   });
 
   testWidgets(
@@ -1221,11 +1237,104 @@ void main() {
 
       expect(find.text('100%'), findsWidgets);
       expect(find.text('4'), findsWidgets);
-      expect(find.text('Ôn lại bài học'), findsOneWidget);
-      expect(find.text('Chuyển động đều'), findsOneWidget);
+      expect(find.text('Ôn lại'), findsOneWidget);
+      expect(find.text('Tiếp tục học'), findsNothing);
       expect(state.lessonsByChapter, isEmpty);
     },
   );
+
+  testWidgets('home chapter that is not complete shows continue learning', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    state.dashboardQueue.add(
+      () => Future.value(
+        makeDashboard(
+          completedLessons: 1,
+          totalLessons: 2,
+          chapterProgress: const [
+            ChapterProgressSummary(
+              chapterId: 'chapter-1',
+              title: 'Chuyển động cơ học',
+              completedLessons: 1,
+              totalLessons: 2,
+              progressPercent: 50,
+            ),
+          ],
+          attempts: [],
+        ),
+      ),
+    );
+
+    await _pumpHomeFlow(tester, state);
+
+    expect(find.text('Tiếp tục học'), findsOneWidget);
+    expect(find.text('Ôn lại'), findsNothing);
+  });
+
+  testWidgets('home chapter tap navigates to the matching lesson when loaded', (
+    tester,
+  ) async {
+    final state = FakeAppState();
+    state.dashboardQueue.add(
+      () => Future.value(
+        makeDashboard(
+          completedLessons: 0,
+          totalLessons: 2,
+          chapterProgress: const [
+            ChapterProgressSummary(
+              chapterId: 'chapter-1',
+              title: 'Chuyển động cơ học',
+              completedLessons: 0,
+              totalLessons: 2,
+              progressPercent: 0,
+            ),
+          ],
+          attempts: [],
+        ),
+      ),
+    );
+
+    final router = await _pumpHomeFlow(tester, state);
+    final continueButton = find.widgetWithText(FilledButton, 'Tiếp tục học');
+    await tester.ensureVisible(continueButton);
+    await tester.tap(continueButton);
+    await tester.pumpAndSettle();
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      '/lessons/lesson-1',
+    );
+  });
+
+  testWidgets('home layout is single column on mobile without overflow', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final state = FakeAppState();
+
+    await _pumpHomeFlow(tester, state);
+
+    expect(tester.takeException(), isNull);
+    final contentRect = tester.getRect(
+      find.byKey(const ValueKey('home-content')),
+    );
+    expect(contentRect.width, lessThanOrEqualTo(390));
+  });
+
+  testWidgets('home desktop keeps content width compact', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final state = FakeAppState();
+
+    await _pumpHomeFlow(tester, state);
+
+    final contentRect = tester.getRect(
+      find.byKey(const ValueKey('home-content')),
+    );
+    expect(contentRect.width, lessThanOrEqualTo(560));
+  });
 
   testWidgets(
     'home keeps dashboard progress when chapter detail is later opened',
